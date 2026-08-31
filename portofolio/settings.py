@@ -45,7 +45,7 @@ if not SECRET_KEY:
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env_bool('DEBUG', default=not PRODUCTION)
 
-ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', 'localhost,127.0.0.1', 'muhammad-osman-myportofolio.pws.cs.ui.ac.id')
+ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', 'localhost,127.0.0.1,muhammad-osman-myportofolio.pws.cs.ui.ac.id')
 
 # Application definition
 
