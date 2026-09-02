@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fardin - Portfolio</title>
+    <title>Muhammad Osman Fardin | Portfolio</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
@@ -13,23 +13,23 @@
 <body>
     <header class="site-header">
         <div class="container">
-            <a href="#profile" class="brand">Fardin</a>
-            <nav>
-                <a href="#profile">Profile</a>
+            <a href="#about" class="brand">Fardin</a>
+            <nav aria-label="Primary Navigation">
+                <a href="#about">About</a>
             </nav>
         </div>
     </header>
 
     <main>
-        <section class="hero" id="profile">
+        <section class="hero" id="about" aria-labelledby="about-title">
             <div class="container hero-grid">
                 <div class="hero-identity">
                     <p class="hero-kicker">Computer Science &middot; Universitas Indonesia</p>
-                    <h1>Muhammad Osman Fardin</h1>
+                    <h1 id="about-title">Muhammad Osman Fardin</h1>
                 </div>
                 <div class="hero-photo">
                     <div class="photo-block"></div>
-                    <img class="avatar" src="{% static 'img/Fardin.JPG' %}" alt="Photo of me">
+                    <img class="avatar" src="{% static 'img/Fardin.JPG' %}" alt="Muhammad Osman Fardin">
                 </div>
                 <div class="hero-details">
                     <p class="bio">CS student at Universitas Indonesia exploring the cloudy side of security, while helping guide new programmers through Programming Foundations 1. Equal parts builder, debugger, and “wait, let’s trace the code one more time” person.</p>
