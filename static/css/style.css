@@ -5,59 +5,89 @@
 }
 
 :root {
-    --ink: #1c1917;
-    --paper: #faf6f0;
-    --accent: #d95d39;
-    --accent-dark: #a8442a;
-    --line: #e3d9c9;
-    --text-muted: #6b6459;
+    --ink: #2d211c;
+    --paper: #f7f4f0;
+    --surface: #ffffff;
+    --walnut: #51372a;
+    --copper: #b6643d;
+    --cloud: #526f7a;
+    --line: #d8cec6;
+    --text-muted: #6d625c;
     --radius: 4px;
 }
 
 body {
+    min-height: 100vh;
     font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     color: var(--ink);
     background-color: var(--paper);
     line-height: 1.6;
 }
 
-h1, .brand {
+h1,
+h2,
+h3,
+.brand {
     font-family: "Space Grotesk", -apple-system, sans-serif;
 }
 
+img {
+    display: block;
+    max-width: 100%;
+}
+
 .container {
-    max-width: 960px;
+    width: 100%;
+    max-width: 1080px;
     margin: 0 auto;
     padding: 0 1.5rem;
 }
 
 .site-header {
+    background-color: var(--surface);
     border-bottom: 1px solid var(--line);
 }
 
 .site-header .container {
+    min-height: 68px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1.25rem 1.5rem;
 }
 
 .brand {
-    font-size: 1.3rem;
+    color: var(--walnut);
+    font-size: 1.25rem;
     font-weight: 700;
-    color: var(--ink);
     text-decoration: none;
 }
 
 .site-header nav {
     display: flex;
-    gap: 2rem;
+    gap: 1.5rem;
 }
 
 .site-header nav a {
-    color: var(--ink);
+    padding: 0.35rem 0;
+    color: var(--text-muted);
+    border-bottom: 2px solid transparent;
+    font-size: 0.9rem;
+    font-weight: 600;
     text-decoration: none;
-    font-size: 0.95rem;
+    transition:
+        color 180ms ease-out,
+        border-color 180ms ease-out;
+}
+
+.site-header nav a:hover {
+    color: var(--walnut);
+    border-bottom-color: var(--copper);
+}
+
+.site-header a:focus-visible {
+    border-radius: 2px;
+    outline: 2px solid var(--cloud);
+    outline-offset: 4px;
 }
 
 .hero {
@@ -85,7 +115,7 @@ h1, .brand {
     font-size: 0.85rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--accent-dark);
+    color: var(--cloud);
     font-weight: 700;
     margin-bottom: 0.75rem;
 }
@@ -138,7 +168,7 @@ h1, .brand {
 }
 
 .social-link:hover {
-    background-color: var(--accent);
+    background-color: var(--copper);
 }
 
 .hero-photo {
@@ -153,7 +183,7 @@ h1, .brand {
     left: 1.25rem;
     width: 100%;
     height: 100%;
-    background-color: var(--accent);
+    background-color: var(--copper);
     border-radius: var(--radius);
     z-index: 0;
 }
