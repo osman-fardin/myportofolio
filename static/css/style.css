@@ -272,6 +272,68 @@ img {
     line-height: 1.7;
 }
 
+.experience-list {
+    border-bottom: 1px solid var(--line);
+}
+
+.experience-item {
+    padding: 1.5rem 0;
+    border-top: 1px solid var(--line);
+}
+
+.experience-item-header {
+    display: grid;
+    grid-template-columns: 170px minmax(0, 1fr);
+    column-gap: 2rem;
+    align-items: start;
+}
+
+.experience-item-header > div {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+.experience-organization {
+    margin-bottom: 0.2rem;
+    color: var(--cloud);
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.experience-item h3 {
+    color: var(--ink);
+    font-size: 1.1rem;
+    line-height: 1.35;
+}
+
+.experience-period {
+    grid-column: 1;
+    grid-row: 1;
+    color: var(--copper);
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.5;
+    text-align: right;
+}
+
+.experience-points {
+    max-width: 760px;
+    margin-top: 0.85rem;
+    margin-left: calc(170px + 2rem);
+    padding-left: 1.1rem;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    line-height: 1.65;
+}
+
+.experience-points li + li {
+    margin-top: 0.4rem;
+}
+
+.experience-points li::marker {
+    color: var(--copper);
+}
+
 .experience-section > .container,
 .projects-section > .container,
 .skills-section > .container {
@@ -413,6 +475,31 @@ img {
     .hero-identity::before,
     .section-header::before {
         display: none;
+    }
+
+    .experience-item {
+        padding: 1.25rem 0;
+    }
+
+    .experience-item-header {
+        grid-template-columns: 1fr;
+        row-gap: 0.45rem;
+    }
+
+    .experience-item-header > div {
+        grid-column: 1;
+        grid-row: 2;
+    }
+
+    .experience-period {
+        grid-column: 1;
+        grid-row: 1;
+        text-align: left;
+    }
+
+    .experience-points {
+        margin-top: 0.85rem;
+        margin-left: 0;
     }
 
     .hero-identity h1 {
