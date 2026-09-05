@@ -98,18 +98,20 @@ img {
 .hero-grid {
     display: grid;
     grid-template-columns:
+        64px
         minmax(0, 1.3fr)
         minmax(260px, 0.7fr);
     grid-template-areas:
-        "identity photo"
-        "details photo";
-    column-gap: 4.5rem;
+        "marker identity photo"
+        "marker details photo";
+    column-gap: 2.5rem;
     row-gap: 1.75rem;
     align-items: center;
 }
 
 .hero-identity {
     grid-area: identity;
+    position: relative;
 }
 
 .hero-details {
@@ -234,6 +236,99 @@ img {
     border-radius: var(--radius);
 }
 
+.experience-section,
+.projects-section,
+.skills-section {
+    padding: 5rem 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.section-header {
+    grid-column: 2;
+    position: relative;
+    max-width: 680px;
+    margin-bottom: 3rem;
+}
+
+.section-kicker {
+    margin-bottom: 0.35rem;
+    color: var(--cloud);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.section-header h2 {
+    color: var(--walnut);
+    font-size: 2rem;
+    line-height: 1.2;
+}
+
+.section-description {
+    max-width: 600px;
+    margin-top: 0.75rem;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    line-height: 1.7;
+}
+
+.experience-section > .container,
+.projects-section > .container,
+.skills-section > .container {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    column-gap: 2.5rem;
+}
+
+.hero-grid::before,
+.experience-section > .container::before,
+.projects-section > .container::before,
+.skills-section > .container::before {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    align-self: stretch;
+    padding-top: 0.25rem;
+    color: var(--copper);
+    border-right: 1px solid var(--copper);
+    font-family: "Space Grotesk", -apple-system, sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.hero-grid::before {
+    content: "01";
+}
+
+.experience-section > .container::before {
+    content: "02";
+}
+
+.projects-section > .container::before {
+    content: "03";
+}
+
+.skills-section > .container::before {
+    content: "04";
+}
+
+.experience-list,
+.featured-project,
+.skills-grid {
+    grid-column: 2;
+}
+
+.hero-identity::before,
+.section-header::before {
+    content: "";
+    position: absolute;
+    top: 0.3rem;
+    left: calc(-2.5rem - 4px);
+    width: 8px;
+    height: 8px;
+    background-color: var(--copper);
+}
+
 .site-footer {
     padding: 1.5rem;
     color: var(--text-muted);
@@ -267,10 +362,57 @@ img {
     .hero-grid {
         grid-template-columns: 1fr;
         grid-template-areas:
+            "marker"
             "identity"
             "photo"
             "details";
         row-gap: 2rem;
+    }
+
+    .experience-section,
+    .projects-section,
+    .skills-section {
+        padding: 3.5rem 0;
+    }
+
+    .experience-section > .container,
+    .projects-section > .container,
+    .skills-section > .container {
+        grid-template-columns: 1fr;
+        column-gap: 0;
+    }
+
+    .hero-grid::before,
+    .experience-section > .container::before,
+    .projects-section > .container::before,
+    .skills-section > .container::before {
+        grid-column: 1;
+        grid-row: auto;
+        padding: 0 0 0.75rem;
+        border-right: 0;
+        border-bottom: 1px solid var(--copper);
+    }
+
+    .experience-section > .container::before,
+    .projects-section > .container::before,
+    .skills-section > .container::before {
+        margin-bottom: 1.5rem;
+    }
+
+    .section-header,
+    .experience-list,
+    .featured-project,
+    .skills-grid {
+        grid-column: 1;
+    }
+
+    .section-header {
+        margin-bottom: 2rem;
+    }
+
+    .hero-identity::before,
+    .section-header::before {
+        display: none;
     }
 
     .hero-identity h1 {
