@@ -456,6 +456,42 @@ img {
     line-height: 1.2;
 }
 
+.skills-grid {
+    border-bottom: 1px solid var(--line);
+}
+
+.skill-group {
+    display: grid;
+    grid-template-columns: 180px minmax(0, 1fr);
+    column-gap: 2rem;
+    align-items: start;
+    padding: 1.25rem 0;
+    border-top: 1px solid var(--line);
+}
+
+.skill-group h3 {
+    color: var(--walnut);
+    font-size: 1rem;
+    line-height: 1.4;
+}
+
+.skill-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    list-style: none;
+}
+
+.skill-list li {
+    padding: 0.35rem 0.65rem;
+    color: var(--ink);
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
 .experience-section > .container,
 .projects-section > .container,
 .skills-section > .container {
@@ -668,5 +704,10 @@ img {
     .project-preview {
         max-width: none;
         justify-self: stretch;
+    }
+
+    .skill-group {
+        grid-template-columns: minmax(0, 1fr);
+        row-gap: 0.75rem;
     }
 }
