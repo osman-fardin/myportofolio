@@ -19,242 +19,317 @@
                 <a href="#experience">Experience</a>
                 <a href="#projects">Projects</a>
                 <a href="#skills">Skills</a>
+                <a href="#contact">Contact</a>
             </nav>
         </div>
     </header>
 
-    <main>
-        <section class="hero" id="about" aria-labelledby="about-title">
-            <div class="container hero-grid">
-                <div class="hero-identity">
-                    <p class="hero-kicker">Computer Science &middot; Universitas Indonesia</p>
-                    <h1 id="about-title">Muhammad Osman Fardin</h1>
-                </div>
-                <div class="hero-photo">
-                    <div class="photo-block"></div>
-                    <img class="avatar" src="{% static 'img/Fardin.JPG' %}" alt="Muhammad Osman Fardin">
-                </div>
-                <div class="hero-details">
-                    <p class="bio">CS student at Universitas Indonesia exploring the cloudy side of security, while helping guide new programmers through Programming Foundations 1. Equal parts builder, debugger, and “wait, let’s trace the code one more time” person.</p>
-                    <dl class="meta-list">
-                        <div class="meta-row">
-                            <dt>NPM</dt>
-                            <dd>2506541723</dd>
+    <div class="page-shell">
+        <aside class="route-rail" aria-label="Section navigation">
+            <nav>
+                <a class="route-link" href="#about">
+                    <span class="route-number">01</span>
+                    <span class="route-label">About</span>
+                </a>
+
+                <a class="route-link" href="#experience">
+                    <span class="route-number">02</span>
+                    <span class="route-label">Experience</span>
+                </a>
+
+                <a class="route-link" href="#projects">
+                    <span class="route-number">03</span>
+                    <span class="route-label">Projects</span>
+                </a>
+
+                <a class="route-link" href="#skills">
+                    <span class="route-number">04</span>
+                    <span class="route-label">Skills</span>
+                </a>
+
+                <a class="route-link" href="#contact">
+                    <span class="route-number">05</span>
+                    <span class="route-label">Contact</span>
+                </a>
+            </nav>
+        </aside>
+
+        <main>
+            <section class="hero" id="about" aria-labelledby="about-title">
+                <div class="container hero-grid">
+                    <div class="hero-identity">
+                        <p class="hero-kicker">Computer Science &middot; Universitas Indonesia</p>
+                        <h1 id="about-title">Muhammad Osman Fardin</h1>
+                    </div>
+                    <div class="hero-photo">
+                        <div class="photo-block"></div>
+                        <img class="avatar" src="{% static 'img/Fardin.JPG' %}" alt="Muhammad Osman Fardin">
+                    </div>
+                    <div class="hero-details">
+                        <p class="bio">CS student at Universitas Indonesia exploring the cloudy side of security, while helping guide new programmers through Programming Foundations 1. Equal parts builder, debugger, and “wait, let’s trace the code one more time” person.</p>
+                        <dl class="meta-list">
+                            <div class="meta-row">
+                                <dt>NPM</dt>
+                                <dd>2506541723</dd>
+                            </div>
+                            <div class="meta-row">
+                                <dt>Program</dt>
+                                <dd>S1 Ilmu Komputer</dd>
+                            </div>
+                        </dl>
+                        <div class="social-links">
+                            <a href="https://github.com/osman-fardin" class="social-link">GitHub</a>
+                            <a href="https://www.linkedin.com/in/osmanfardin/" class="social-link">LinkedIn</a>
+                            <a href="mailto:osmanfardin5@gmail.com" class="social-link">Email</a>
                         </div>
-                        <div class="meta-row">
-                            <dt>Program</dt>
-                            <dd>S1 Ilmu Komputer</dd>
-                        </div>
-                    </dl>
-                    <div class="social-links">
-                        <a href="https://github.com/osman-fardin" class="social-link">GitHub</a>
-                        <a href="https://www.linkedin.com/in/osmanfardin/" class="social-link">LinkedIn</a>
-                        <a href="mailto:osmanfardin5@gmail.com" class="social-link">Email</a>
                     </div>
                 </div>
-            </div>
-        </section>
+            </section>
 
-        <section class="experience-section" id="experience" aria-labelledby="experience-title">
-            <div class="container">
-                <div class="section-header">
-                    <p class="section-kicker">Where I contribute</p>
-                    <h2 id="experience-title">Experience</h2>
-                    <p class="section-description">Teaching, mentoring, and helping students build stronger programming foundations.</p>
-                </div>
-
-                <div class="experience-list">
-                    <article class="experience-item">
-                        <header class="experience-item-header">
-                            <div>
-                                <p class="experience-organization">
-                                    Faculty of Computer Science,
-                                    Universitas Indonesia
-                                </p>
-                                <h3>Teaching Assistant, Programming Foundations 1</h3>
-                            </div>
-
-                            <p class="experience-period">
-                                <time datetime="2026-07">July 2026</time>
-                                &ndash; Present
-                            </p>
-                        </header>
-
-                        <ul class="experience-points">
-                            <li>
-                                Assist more than 40 students through weekly lab support,
-                                debugging guidance, and beginner-friendly explanations.
-                            </li>
-                            <li>
-                                Guide students through Python assignments covering
-                                variables, control flow, functions, and basic algorithms.
-                            </li>
-                        </ul>
-                    </article>
-
-                    <article class="experience-item">
-                        <header class="experience-item-header">
-                            <div>
-                                <p class="experience-organization">
-                                    Dasar-Dasar Pemrograman 0
-                                </p>
-                                <h3>Academic Staff and Mentor</h3>
-                            </div>
-
-                            <p class="experience-period">
-                                <time datetime="2026-04">April 2026</time>
-                                &ndash; Present
-                            </p>
-                        </header>
-
-                        <ul class="experience-points">
-                            <li>
-                                Mentored beginner programmers through four learning
-                                sessions focused on fundamentals and structured problem solving.
-                            </li>
-                            <li>
-                                Coordinated academic communication and learning support
-                                to keep mentoring organized and accessible.
-                            </li>
-                        </ul>
-                    </article>
-
-                    <article class="experience-item">
-                        <header class="experience-item-header">
-                            <div>
-                                <p class="experience-organization">Moscopic</p>
-                                <h3>Coordinator, Informatics Olympiad Team</h3>
-                            </div>
-
-                            <p class="experience-period">
-                                <time datetime="2023-10">October 2023</time>
-                                &ndash;
-                                <time datetime="2024-12">December 2024</time>
-                            </p>
-                        </header>
-
-                        <ul class="experience-points">
-                            <li>
-                                Coordinated more than 10 informatics olympiad training
-                                sessions, including schedules, materials, and communication.
-                            </li>
-                            <li>
-                                Supported more than five students in developing algorithmic
-                                thinking and competitive programming fundamentals.
-                            </li>
-                        </ul>
-                    </article>
-                </div>
-            </div>
-        </section>
-
-        <section class="projects-section" id="projects" aria-labelledby="projects-title">
-            <div class="container">
-                <div class="section-header">
-                    <p class="section-kicker">What I build</p>
-                    <h2 id="projects-title">Featured Project</h2>
-                    <p class="section-description">
-                        Building practical tools around real problems faced by
-                        students in my community.
-                    </p>
-                </div>
-
-                <article class="featured-project">
-                    <header class="project-header">
-                        <div>
-                            <p class="project-type">Community Study Platform</p>
-                            <h3>Fasilkom Study Hub</h3>
-                        </div>
-
-                        <p class="project-role">Creator and Developer</p>
-                    </header>
-
-                    <p class="project-summary">
-                        A community-driven study resource index that helps Fasilkom UI
-                        students find learning materials by program, semester, course,
-                        and topic.
-                    </p>
-
-                    <ul class="project-highlights">
-                        <li>
-                            Built responsive course browsing and keyword-aware
-                            resource search for Ilmu Komputer and Sistem Informasi.
-                        </li>
-                        <li>
-                            Organized resources from multiple cohorts into consistent,
-                            searchable curriculum manifests.
-                        </li>
-                        <li>
-                            Developed moderated Google Drive and GitHub submissions
-                            with duplicate checks, spam limits, and admin review.
-                        </li>
-                    </ul>
-
-                    <div class="project-technologies">
-                        <p>Technologies</p>
-                        <ul>
-                            <li>TypeScript</li>
-                            <li>React</li>
-                            <li>Cloudflare Workers</li>
-                            <li>Cloudflare D1</li>
-                            <li>Drizzle ORM</li>
-                        </ul>
+            <section class="experience-section" id="experience" aria-labelledby="experience-title">
+                <div class="container">
+                    <div class="section-header">
+                        <p class="section-kicker">Where I contribute</p>
+                        <h2 id="experience-title">Experience</h2>
+                        <p class="section-description">Teaching, mentoring, and helping students build stronger programming foundations.</p>
                     </div>
-                </article>
-            </div>
-        </section>
 
-        <section class="skills-section" id="skills" aria-labelledby="skills-title">
-            <div class="container">
-                <div class="section-header">
-                    <p class="section-kicker">What I work with</p>
-                    <h2 id="skills-title">Skills</h2>
-                    <p class="section-description">Building strong programming foundations while exploring cloud
-                    computing and the security behind modern infrastructure.</p>
+                    <div class="experience-list">
+                        <article class="experience-item">
+                            <header class="experience-item-header">
+                                <div>
+                                    <p class="experience-organization">
+                                        Faculty of Computer Science,
+                                        Universitas Indonesia
+                                    </p>
+                                    <h3>Teaching Assistant, Programming Foundations 1</h3>
+                                </div>
+
+                                <p class="experience-period">
+                                    <time datetime="2026-07">July 2026</time>
+                                    &ndash; Present
+                                </p>
+                            </header>
+
+                            <ul class="experience-points">
+                                <li>
+                                    Assist more than 40 students through weekly lab support,
+                                    debugging guidance, and beginner-friendly explanations.
+                                </li>
+                                <li>
+                                    Guide students through Python assignments covering
+                                    variables, control flow, functions, and basic algorithms.
+                                </li>
+                            </ul>
+                        </article>
+
+                        <article class="experience-item">
+                            <header class="experience-item-header">
+                                <div>
+                                    <p class="experience-organization">
+                                        Dasar-Dasar Pemrograman 0
+                                    </p>
+                                    <h3>Academic Staff and Mentor</h3>
+                                </div>
+
+                                <p class="experience-period">
+                                    <time datetime="2026-04">April 2026</time>
+                                    &ndash; Present
+                                </p>
+                            </header>
+
+                            <ul class="experience-points">
+                                <li>
+                                    Mentored beginner programmers through four learning
+                                    sessions focused on fundamentals and structured problem solving.
+                                </li>
+                                <li>
+                                    Coordinated academic communication and learning support
+                                    to keep mentoring organized and accessible.
+                                </li>
+                            </ul>
+                        </article>
+
+                        <article class="experience-item">
+                            <header class="experience-item-header">
+                                <div>
+                                    <p class="experience-organization">Moscopic</p>
+                                    <h3>Coordinator, Informatics Olympiad Team</h3>
+                                </div>
+
+                                <p class="experience-period">
+                                    <time datetime="2023-10">October 2023</time>
+                                    &ndash;
+                                    <time datetime="2024-12">December 2024</time>
+                                </p>
+                            </header>
+
+                            <ul class="experience-points">
+                                <li>
+                                    Coordinated more than 10 informatics olympiad training
+                                    sessions, including schedules, materials, and communication.
+                                </li>
+                                <li>
+                                    Supported more than five students in developing algorithmic
+                                    thinking and competitive programming fundamentals.
+                                </li>
+                            </ul>
+                        </article>
+                    </div>
                 </div>
+            </section>
 
-                <div class="skills-grid">
-                    <article class="skill-group">
-                        <h3>Languages</h3>
-                        <ul class="skill-list">
-                            <li>Python</li>
-                            <li>Java</li>
-                            <li>C++</li>
-                        </ul>
-                    </article>
+            <section class="projects-section" id="projects" aria-labelledby="projects-title">
+                <div class="container">
+                    <div class="section-header">
+                        <p class="section-kicker">What I build</p>
+                        <h2 id="projects-title">Featured Project</h2>
+                        <p class="section-description">
+                            Building practical tools around real problems faced by
+                            students in my community.
+                        </p>
+                    </div>
 
-                    <article class="skill-group">
-                        <h3>Foundations</h3>
-                        <ul class="skill-list">
-                            <li>Programming Fundamentals</li>
-                            <li>Algorithms</li>
-                        </ul>
-                    </article>
+                    <article class="featured-project">
+                        <header class="project-header">
+                            <div>
+                                <p class="project-type">Community Study Platform</p>
+                                <h3>Fasilkom Study Hub</h3>
+                            </div>
 
-                    <article class="skill-group">
-                        <h3>Cloud &amp; Security</h3>
-                        <ul class="skill-list">
-                            <li>AWS Basics</li>
-                            <li>Google Cloud Basics</li>
-                            <li>Cybersecurity Fundamentals</li>
-                            <li>Network Security Basics</li>
-                        </ul>
-                    </article>
+                            <p class="project-role">Creator and Developer</p>
+                        </header>
 
-                    <article class="skill-group">
-                        <h3>Tools</h3>
-                        <ul class="skill-list">
-                            <li>Linux</li>
-                            <li>Git</li>
-                            <li>GitHub</li>
-                            <li>Visual Studio Code</li>
+                        <a
+                            class="project-preview"
+                            href="https://fasilkom-study-hub.pages.dev/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            <img
+                                src="{% static 'img/fasilkom-study-hub-semester.jpg' %}"
+                                alt="Fasilkom Study Hub semester and course resource explorer"
+                                width="1265"
+                                height="712"
+                                loading="lazy"
+                            >
+                        </a>
+
+                        <p class="project-summary">
+                            A community-driven study resource index that helps Fasilkom UI
+                            students find learning materials by program, semester, course,
+                            and topic.
+                        </p>
+
+
+                        <ul class="project-highlights">
+                            <li>
+                                Built responsive course browsing and keyword-aware
+                                resource search for Ilmu Komputer and Sistem Informasi.
+                            </li>
+                            <li>
+                                Organized resources from multiple cohorts into consistent,
+                                searchable curriculum manifests.
+                            </li>
+                            <li>
+                                Developed moderated Google Drive and GitHub submissions
+                                with duplicate checks, spam limits, and admin review.
+                            </li>
                         </ul>
+
+                        <div class="project-technologies">
+                            <p>Technologies</p>
+                            <ul>
+                                <li>TypeScript</li>
+                                <li>React</li>
+                                <li>Cloudflare Workers</li>
+                                <li>Cloudflare D1</li>
+                                <li>Drizzle ORM</li>
+                            </ul>
+                        </div>
                     </article>
                 </div>
-            </div>
-        </section>
+            </section>
 
-    </main>
+            <section class="skills-section" id="skills" aria-labelledby="skills-title">
+                <div class="container">
+                    <div class="section-header">
+                        <p class="section-kicker">What I work with</p>
+                        <h2 id="skills-title">Skills</h2>
+                        <p class="section-description">Building strong programming foundations while exploring cloud
+                        computing and the security behind modern infrastructure.</p>
+                    </div>
+
+                    <div class="skills-grid">
+                        <article class="skill-group">
+                            <h3>Languages</h3>
+                            <ul class="skill-list">
+                                <li>Python</li>
+                                <li>Java</li>
+                                <li>C++</li>
+                            </ul>
+                        </article>
+
+                        <article class="skill-group">
+                            <h3>Foundations</h3>
+                            <ul class="skill-list">
+                                <li>Programming Fundamentals</li>
+                                <li>Algorithms</li>
+                            </ul>
+                        </article>
+
+                        <article class="skill-group">
+                            <h3>Cloud &amp; Security</h3>
+                            <ul class="skill-list">
+                                <li>AWS Basics</li>
+                                <li>Google Cloud Basics</li>
+                                <li>Cybersecurity Fundamentals</li>
+                                <li>Network Security Basics</li>
+                            </ul>
+                        </article>
+
+                        <article class="skill-group">
+                            <h3>Tools</h3>
+                            <ul class="skill-list">
+                                <li>Linux</li>
+                                <li>Git</li>
+                                <li>GitHub</li>
+                                <li>Visual Studio Code</li>
+                            </ul>
+                        </article>
+                    </div>
+                </div>
+            </section>
+
+            <section class="contact-section" id="contact" aria-labelledby="contact-title">
+                <div class="container">
+                    <div class="section-header">
+                        <p class="section-kicker">Get in touch</p>
+                        <h2 id="contact-title">Contact</h2>
+                        <p class="section-description">
+                            The easiest way to reach me is by email. You can also find
+                            my work on GitHub or connect with me on LinkedIn.
+                        </p>
+                    </div>
+
+                    <div class="contact-links">
+                        <a href="mailto:osmanfardin5@gmail.com">Email</a>
+                        <a
+                            href="https://github.com/osman-fardin"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >GitHub</a>
+                        <a
+                            href="https://www.linkedin.com/in/osmanfardin/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >LinkedIn</a>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
 
     <footer class="site-footer">
         <div class="container">
