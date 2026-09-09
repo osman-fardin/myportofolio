@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Muhammad Osman Fardin | Portfolio</title>
+    <title>{{ name }} | Portfolio</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
@@ -16,7 +16,7 @@
             <a href="#about" class="brand">Fardin</a>
             <nav aria-label="Primary Navigation">
                 <a href="#about">About</a>
-                <a href="#experience">Experience</a>
+                <a href="{% url 'main:show_experience' %}">Experience</a>
                 <a href="#projects">Projects</a>
                 <a href="#skills">Skills</a>
                 <a href="#contact">Contact</a>
@@ -32,7 +32,7 @@
                     <span class="route-label">About</span>
                 </a>
 
-                <a class="route-link" href="#experience">
+                <a class="route-link" href="{% url 'main:show_experience' %}">
                     <span class="route-number">02</span>
                     <span class="route-label">Experience</span>
                 </a>
@@ -59,22 +59,22 @@
                 <div class="container hero-grid">
                     <div class="hero-identity">
                         <p class="hero-kicker">Computer Science &middot; Universitas Indonesia</p>
-                        <h1 id="about-title">Muhammad Osman Fardin</h1>
+                        <h1 id="about-title">{{ name }}</h1>
                     </div>
                     <div class="hero-photo">
                         <div class="photo-block"></div>
-                        <img class="avatar" src="{% static 'img/Fardin.JPG' %}" alt="Muhammad Osman Fardin">
+                        <img class="avatar" src="{% static 'img/Fardin.JPG' %}" alt="{{ name }}">
                     </div>
                     <div class="hero-details">
-                        <p class="bio">CS student at Universitas Indonesia exploring the cloudy side of security, while helping guide new programmers through Programming Foundations 1. Equal parts builder, debugger, and “wait, let’s trace the code one more time” person.</p>
+                        <p class="bio">{{ bio }}</p>
                         <dl class="meta-list">
                             <div class="meta-row">
                                 <dt>NPM</dt>
-                                <dd>2506541723</dd>
+                                <dd>{{ npm }}</dd>
                             </div>
                             <div class="meta-row">
                                 <dt>Program</dt>
-                                <dd>S1 Ilmu Komputer</dd>
+                                <dd>{{ study_program }}</dd>
                             </div>
                         </dl>
                         <div class="social-links">
@@ -82,99 +82,6 @@
                             <a href="https://www.linkedin.com/in/osmanfardin/" class="social-link">LinkedIn</a>
                             <a href="mailto:osmanfardin5@gmail.com" class="social-link">Email</a>
                         </div>
-                    </div>
-                </div>
-            </section>
-
-            <section class="experience-section" id="experience" aria-labelledby="experience-title">
-                <div class="container">
-                    <div class="section-header">
-                        <p class="section-kicker">Where I contribute</p>
-                        <h2 id="experience-title">Experience</h2>
-                        <p class="section-description">Teaching, mentoring, and helping students build stronger programming foundations.</p>
-                    </div>
-
-                    <div class="experience-list">
-                        <article class="experience-item">
-                            <header class="experience-item-header">
-                                <div>
-                                    <p class="experience-organization">
-                                        Faculty of Computer Science,
-                                        Universitas Indonesia
-                                    </p>
-                                    <h3>Teaching Assistant, Programming Foundations 1</h3>
-                                </div>
-
-                                <p class="experience-period">
-                                    <time datetime="2026-07">July 2026</time>
-                                    &ndash; Present
-                                </p>
-                            </header>
-
-                            <ul class="experience-points">
-                                <li>
-                                    Assist more than 40 students through weekly lab support,
-                                    debugging guidance, and beginner-friendly explanations.
-                                </li>
-                                <li>
-                                    Guide students through Python assignments covering
-                                    variables, control flow, functions, and basic algorithms.
-                                </li>
-                            </ul>
-                        </article>
-
-                        <article class="experience-item">
-                            <header class="experience-item-header">
-                                <div>
-                                    <p class="experience-organization">
-                                        Dasar-Dasar Pemrograman 0
-                                    </p>
-                                    <h3>Academic Staff and Mentor</h3>
-                                </div>
-
-                                <p class="experience-period">
-                                    <time datetime="2026-04">April 2026</time>
-                                    &ndash; Present
-                                </p>
-                            </header>
-
-                            <ul class="experience-points">
-                                <li>
-                                    Mentored beginner programmers through four learning
-                                    sessions focused on fundamentals and structured problem solving.
-                                </li>
-                                <li>
-                                    Coordinated academic communication and learning support
-                                    to keep mentoring organized and accessible.
-                                </li>
-                            </ul>
-                        </article>
-
-                        <article class="experience-item">
-                            <header class="experience-item-header">
-                                <div>
-                                    <p class="experience-organization">Moscopic</p>
-                                    <h3>Coordinator, Informatics Olympiad Team</h3>
-                                </div>
-
-                                <p class="experience-period">
-                                    <time datetime="2023-10">October 2023</time>
-                                    &ndash;
-                                    <time datetime="2024-12">December 2024</time>
-                                </p>
-                            </header>
-
-                            <ul class="experience-points">
-                                <li>
-                                    Coordinated more than 10 informatics olympiad training
-                                    sessions, including schedules, materials, and communication.
-                                </li>
-                                <li>
-                                    Supported more than five students in developing algorithmic
-                                    thinking and competitive programming fundamentals.
-                                </li>
-                            </ul>
-                        </article>
                     </div>
                 </div>
             </section>

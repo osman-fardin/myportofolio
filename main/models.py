@@ -35,3 +35,11 @@ class Experience(models.Model):
     @property
     def is_ongoing(self):
         return self.ended_at is None
+
+    @property
+    def description_points(self):
+        return [
+            point.strip()
+            for point in self.description.splitlines()
+            if point.strip()
+        ]

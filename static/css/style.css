@@ -416,7 +416,7 @@ img {
     line-height: 1.4;
 }
 
-.experience-item h3 {
+.experience-item h2 {
     color: var(--ink);
     font-size: 1.1rem;
     line-height: 1.35;
