@@ -13,7 +13,9 @@
 <body>
     <header class="site-header">
         <div class="container">
-            <a href="{% url 'main:show_main' %}" class="brand">Fardin</a>
+            <a href="{% url 'main:show_main' %}" class="brand">
+                {{ display_name }}
+            </a>
 
             <nav aria-label="Primary Navigation">
                 <a href="{% url 'main:show_main' %}#about">About</a>
@@ -93,5 +95,14 @@
             </div>
         </section>
     </main>
+
+    <footer class="site-footer">
+        <div class="container">
+            <p>
+                &copy; 2026 {{ name }}.
+                Fakultas Ilmu Komputer, Universitas Indonesia.
+            </p>
+        </div>
+    </footer>
 </body>
 </html>
