@@ -1,0 +1,108 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Experience | {{ name }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <header class="site-header">
+        <div class="container">
+            <a href="{% url 'main:show_main' %}" class="brand">
+                {{ display_name }}
+            </a>
+
+            <nav aria-label="Primary Navigation">
+                <a href="{% url 'main:show_main' %}#about">About</a>
+                <a href="{% url 'main:show_experience' %}" aria-current="page">
+                    Experience
+                </a>
+                <a href="{% url 'main:show_main' %}#projects">Projects</a>
+                <a href="{% url 'main:show_main' %}#skills">Skills</a>
+                <a href="{% url 'main:show_main' %}#contact">Contact</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section
+            class="experience-section"
+            id="experience"
+            aria-labelledby="experience-title"
+        >
+            <div class="container">
+                <div class="section-header">
+                    <p class="section-kicker">Where I contribute</p>
+                    <h1 id="experience-title">Experience</h1>
+                    <p class="section-description">
+                        Teaching, mentoring, and helping students build stronger
+                        programming foundations.
+                    </p>
+                </div>
+
+                <div class="experience-list">
+                    {% for experience in experience_list %}
+                        <article class="experience-item">
+                            <header class="experience-item-header">
+                                <div>
+                                    <p class="experience-organization">
+                                        {{ experience.get_category_display }}
+                                    </p>
+                                    <h2>{{ experience.title }}</h2>
+                                </div>
+
+                                <p class="experience-period">
+                                    <time datetime="{{ experience.started_at|date:'Y-m-d' }}">
+                                        {{ experience.started_at|date:"M Y" }}
+                                    </time>
+                                    &ndash;
+                                    {% if experience.is_ongoing %}
+                                        Present
+                                    {% else %}
+                                        <time datetime="{{ experience.ended_at|date:'Y-m-d' }}">
+                                            {{ experience.ended_at|date:"M Y" }}
+                                        </time>
+                                    {% endif %}
+                                </p>
+                            </header>
+
+                            <ul class="experience-points">
+                                {% for point in experience.description_points %}
+                                    <li>{{ point }}</li>
+                                {% endfor %}
+                            </ul>
+
+                            {% if experience.thumbnail %}
+                                <img
+                                    class="experience-thumbnail"
+                                    src="{{ experience.thumbnail }}"
+                                    alt="Thumbnail for {{ experience.title }}"
+                                    loading="lazy"
+                                >
+                            {% endif %}
+                        </article>
+                    {% empty %}
+                        <p class="experience-empty">
+                            No experience has been added yet.
+                        </p>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container">
+            <p>
+                &copy; 2026 {{ name }}.
+                Fakultas Ilmu Komputer, Universitas Indonesia.
+            </p>
+        </div>
+    </footer>
+</body>
+</html>
