@@ -43,3 +43,34 @@ class Experience(models.Model):
             for point in self.description.splitlines()
             if point.strip()
         ]
+
+
+class Project(models.Model):
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+    title = models.CharField(max_length=200)
+    project_type = models.CharField(max_length=100)
+    role = models.CharField(max_length=100)
+    description = models.TextField()
+    technologies = models.TextField()
+    thumbnail_path = models.CharField(max_length=255, blank=True)
+    live_url = models.URLField()
+    source_url = models.URLField(blank=True)
+    display_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['display_order', 'title']
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def technology_list(self):
+        return [
+            technology.strip()
+            for technology in self.technologies.splitlines()
+            if technology.strip()
+        ]
