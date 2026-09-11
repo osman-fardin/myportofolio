@@ -91,8 +91,8 @@ class MainTest(TestCase):
         ).strftime('%b %Y')
         self.assertContains(response, completed_month)
 
+
 class ProjectPageTests(TestCase):
-    
     def setUp(self):
         self.project = Project.objects.create(
             title='Fasilkom Study Hub',
