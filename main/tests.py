@@ -1,8 +1,10 @@
+import uuid
+
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Experience
+from .models import Experience, Project
 
 
 class MainTest(TestCase):
@@ -91,16 +93,69 @@ class MainTest(TestCase):
         ).strftime('%b %Y')
         self.assertContains(response, completed_month)
 
-    def test_completed_experience(self):
-        self.experience.ended_at = timezone.now()
-        self.experience.save()
 
-        response = self.client.get(reverse('main:show_experience'))
+class ProjectPageTests(TestCase):
+    def setUp(self):
+        self.project = Project.objects.create(
+            title='Fasilkom Study Hub',
+            project_type='Community Study Platform',
+            role='Creator and Developer',
+            description=(
+                'A study platform that helps Fasilkom students '
+                'organize courses and learning resources.'
+            ),
+            technologies='Next.js\nTypeScript\nCloudflare',
+            thumbnail_path='img/fasilkom-study-hub-semester.jpg',
+            live_url='https://fasilkom-study-hub.pages.dev/',
+            source_url='https://github.com/osman-fardin/fasilkom-study-hub',
+            display_order=1,
+        )
 
-        self.assertFalse(self.experience.is_ongoing)
-        self.assertNotContains(response, 'Present')
+    def test_projects_page_is_accessible(self):
+        response = self.client.get(reverse('main:show_projects'))
 
-        completed_month = timezone.localtime(
-            self.experience.ended_at
-        ).strftime('%b %Y')
-        self.assertContains(response, completed_month)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'projects.html')
+
+    def test_project_data_appears_on_page(self):
+        response = self.client.get(self.project.get_absolute_url())
+
+        self.assertContains(response, self.project.title)
+        self.assertContains(response, self.project.project_type)
+        self.assertContains(response, self.project.role)
+        self.assertContains(response, self.project.description)
+
+        for technology in self.project.technology_list:
+            self.assertContains(response, technology)
+
+        self.assertContains(response, 'aria-current="page"')
+
+    def test_empty_projects_page(self):
+        Project.objects.all().delete()
+
+        response = self.client.get(reverse('main:show_projects'))
+
+        self.assertContains(
+            response,
+            'No projects have been added yet.',
+        )
+        self.assertNotContains(response, self.project.title)
+
+    def test_project_detail_uses_uuid_route(self):
+        self.assertEqual(
+            self.project.get_absolute_url(),
+            reverse(
+                'main:show_project_detail',
+                kwargs={'project_id': self.project.id},
+            ),
+        )
+
+    def test_missing_project_detail_returns_404(self):
+        response = self.client.get(
+            reverse(
+                'main:show_project_detail',
+                kwargs={'project_id': uuid.uuid4()},
+            )
+        )
+
+        self.assertEqual(response.status_code, 404)
