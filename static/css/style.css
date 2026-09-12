@@ -19,6 +19,10 @@
     --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
+@view-transition {
+    navigation: auto;
+}
+
 html {
     scroll-behavior: smooth;
 }
@@ -95,19 +99,10 @@ summary:focus-visible {
     z-index: 102;
     display: inline-flex;
     align-items: center;
-    gap: 0.75rem;
     color: var(--walnut);
     font-size: 1.15rem;
     font-weight: 700;
     text-decoration: none;
-}
-
-.brand::before {
-    width: 12px;
-    height: 12px;
-    flex-shrink: 0;
-    background-color: var(--copper);
-    content: "";
 }
 
 .site-menu {
@@ -198,13 +193,13 @@ body:has(.site-menu[open]) {
 }
 
 .site-menu[open] .menu-panel {
-    animation: menu-reveal 220ms var(--ease-out);
+    animation: menu-reveal 170ms var(--ease-out);
 }
 
 @keyframes menu-reveal {
     from {
         opacity: 0;
-        transform: translateY(-0.75rem);
+        transform: translateY(-0.25rem);
     }
 
     to {
@@ -213,12 +208,48 @@ body:has(.site-menu[open]) {
     }
 }
 
+@keyframes page-out {
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes page-in {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+}
+
+::view-transition-old(root) {
+    animation: page-out 140ms ease-in both;
+}
+
+::view-transition-new(root) {
+    animation: page-in 220ms var(--ease-out) both;
+}
+
 .intro {
+    position: relative;
+    isolation: isolate;
     display: grid;
     min-height: calc(100svh - var(--header-height));
     align-items: center;
+    overflow: hidden;
     border-bottom: 1px solid var(--line);
     background-color: var(--paper);
+}
+
+.intro::before {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    background-image: url("../img/server-racks.webp");
+    background-position: center;
+    background-size: cover;
+    content: "";
+    filter: saturate(0.72) sepia(0.14);
+    opacity: 0.105;
 }
 
 .intro-inner {
@@ -792,13 +823,7 @@ body:has(.site-menu[open]) {
     }
 
     .brand {
-        gap: 0.5rem;
         font-size: 0.95rem;
-    }
-
-    .brand::before {
-        width: 10px;
-        height: 10px;
     }
 
     .container {
@@ -929,7 +954,9 @@ body:has(.site-menu[open]) {
 
     *,
     *::before,
-    *::after {
+    *::after,
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
