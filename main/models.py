@@ -1,6 +1,7 @@
 import uuid
 
 from django.db import models
+from django.urls import reverse
 
 
 class Experience(models.Model):
@@ -66,6 +67,12 @@ class Project(models.Model):
 
     def __str__(self):
         return self.title
+
+    def get_absolute_url(self):
+        return reverse(
+            'main:show_project_detail',
+            kwargs={'project_id': self.id},
+        )
 
     @property
     def technology_list(self):

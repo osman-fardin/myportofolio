@@ -562,24 +562,85 @@ body:has(.site-menu[open]) {
     color: var(--cloud-soft);
 }
 
-.project-list {
-    border-top: 1px solid rgb(255 255 255 / 20%);
+.project-browser {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.8fr);
+    min-height: 520px;
+    border-block: 1px solid rgb(255 255 255 / 20%);
 }
 
-.featured-project {
+.project-index {
+    max-height: 620px;
+    overflow-y: auto;
+    border-right: 1px solid rgb(255 255 255 / 20%);
+    overscroll-behavior: contain;
+    scrollbar-color: var(--copper) transparent;
+    scrollbar-width: thin;
+}
+
+.project-index-item {
     display: grid;
-    grid-template-columns:
-        minmax(0, 0.85fr)
-        minmax(300px, 1.15fr);
+    grid-template-columns: 2rem minmax(0, 1fr);
+    gap: 0.75rem;
+    padding: 1.25rem 1.25rem 1.25rem 0;
+    color: var(--cloud-soft);
+    border-bottom: 1px solid rgb(255 255 255 / 16%);
+    text-decoration: none;
+    transition:
+        color 160ms ease,
+        background-color 160ms ease,
+        padding-left 160ms var(--ease-out);
+}
+
+.project-index-item.is-selected {
+    padding-left: 1rem;
+    color: var(--surface);
+    background-color: rgb(255 255 255 / 8%);
+}
+
+.project-number {
+    color: var(--copper);
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.project-index-title,
+.project-index-type {
+    display: block;
+}
+
+.project-index-title {
+    color: inherit;
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.project-index-type {
+    margin-top: 0.3rem;
+    color: var(--copper);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.project-detail {
+    display: grid;
+    min-width: 0;
+    align-items: center;
+    padding: 2rem 0 2rem 2.5rem;
+}
+
+.selected-project {
+    display: grid;
+    grid-template-columns: minmax(0, 0.75fr) minmax(320px, 1.25fr);
     grid-template-areas:
         "header preview"
         "summary preview"
         "technologies preview"
         "actions preview";
-    column-gap: 3rem;
-    row-gap: 1.25rem;
-    padding-block: 3rem;
-    border-bottom: 1px solid rgb(255 255 255 / 20%);
+    gap: 1.25rem 2rem;
 }
 
 .project-header {
@@ -621,13 +682,27 @@ body:has(.site-menu[open]) {
     border-radius: var(--radius);
 }
 
-.featured-project:not(:has(.project-preview)) {
+.selected-project:not(:has(.project-preview)) {
     grid-template-columns: minmax(0, 720px);
     grid-template-areas:
         "header"
         "summary"
         "technologies"
         "actions";
+}
+
+.project-prompt {
+    max-width: 520px;
+}
+
+.project-prompt h2 {
+    color: var(--surface);
+    font-size: 1.8rem;
+}
+
+.project-prompt > p:last-child {
+    margin-top: 0.75rem;
+    color: var(--cloud-soft);
 }
 
 .project-summary {
@@ -700,6 +775,11 @@ body:has(.site-menu[open]) {
 }
 
 @media (hover: hover) and (pointer: fine) {
+    .project-index-item:hover {
+        padding-left: 0.5rem;
+        color: var(--surface);
+    }
+
     .project-actions a:hover {
         color: var(--walnut);
         background-color: var(--cloud-soft);
@@ -794,7 +874,7 @@ body:has(.site-menu[open]) {
         margin-left: 164px;
     }
 
-    .featured-project {
+    .selected-project {
         grid-template-columns: minmax(0, 1fr);
         grid-template-areas:
             "header"
@@ -803,6 +883,14 @@ body:has(.site-menu[open]) {
             "technologies"
             "actions";
         gap: 1.25rem;
+    }
+
+    .project-browser {
+        grid-template-columns: minmax(190px, 0.65fr) minmax(0, 1.35fr);
+    }
+
+    .project-detail {
+        padding-left: 2rem;
     }
 
     .project-preview {
@@ -922,8 +1010,33 @@ body:has(.site-menu[open]) {
         margin-left: 0;
     }
 
-    .featured-project {
-        padding-block: 2rem;
+    .project-browser {
+        grid-template-columns: minmax(0, 1fr);
+        min-height: 0;
+    }
+
+    .project-index {
+        display: flex;
+        max-height: none;
+        overflow-x: auto;
+        overflow-y: hidden;
+        border-right: 0;
+        border-bottom: 1px solid rgb(255 255 255 / 20%);
+    }
+
+    .project-index-item {
+        min-width: 220px;
+        border-right: 1px solid rgb(255 255 255 / 16%);
+        border-bottom: 0;
+    }
+
+    .project-index-item.is-selected {
+        padding-left: 1rem;
+    }
+
+    .project-detail {
+        min-height: 340px;
+        padding: 2rem 0;
     }
 
     .project-header h2 {

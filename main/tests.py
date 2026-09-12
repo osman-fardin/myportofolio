@@ -1,3 +1,5 @@
+import uuid
+
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -116,7 +118,7 @@ class ProjectPageTests(TestCase):
         self.assertTemplateUsed(response, 'projects.html')
 
     def test_project_data_appears_on_page(self):
-        response = self.client.get(reverse('main:show_projects'))
+        response = self.client.get(self.project.get_absolute_url())
 
         self.assertContains(response, self.project.title)
         self.assertContains(response, self.project.project_type)
@@ -125,6 +127,8 @@ class ProjectPageTests(TestCase):
 
         for technology in self.project.technology_list:
             self.assertContains(response, technology)
+
+        self.assertContains(response, 'aria-current="page"')
 
     def test_empty_projects_page(self):
         Project.objects.all().delete()
@@ -136,3 +140,22 @@ class ProjectPageTests(TestCase):
             'No projects have been added yet.',
         )
         self.assertNotContains(response, self.project.title)
+
+    def test_project_detail_uses_uuid_route(self):
+        self.assertEqual(
+            self.project.get_absolute_url(),
+            reverse(
+                'main:show_project_detail',
+                kwargs={'project_id': self.project.id},
+            ),
+        )
+
+    def test_missing_project_detail_returns_404(self):
+        response = self.client.get(
+            reverse(
+                'main:show_project_detail',
+                kwargs={'project_id': uuid.uuid4()},
+            )
+        )
+
+        self.assertEqual(response.status_code, 404)

@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 
 from .models import Experience, Project
 
@@ -35,6 +35,18 @@ def show_projects(request):
         'name': 'Muhammad Osman Fardin',
         'display_name': 'Muhammad Osman Fardin',
         'project_list': Project.objects.all(),
+        'selected_project': None,
+    }
+
+    return render(request, 'projects.html', context)
+
+
+def show_project_detail(request, project_id):
+    context = {
+        'name': 'Muhammad Osman Fardin',
+        'display_name': 'Muhammad Osman Fardin',
+        'project_list': Project.objects.all(),
+        'selected_project': get_object_or_404(Project, id=project_id),
     }
 
     return render(request, 'projects.html', context)

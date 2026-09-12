@@ -20,68 +20,106 @@
                 </p>
             </div>
 
-            <div class="project-list">
-                {% for project in project_list %}
-                    <article class="featured-project">
-                        <header class="project-header">
-                            <div>
-                                <p class="project-type">
-                                    {{ project.project_type }}
-                                </p>
-                                <h2>{{ project.title }}</h2>
-                            </div>
-
-                            <p class="project-role">{{ project.role }}</p>
-                        </header>
-
-                        {% if project.thumbnail_path %}
-                            <img
-                                class="project-preview"
-                                src="{% static project.thumbnail_path %}"
-                                alt="Preview of {{ project.title }}"
-                                loading="lazy"
-                            >
-                        {% endif %}
-
-                        <p class="project-summary">
-                            {{ project.description }}
-                        </p>
-
-                        <div class="project-technologies">
-                            <p>Technologies</p>
-                            <ul>
-                                {% for technology in project.technology_list %}
-                                    <li>{{ technology }}</li>
-                                {% endfor %}
-                            </ul>
-                        </div>
-
-                        <div class="project-actions">
+            {% if project_list %}
+                <div class="project-browser">
+                    <nav
+                        class="project-index"
+                        aria-label="Project list"
+                    >
+                        {% for project in project_list %}
                             <a
-                                href="{{ project.live_url }}"
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                class="project-index-item{% if selected_project.id == project.id %} is-selected{% endif %}"
+                                href="{{ project.get_absolute_url }}"
+                                {% if selected_project.id == project.id %}
+                                    aria-current="page"
+                                {% endif %}
                             >
-                                View project
+                                <span class="project-number">
+                                    {{ forloop.counter|stringformat:"02d" }}
+                                </span>
+                                <span>
+                                    <span class="project-index-title">
+                                        {{ project.title }}
+                                    </span>
+                                    <span class="project-index-type">
+                                        {{ project.project_type }}
+                                    </span>
+                                </span>
                             </a>
+                        {% endfor %}
+                    </nav>
 
-                            {% if project.source_url %}
-                                <a
-                                    href="{{ project.source_url }}"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    Source
-                                </a>
-                            {% endif %}
-                        </div>
-                    </article>
-                {% empty %}
-                    <p class="project-empty">
-                        No projects have been added yet.
-                    </p>
-                {% endfor %}
-            </div>
+                    <div class="project-detail" aria-live="polite">
+                        {% if selected_project %}
+                            <article class="selected-project">
+                                <header class="project-header">
+                                    <p class="project-type">
+                                        {{ selected_project.project_type }}
+                                    </p>
+                                    <h2>{{ selected_project.title }}</h2>
+                                    <p class="project-role">
+                                        {{ selected_project.role }}
+                                    </p>
+                                </header>
+
+                                {% if selected_project.thumbnail_path %}
+                                    <img
+                                        class="project-preview"
+                                        src="{% static selected_project.thumbnail_path %}"
+                                        alt="Preview of {{ selected_project.title }}"
+                                    >
+                                {% endif %}
+
+                                <p class="project-summary">
+                                    {{ selected_project.description }}
+                                </p>
+
+                                <div class="project-technologies">
+                                    <p>Technologies</p>
+                                    <ul>
+                                        {% for technology in selected_project.technology_list %}
+                                            <li>{{ technology }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+
+                                <div class="project-actions">
+                                    <a
+                                        href="{{ selected_project.live_url }}"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        View project
+                                    </a>
+
+                                    {% if selected_project.source_url %}
+                                        <a
+                                            href="{{ selected_project.source_url }}"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            Source
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </article>
+                        {% else %}
+                            <div class="project-prompt">
+                                <p class="section-kicker">Project viewer</p>
+                                <h2>Select a project</h2>
+                                <p>
+                                    Choose a project from the list to see its
+                                    story, tools, and live result.
+                                </p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% else %}
+                <p class="project-empty">
+                    No projects have been added yet.
+                </p>
+            {% endif %}
         </div>
     </section>
 {% endblock %}
