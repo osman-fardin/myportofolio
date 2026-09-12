@@ -15,20 +15,49 @@
         rel="stylesheet"
     >
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <script src="{% static 'js/menu.js' %}" defer></script>
 </head>
 <body class="{% block body_class %}{% endblock %}">
     <header class="site-header">
-        <div class="container">
+        <div class="container header-inner">
             <a href="{% url 'main:show_main' %}" class="brand">
                 {{ display_name }}
             </a>
 
-            <nav aria-label="Primary Navigation">
-                <a href="{% url 'main:show_main' %}">About</a>
-                <a href="{% url 'main:show_experience' %}">Experience</a>
-                <a href="{% url 'main:show_projects' %}">Projects</a>
-                <a href="{% url 'main:show_main' %}#contact">Contact</a>
-            </nav>
+            <details class="site-menu">
+                <summary class="menu-toggle">
+                    <span class="menu-open-label">Menu</span>
+                    <span class="menu-close-label">Close</span>
+                </summary>
+
+                <div class="menu-panel">
+                    <nav
+                        class="menu-navigation"
+                        aria-label="Primary Navigation"
+                    >
+                        <a href="{% url 'main:show_main' %}">
+                            <span>01</span>
+                            Home
+                        </a>
+                        <a href="{% url 'main:show_main' %}#about">
+                            <span>02</span>
+                            About
+                        </a>
+                        <a href="{% url 'main:show_experience' %}">
+                            <span>03</span>
+                            Experience
+                        </a>
+                        <a href="{% url 'main:show_projects' %}">
+                            <span>04</span>
+                            Projects
+                        </a>
+                        <a href="{% url 'main:show_main' %}#contact">
+                            <span>05</span>
+                            Contact
+                        </a>
+                    </nav>
+                </div>
+            </details>
         </div>
     </header>
 

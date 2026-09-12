@@ -6,7 +6,7 @@ from .models import Experience, Project
 def show_main(request):
     context = {
         'name': 'Muhammad Osman Fardin',
-        'display_name': 'MOF',
+        'display_name': 'Muhammad Osman Fardin',
         'npm': '2506541723',
         'study_program': 'S1 Ilmu Komputer',
         'bio': (
@@ -23,7 +23,7 @@ def show_main(request):
 def show_experience(request):
     context = {
         'name': 'Muhammad Osman Fardin',
-        'display_name': 'MOF',
+        'display_name': 'Muhammad Osman Fardin',
         'experience_list': Experience.objects.order_by('-started_at'),
     }
 
@@ -33,7 +33,7 @@ def show_experience(request):
 def show_projects(request):
     context = {
         'name': 'Muhammad Osman Fardin',
-        'display_name': 'MOF',
+        'display_name': 'Muhammad Osman Fardin',
         'project_list': Project.objects.all(),
     }
 
