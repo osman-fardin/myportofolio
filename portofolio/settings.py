@@ -45,6 +45,11 @@ DEBUG = env_bool('DEBUG', default=not PRODUCTION)
 
 ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', 'localhost,127.0.0.1,muhammad-osman-myportofolio.pws.cs.ui.ac.id')
 
+CSRF_TRUSTED_ORIGINS = env_list(
+    'CSRF_TRUSTED_ORIGINS',
+    'https://muhammad-osman-myportofolio.pws.cs.ui.ac.id',
+)
+
 # Application definition
 
 INSTALLED_APPS = [
