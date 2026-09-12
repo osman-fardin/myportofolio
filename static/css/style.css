@@ -12,6 +12,7 @@
     --copper: #b6643d;
     --cloud: #526f7a;
     --cloud-soft: #eef4f5;
+    --navy: #23354d;
     --line: #d8cec6;
     --text-muted: #6d625c;
     --radius: 6px;
@@ -332,16 +333,43 @@ body:has(.site-menu[open]) {
 }
 
 .about-section {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
     padding-block: 7rem;
     background-color: var(--surface);
     border-bottom: 1px solid var(--line);
 }
 
+.about-section::before,
+.about-section::after {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: max(38%, calc((100% - 960px) / 2 + 332px));
+    content: "";
+}
+
+.about-section::before {
+    z-index: 0;
+    background-color: var(--navy);
+}
+
+.about-section::after {
+    z-index: 0;
+    background-image: url("../img/about-cloudscape.jpg");
+    background-position: center;
+    background-size: cover;
+    filter: grayscale(0.35) contrast(1.08);
+    opacity: 0.24;
+}
+
 .about-inner {
+    position: relative;
+    z-index: 1;
     display: grid;
     grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
     grid-template-areas:
-        "heading heading"
+        "heading copy"
         "portrait copy";
     max-width: 960px;
     column-gap: 4rem;
@@ -362,9 +390,13 @@ body:has(.site-menu[open]) {
 }
 
 .about-heading h2 {
-    color: var(--walnut);
+    color: var(--surface);
     font-size: 2.4rem;
     line-height: 1.15;
+}
+
+.about-section .section-kicker {
+    color: #d98a62;
 }
 
 .about-portrait {
@@ -379,7 +411,7 @@ body:has(.site-menu[open]) {
 .about-portrait::before {
     position: absolute;
     inset: 8px -8px -8px 8px;
-    background-color: var(--cloud-soft);
+    background-color: var(--copper);
     border-radius: var(--radius);
     content: "";
 }
@@ -397,6 +429,7 @@ body:has(.site-menu[open]) {
 .about-copy {
     grid-area: copy;
     min-width: 0;
+    align-self: center;
 }
 
 .about-copy .bio {
@@ -419,7 +452,7 @@ body:has(.site-menu[open]) {
 }
 
 .meta-row dt {
-    color: var(--cloud);
+    color: var(--navy);
     font-size: 0.72rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -971,6 +1004,26 @@ body:has(.site-menu[open]) {
             "portrait"
             "copy";
         gap: 2.25rem;
+    }
+
+    .about-section::before,
+    .about-section::after {
+        width: 100%;
+    }
+
+    .about-copy .bio,
+    .about-section .meta-row dd,
+    .about-section .social-links a {
+        color: var(--surface);
+    }
+
+    .about-section .meta-list,
+    .about-section .meta-row {
+        border-color: rgb(255 255 255 / 28%);
+    }
+
+    .about-section .meta-row dt {
+        color: #d98a62;
     }
 
     .about-heading {
