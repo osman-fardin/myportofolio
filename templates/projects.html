@@ -20,6 +20,13 @@
                 </p>
             </div>
 
+            <a
+                class="project-add-link"
+                href="{% url 'main:create_project' %}"
+            >
+                Add project
+            </a>
+
             {% if project_list %}
                 <div class="project-browser">
                     <nav

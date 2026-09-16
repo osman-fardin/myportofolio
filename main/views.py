@@ -1,5 +1,7 @@
-from django.shortcuts import get_object_or_404, render
+from django.contrib import messages
+from django.shortcuts import get_object_or_404, redirect, render
 
+from .forms import ProjectForm
 from .models import Experience, Project
 
 
@@ -39,6 +41,26 @@ def show_projects(request):
     }
 
     return render(request, 'projects.html', context)
+
+
+def create_project(request):
+    if request.method == 'POST':
+        form = ProjectForm(request.POST)
+
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Project added successfully.')
+            return redirect('main:show_projects')
+    else:
+        form = ProjectForm()
+
+    context = {
+        'name': 'Muhammad Osman Fardin',
+        'display_name': 'Muhammad Osman Fardin',
+        'form': form,
+    }
+
+    return render(request, 'projects_form.html', context)
 
 
 def show_project_detail(request, project_id):
