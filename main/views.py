@@ -1,4 +1,6 @@
 from django.contrib import messages
+from django.core import serializers
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import ProjectForm
@@ -33,14 +35,40 @@ def show_experience(request):
 
 
 def show_projects(request):
+    json_response = get_projects_json(request)
+
+    projects = serializers.deserialize(
+        'json',
+        json_response.content.decode('utf-8'),
+    )
+    projects = [project.object for project in projects]
+
+    title_query = request.GET.get('title', '').strip()
+
     context = {
         'name': 'Muhammad Osman Fardin',
         'display_name': 'Muhammad Osman Fardin',
-        'project_list': Project.objects.all(),
+        'project_list': projects,
         'selected_project': None,
+        'title_query': title_query,
     }
 
     return render(request, 'projects.html', context)
+
+
+def get_projects_json(request):
+    title_query = request.GET.get('title', '').strip()
+    projects = Project.objects.all()
+
+    if title_query:
+        projects = projects.filter(title__icontains=title_query)
+
+    projects_json = serializers.serialize('json', projects)
+
+    return HttpResponse(
+        projects_json,
+        content_type='application/json',
+    )
 
 
 def create_project(request):

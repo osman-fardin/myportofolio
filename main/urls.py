@@ -6,6 +6,7 @@ from .views import (
     show_main,
     show_project_detail,
     show_projects,
+    get_projects_json,
 )
 
 
@@ -20,5 +21,10 @@ urlpatterns = [
         'projects/<uuid:project_id>/',
         show_project_detail,
         name='show_project_detail',
+    ),
+    path(
+        'api/projects/',
+        get_projects_json,
+        name='get_projects_json',
     ),
 ]
