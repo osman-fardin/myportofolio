@@ -88,6 +88,24 @@ summary:focus-visible {
     border-bottom: 1px solid var(--line);
 }
 
+.site-messages {
+    padding-top: 1rem;
+}
+
+.site-message {
+    padding: 0.75rem 1rem;
+    color: var(--walnut);
+    background-color: var(--cloud-soft);
+    border-left: 3px solid var(--cloud);
+    border-radius: var(--radius);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.site-message-success {
+    border-left-color: var(--copper);
+}
+
 .header-inner {
     display: flex;
     min-height: var(--header-height);
@@ -595,6 +613,64 @@ body:has(.site-menu[open]) {
     color: var(--cloud-soft);
 }
 
+.project-add-link {
+    display: inline-flex;
+    min-height: 42px;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+    padding: 0.55rem 1rem;
+    color: var(--walnut);
+    background-color: var(--surface);
+    border: 1px solid var(--surface);
+    border-radius: var(--radius);
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition:
+        background-color 160ms ease,
+        transform 160ms var(--ease-out);
+}
+
+.project-search {
+    display: flex;
+    max-width: 560px;
+    gap: 0.65rem;
+    margin-bottom: 2rem;
+}
+
+.project-search-input {
+    min-width: 0;
+    min-height: 42px;
+    flex: 1;
+    padding: 0.55rem 0.75rem;
+    color: var(--ink);
+    background-color: var(--surface);
+    border: 1px solid rgb(255 255 255 / 48%);
+    border-radius: var(--radius);
+    font: inherit;
+    font-size: 0.85rem;
+}
+
+.project-search-input:focus {
+    border-color: var(--copper);
+    outline: 2px solid rgb(182 100 61 / 28%);
+    outline-offset: 2px;
+}
+
+.project-search button {
+    min-height: 42px;
+    padding: 0.55rem 1rem;
+    color: var(--surface);
+    background-color: var(--copper);
+    border: 1px solid var(--copper);
+    border-radius: var(--radius);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
 .project-browser {
     display: grid;
     grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.8fr);
@@ -802,12 +878,119 @@ body:has(.site-menu[open]) {
     border-color: var(--surface);
 }
 
+.project-delete-trigger {
+    min-height: 42px;
+    padding: 0.55rem 0.9rem;
+    color: var(--surface);
+    background-color: transparent;
+    border: 1px solid var(--copper);
+    border-radius: var(--radius);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.project-delete-modal {
+    width: min(calc(100% - 2rem), 460px);
+    margin: auto;
+    padding: 0;
+    background-color: transparent;
+    border: 0;
+    overflow: visible;
+}
+
+.project-delete-modal::backdrop {
+    background-color: rgb(45 33 28 / 72%);
+}
+
+.project-delete-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: transparent;
+    border: 0;
+}
+
+.project-delete-modal-content {
+    position: relative;
+    z-index: 1;
+    padding: 2rem;
+    color: var(--ink);
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: 0 24px 70px rgb(45 33 28 / 28%);
+}
+
+.project-delete-modal-content h2 {
+    padding-right: 2rem;
+    color: var(--walnut);
+    font-size: 1.5rem;
+}
+
+.project-delete-modal-content > p {
+    margin-top: 0.75rem;
+    color: var(--text-muted);
+}
+
+.project-delete-modal-close {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    width: 36px;
+    height: 36px;
+    color: var(--text-muted);
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    font-size: 1.4rem;
+}
+
+.project-delete-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+}
+
+.project-delete-modal-actions button {
+    min-height: 42px;
+    padding: 0.55rem 0.9rem;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.project-delete-modal-actions > button {
+    color: var(--walnut);
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+}
+
+.project-delete-modal-actions form button {
+    color: var(--surface);
+    background-color: var(--copper);
+    border: 1px solid var(--copper);
+}
+
 .projects-page .project-empty {
     color: var(--cloud-soft);
     border-color: rgb(255 255 255 / 20%);
 }
 
 @media (hover: hover) and (pointer: fine) {
+    .project-delete-trigger:hover {
+        background-color: var(--copper);
+        transform: translateY(-2px);
+    }
+
+    .project-add-link:hover {
+        background-color: var(--cloud-soft);
+        transform: translateY(-2px);
+    }
+
     .project-index-item:hover {
         padding-left: 0.5rem;
         color: var(--surface);
@@ -818,6 +1001,109 @@ body:has(.site-menu[open]) {
         background-color: var(--cloud-soft);
         transform: translateY(-2px);
     }
+}
+
+.project-form-section {
+    min-height: calc(100vh - var(--header-height));
+    padding-block: 5rem;
+}
+
+.project-form-inner {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.3fr);
+    gap: 4rem;
+    align-items: start;
+}
+
+.project-form-header h1 {
+    margin-top: 0.5rem;
+    color: var(--walnut);
+    font-size: 2.75rem;
+    line-height: 1.15;
+}
+
+.project-form-header > p:last-child {
+    margin-top: 1rem;
+    color: var(--text-muted);
+}
+
+.project-form {
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--line);
+}
+
+.form-group + .form-group {
+    margin-top: 1.25rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.4rem;
+    color: var(--walnut);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    color: var(--ink);
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    font: inherit;
+}
+
+.form-group textarea {
+    min-height: 110px;
+    resize: vertical;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    border-color: var(--cloud);
+    outline: 2px solid rgb(82 111 122 / 18%);
+    outline-offset: 2px;
+}
+
+.form-error {
+    margin-top: 0.35rem;
+    color: var(--copper);
+    font-size: 0.8rem;
+}
+
+.project-form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 2rem;
+}
+
+.project-form-actions button,
+.project-form-actions a {
+    display: inline-flex;
+    min-height: 42px;
+    align-items: center;
+    justify-content: center;
+    padding: 0.55rem 1rem;
+    border-radius: var(--radius);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.project-form-actions button {
+    color: var(--surface);
+    background-color: var(--walnut);
+    border: 1px solid var(--walnut);
+    cursor: pointer;
+}
+
+.project-form-actions a {
+    color: var(--walnut);
+    border: 1px solid var(--line);
 }
 
 .contact-section {
@@ -933,6 +1219,15 @@ body:has(.site-menu[open]) {
         aspect-ratio: 16 / 9;
     }
 
+    .project-form-inner {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 2.5rem;
+    }
+
+    .project-form-header {
+        max-width: 560px;
+    }
+
     .contact-inner {
         margin-inline: 1rem;
     }
@@ -993,6 +1288,7 @@ body:has(.site-menu[open]) {
     .about-section,
     .experience-section,
     .projects-section,
+    .project-form-section,
     .contact-section {
         padding-block: 4rem;
     }
@@ -1098,6 +1394,28 @@ body:has(.site-menu[open]) {
 
     .project-preview {
         max-height: 260px;
+    }
+
+    .project-search {
+        display: grid;
+        max-width: none;
+    }
+
+    .project-search button {
+        width: 100%;
+    }
+
+    .project-form-header h1 {
+        font-size: 2.2rem;
+    }
+
+    .project-form-actions {
+        display: grid;
+    }
+
+    .project-form-actions button,
+    .project-form-actions a {
+        width: 100%;
     }
 
     .contact-inner {

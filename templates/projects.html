@@ -20,6 +20,29 @@
                 </p>
             </div>
 
+            <a
+                class="project-add-link"
+                href="{% url 'main:create_project' %}"
+            >
+                Add project
+            </a>
+
+            <form
+                method="get"
+                action="{% url 'main:show_projects' %}"
+                class="project-search"
+            >
+                <input
+                    type="search"
+                    name="title"
+                    value="{{ title_query }}"
+                    placeholder="Search projects by title"
+                    class="project-search-input"
+                    aria-label="Search projects by title"
+                >
+                <button type="submit">Search</button>
+            </form>
+
             {% if project_list %}
                 <div class="project-browser">
                     <nav
@@ -101,6 +124,7 @@
                                             Source
                                         </a>
                                     {% endif %}
+                                    {% include 'components/project_delete_modal.html' with project=selected_project %}
                                 </div>
                             </article>
                         {% else %}
@@ -117,7 +141,11 @@
                 </div>
             {% else %}
                 <p class="project-empty">
-                    No projects have been added yet.
+                    {% if title_query %}
+                        No projects match “{{ title_query }}”.
+                    {% else %}
+                        No projects have been added yet.
+                    {% endif %}
                 </p>
             {% endif %}
         </div>

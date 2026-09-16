@@ -1,5 +1,9 @@
-from django.shortcuts import get_object_or_404, render
+from django.contrib import messages
+from django.core import serializers
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
 
+from .forms import ProjectForm
 from .models import Experience, Project
 
 
@@ -31,14 +35,71 @@ def show_experience(request):
 
 
 def show_projects(request):
+    json_response = get_projects_json(request)
+
+    projects = serializers.deserialize(
+        'json',
+        json_response.content.decode('utf-8'),
+    )
+    projects = [project.object for project in projects]
+
+    title_query = request.GET.get('title', '').strip()
+
     context = {
         'name': 'Muhammad Osman Fardin',
         'display_name': 'Muhammad Osman Fardin',
-        'project_list': Project.objects.all(),
+        'project_list': projects,
         'selected_project': None,
+        'title_query': title_query,
     }
 
     return render(request, 'projects.html', context)
+
+
+def get_projects_json(request):
+    title_query = request.GET.get('title', '').strip()
+    projects = Project.objects.all()
+
+    if title_query:
+        projects = projects.filter(title__icontains=title_query)
+
+    projects_json = serializers.serialize('json', projects)
+
+    return HttpResponse(
+        projects_json,
+        content_type='application/json',
+    )
+
+
+def create_project(request):
+    if request.method == 'POST':
+        form = ProjectForm(request.POST)
+
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Project added successfully.')
+            return redirect('main:show_projects')
+    else:
+        form = ProjectForm()
+
+    context = {
+        'name': 'Muhammad Osman Fardin',
+        'display_name': 'Muhammad Osman Fardin',
+        'form': form,
+    }
+
+    return render(request, 'projects_form.html', context)
+
+
+def delete_project(request, project_id):
+    project = get_object_or_404(Project, pk=project_id)
+
+    if request.method == 'POST':
+        project.delete()
+        messages.success(request, 'Project deleted successfully.')
+        return redirect('main:show_projects')
+
+    return redirect('main:show_projects')
 
 
 def show_project_detail(request, project_id):

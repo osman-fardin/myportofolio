@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Add Project | {{ name }}{% endblock %}
+
+{% block body_class %}project-form-page{% endblock %}
+
+{% block content %}
+    <section
+        class="project-form-section"
+        aria-labelledby="project-form-title"
+    >
+        <div class="container project-form-inner">
+            <header class="project-form-header">
+                <p class="section-kicker">New project</p>
+                <h1 id="project-form-title">Add a project</h1>
+                <p>
+                    Add a project to the portfolio database.
+                </p>
+            </header>
+
+            <form
+                method="post"
+                action="{% url 'main:create_project' %}"
+                class="project-form"
+            >
+                {% csrf_token %}
+
+                {% for field in form %}
+                    <div class="form-group">
+                        <label for="{{ field.id_for_label }}">
+                            {{ field.label }}
+                        </label>
+
+                        {{ field }}
+
+                        {% for error in field.errors %}
+                            <p class="form-error">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+
+                <div class="project-form-actions">
+                    <button type="submit">Add project</button>
+                    <a href="{% url 'main:show_projects' %}">
+                        Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </section>
+{% endblock %}
