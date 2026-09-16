@@ -88,6 +88,24 @@ summary:focus-visible {
     border-bottom: 1px solid var(--line);
 }
 
+.site-messages {
+    padding-top: 1rem;
+}
+
+.site-message {
+    padding: 0.75rem 1rem;
+    color: var(--walnut);
+    background-color: var(--cloud-soft);
+    border-left: 3px solid var(--cloud);
+    border-radius: var(--radius);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.site-message-success {
+    border-left-color: var(--copper);
+}
+
 .header-inner {
     display: flex;
     min-height: var(--header-height);
