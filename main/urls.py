@@ -2,11 +2,12 @@ from django.urls import path
 
 from .views import (
     create_project,
+    delete_project,
+    get_projects_json,
     show_experience,
     show_main,
     show_project_detail,
     show_projects,
-    get_projects_json,
 )
 
 
@@ -26,5 +27,10 @@ urlpatterns = [
         'api/projects/',
         get_projects_json,
         name='get_projects_json',
+    ),
+    path(
+        'projects/<uuid:project_id>/delete/',
+        delete_project,
+        name='delete_project',
     ),
 ]
