@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import Project
+from .models import Experience, Project
 
 
 class ProjectForm(forms.ModelForm):
@@ -63,3 +63,72 @@ class ProjectForm(forms.ModelForm):
                 attrs={'min': 0}
             ),
         }
+
+
+class ExperienceForm(forms.ModelForm):
+    class Meta:
+        model = Experience
+        fields = [
+            'title',
+            'description',
+            'category',
+            'thumbnail',
+            'started_at',
+            'ended_at',
+        ]
+        labels = {
+            'title': 'Experience title',
+            'description': 'Responsibilities and achievements',
+            'category': 'Experience type',
+            'thumbnail': 'Thumbnail URL',
+            'started_at': 'Start date',
+            'ended_at': 'End date',
+        }
+        widgets = {
+            'title': forms.TextInput(
+                attrs={
+                    'placeholder': (
+                        'Teaching Assistant, Programming Foundations 1'
+                    ),
+                }
+            ),
+            'description': forms.Textarea(
+                attrs={
+                    'placeholder': (
+                        'Write one responsibility or achievement per line'
+                    ),
+                    'rows': 5,
+                }
+            ),
+            'category': forms.Select(),
+            'thumbnail': forms.URLInput(
+                attrs={
+                    'placeholder': 'https://example.com/image.jpg',
+                }
+            ),
+            'started_at': forms.DateTimeInput(
+                format='%Y-%m-%dT%H:%M',
+                attrs={
+                    'type': 'datetime-local',
+                },
+            ),
+            'ended_at': forms.DateTimeInput(
+                format='%Y-%m-%dT%H:%M',
+                attrs={
+                    'type': 'datetime-local',
+                },
+            ),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        started_at = cleaned_data.get('started_at')
+        ended_at = cleaned_data.get('ended_at')
+
+        if started_at and ended_at and ended_at < started_at:
+            self.add_error(
+                'ended_at',
+                'End date cannot be earlier than start date.',
+            )
+
+        return cleaned_data
