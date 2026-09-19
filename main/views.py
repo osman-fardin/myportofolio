@@ -25,14 +25,81 @@ def show_main(request):
     return render(request, 'index.html', context)
 
 
+def _get_filtered_experiences(request):
+    experiences = Experience.objects.order_by('-started_at')
+
+    title_query = request.GET.get('title', '').strip()
+    category_filter = request.GET.get('category', '').strip()
+    status_filter = request.GET.get('status', '').strip()
+
+    if title_query:
+        experiences = experiences.filter(
+            title__icontains=title_query,
+        )
+
+    if category_filter:
+        experiences = experiences.filter(
+            category=category_filter,
+        )
+
+    if status_filter == 'ongoing':
+        experiences = experiences.filter(
+            ended_at__isnull=True,
+        )
+    elif status_filter == 'completed':
+        experiences = experiences.filter(
+            ended_at__isnull=False,
+        )
+
+    return experiences
+
+
 def show_experience(request):
+    json_response = get_experiences_json(request)
+
+    experiences = serializers.deserialize(
+        'json',
+        json_response.content.decode('utf-8'),
+    )
+    experiences = [
+        experience.object
+        for experience in experiences
+    ]
+
+    title_query = request.GET.get('title', '').strip()
+    category_filter = request.GET.get('category', '').strip()
+    status_filter = request.GET.get('status', '').strip()
+
     context = {
         'name': 'Muhammad Osman Fardin',
         'display_name': 'Muhammad Osman Fardin',
-        'experience_list': Experience.objects.order_by('-started_at'),
+        'experience_list': experiences,
+        'category_choices': Experience.EXPERIENCE_CHOICES,
+        'title_query': title_query,
+        'category_filter': category_filter,
+        'status_filter': status_filter,
+        'has_active_filters': bool(
+            title_query
+            or category_filter
+            or status_filter
+        ),
     }
 
     return render(request, 'experience.html', context)
+
+
+def get_experiences_json(request):
+    experiences = _get_filtered_experiences(request)
+
+    experiences_json = serializers.serialize(
+        'json',
+        experiences,
+    )
+
+    return HttpResponse(
+        experiences_json,
+        content_type='application/json',
+    )
 
 
 def create_experience(request):
