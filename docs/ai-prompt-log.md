@@ -1,7 +1,7 @@
 # AI Prompt Log
 
 Dokumen ini berisi beberapa contoh prompt yang mewakili penggunaan OpenAI Codex
-selama pengerjaan Tutorial, Tugas 1, dan Tugas 2. Prompt di bawah diringkas dari
+selama pengerjaan Tutorial, Tugas 1, Tugas 2, dan Tugas 3. Prompt di bawah diringkas dari
 percakapan asli agar lebih mudah dibaca. Informasi sensitif dan percakapan yang
 tidak berkaitan dengan tugas tidak disertakan.
 
@@ -111,6 +111,77 @@ merge melalui pull request GitHub dan memastikan file sensitif tidak masuk ke
 commit. Ketika versi Django yang diwajibkan berubah, saya mengikuti pengumuman
 mata kuliah dan memperbarui requirement ke Django 5.2.
 
+## 8. Merencanakan Tugas 3
+
+**Prompt:**
+
+> Tolong baca Tugas 3 dulu ya. Untuk bagian yang dikembangkan aku mau pakai
+> Experience. Bisa bantu pecah pengerjaannya menjadi beberapa module dan commit
+> supaya progres Git-nya rapi? Jelasin juga target tiap module sebelum mulai.
+
+**Hasil penggunaan:**
+
+AI membantu merangkum kebutuhan tugas dan membaginya menjadi form, create,
+update, delete, JSON, filter, testing, dan dokumentasi. Pembagian tersebut saya
+pakai sebagai panduan supaya setiap commit mewakili progres yang jelas.
+
+## 9. Memahami ModelForm dan CSRF
+
+**Prompt:**
+
+> Aku masih bingung kenapa harus pakai ModelForm dan bukan form HTML biasa.
+> Terus `csrf_token` itu sebenarnya ngapain? Tolong jelasin pakai contoh dari
+> Experience yang lagi aku kerjain dan jangan langsung kasih semua kodenya.
+
+**Hasil penggunaan:**
+
+AI menjelaskan hubungan antara model, field form, validasi, dan penggunaan
+`instance` saat update. Penjelasan tersebut juga membantu saya memahami bahwa
+`ModelForm` mengatur data form, sedangkan CSRF token melindungi request POST.
+
+## 10. Memahami alur JSON Experience
+
+**Prompt:**
+
+> Bisa jelasin pelan-pelan alur Experience dari QuerySet sampai jadi JSON, terus
+> kenapa di halaman perlu di-deserialize lagi? Aku juga mau filter title,
+> category, dan status, jadi jelasin enaknya logikanya ditaruh di mana.
+
+**Hasil penggunaan:**
+
+AI membantu menjelaskan hubungan antara QuerySet, serialization,
+`HttpResponse`, deserialization, context, dan template. Saya kemudian memakai
+satu helper filter bersama agar endpoint JSON dan halaman HTML menghasilkan data
+yang konsisten.
+
+## 11. Menentukan cakupan test
+
+**Prompt:**
+
+> Untuk fitur Experience ini test apa aja yang penting supaya create, update,
+> delete, JSON, dan filternya benar-benar aman? Tolong bagi per bagian dan
+> jelasin apa yang dibuktikan oleh masing-masing test.
+
+**Hasil penggunaan:**
+
+AI membantu menyusun cakupan test untuk form, validasi tanggal, create, update,
+404, delete berbasis POST, JSON, filter, dan deserialization. Saya menjalankan
+seluruh test tersebut bersama test lama hingga total 23 test berhasil lulus.
+
+## 12. Memahami pertanyaan reflektif
+
+**Prompt:**
+
+> Tolong bantu jelasin maksud tiga pertanyaan refleksi Tugas 3 pakai contoh yang
+> benar-benar ada di project aku. Bahasanya jangan terlalu formal dan jangan
+> terlalu panjang karena nanti tetap mau aku sesuaikan sendiri.
+
+**Hasil penggunaan:**
+
+AI membantu menghubungkan pertanyaan refleksi dengan `ExperienceForm`, CSRF,
+endpoint `/api/experiences/`, serta proses serialization dan deserialization.
+Jawabannya kemudian saya ringkas dan sesuaikan lagi dengan gaya README saya.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa
@@ -124,5 +195,6 @@ git status
 git diff
 ```
 
-Saya juga mencoba navigasi, empty state, detail project, dan layout pada ukuran
-desktop serta mobile melalui browser.
+Saya juga mencoba navigasi, form Experience, filter, confirmation delete, empty
+state, detail project, dan layout desktop serta mobile melalui browser. Seluruh
+23 test juga saya pastikan lulus sebelum dokumentasi diselesaikan.
