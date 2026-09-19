@@ -528,6 +528,120 @@ body:has(.site-menu[open]) {
     font-size: 1.05rem;
 }
 
+.experience-add-link {
+    display: inline-flex;
+    min-height: 42px;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 2rem;
+    padding: 0.55rem 1rem;
+    color: var(--surface);
+    background-color: var(--walnut);
+    border: 1px solid var(--walnut);
+    border-radius: var(--radius);
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition:
+        background-color 160ms ease,
+        transform 160ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .experience-add-link:hover {
+        background-color: var(--copper);
+        border-color: var(--copper);
+        transform: translateY(-2px);
+    }
+}
+
+.experience-filters {
+    display: grid;
+    grid-template-columns:
+        minmax(180px, 1.5fr)
+        repeat(2, minmax(150px, 1fr))
+        auto
+        auto;
+    gap: 0.75rem;
+    align-items: end;
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background-color: var(--cloud-soft);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+}
+
+.experience-filter-field {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.experience-filter-field label {
+    color: var(--walnut);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.experience-filter-field input,
+.experience-filter-field select {
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+    padding: 0.55rem 0.7rem;
+    color: var(--ink);
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    font: inherit;
+    font-size: 0.82rem;
+}
+
+.experience-filter-field input:focus,
+.experience-filter-field select:focus {
+    border-color: var(--cloud);
+    outline: 2px solid rgb(82 111 122 / 18%);
+    outline-offset: 2px;
+}
+
+.experience-filters button,
+.experience-filters > a {
+    display: inline-flex;
+    min-height: 42px;
+    align-items: center;
+    justify-content: center;
+    padding: 0.55rem 0.9rem;
+    border-radius: var(--radius);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.experience-filters button {
+    color: var(--surface);
+    background-color: var(--walnut);
+    border: 1px solid var(--walnut);
+    cursor: pointer;
+}
+
+.experience-filters > a {
+    color: var(--walnut);
+    background-color: transparent;
+    border: 1px solid var(--line);
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .experience-filters button:hover {
+        background-color: var(--copper);
+        border-color: var(--copper);
+    }
+
+    .experience-filters > a:hover {
+        color: var(--copper);
+        border-color: var(--copper);
+    }
+}
+
 .experience-list {
     border-top: 1px solid var(--line);
 }
@@ -587,6 +701,50 @@ body:has(.site-menu[open]) {
 
 .experience-points li::marker {
     color: var(--copper);
+}
+
+.experience-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+    margin-left: 202px;
+}
+
+.experience-actions a {
+    display: inline-flex;
+    min-height: 42px;
+    align-items: center;
+    justify-content: center;
+    padding: 0.45rem 0.85rem;
+    color: var(--walnut);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition:
+        color 160ms ease,
+        border-color 160ms ease,
+        transform 160ms var(--ease-out);
+}
+
+.experience-actions .experience-delete-trigger {
+    color: var(--copper);
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .experience-actions a:hover {
+        color: var(--copper);
+        border-color: var(--copper);
+        transform: translateY(-2px);
+    }
+
+    .experience-actions .experience-delete-trigger:hover {
+        color: var(--surface);
+        background-color: var(--copper);
+        transform: translateY(-2px);
+    }
 }
 
 .experience-empty,
@@ -1044,7 +1202,15 @@ body:has(.site-menu[open]) {
     font-weight: 700;
 }
 
+.form-optional {
+    margin-left: 0.35rem;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
 .form-group input,
+.form-group select,
 .form-group textarea {
     width: 100%;
     padding: 0.75rem;
@@ -1061,6 +1227,7 @@ body:has(.site-menu[open]) {
 }
 
 .form-group input:focus,
+.form-group select:focus,
 .form-group textarea:focus {
     border-color: var(--cloud);
     outline: 2px solid rgb(82 111 122 / 18%);
@@ -1189,8 +1356,17 @@ body:has(.site-menu[open]) {
         gap: 1.5rem;
     }
 
-    .experience-points {
+    .experience-points,
+    .experience-actions {
         margin-left: 164px;
+    }
+
+    .experience-filters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .experience-filter-field:first-child {
+        grid-column: 1 / -1;
     }
 
     .selected-project {
@@ -1355,8 +1531,22 @@ body:has(.site-menu[open]) {
         gap: 0.5rem;
     }
 
-    .experience-points {
+    .experience-points,
+    .experience-actions {
         margin-left: 0;
+    }
+
+    .experience-filters {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .experience-filter-field:first-child {
+        grid-column: auto;
+    }
+
+    .experience-filters button,
+    .experience-filters > a {
+        width: 100%;
     }
 
     .project-browser {

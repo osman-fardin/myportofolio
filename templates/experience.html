@@ -20,6 +20,80 @@
                 </p>
             </div>
 
+            <a
+                class="experience-add-link"
+                href="{% url 'main:create_experience' %}"
+            >
+                Add experience
+            </a>
+
+            <form
+                method="get"
+                action="{% url 'main:show_experience' %}"
+                class="experience-filters"
+                aria-label="Filter experiences"
+            >
+                <div class="experience-filter-field">
+                    <label for="experience-title-filter">Title</label>
+                    <input
+                        id="experience-title-filter"
+                        type="search"
+                        name="title"
+                        value="{{ title_query }}"
+                        placeholder="Search by title"
+                    >
+                </div>
+
+                <div class="experience-filter-field">
+                    <label for="experience-category-filter">Category</label>
+                    <select
+                        id="experience-category-filter"
+                        name="category"
+                    >
+                        <option value="">All categories</option>
+
+                        {% for value, label in category_choices %}
+                            <option
+                                value="{{ value }}"
+                                {% if category_filter == value %}selected{% endif %}
+                            >
+                                {{ label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="experience-filter-field">
+                    <label for="experience-status-filter">Status</label>
+                    <select
+                        id="experience-status-filter"
+                        name="status"
+                    >
+                        <option value="">All statuses</option>
+                        <option
+                            value="ongoing"
+                            {% if status_filter == 'ongoing' %}selected{% endif %}
+                        >
+                            Ongoing
+                        </option>
+                        <option
+                            value="completed"
+                            {% if status_filter == 'completed' %}selected{% endif %}
+                        >
+                            Completed
+                        </option>
+                    </select>
+                </div>
+
+                <button type="submit">Apply filters</button>
+
+                {% if has_active_filters %}
+                    <a href="{% url 'main:show_experience' %}">
+                        Clear
+                    </a>
+                {% endif %}
+            </form>
+
             <div class="experience-list">
                 {% for experience in experience_list %}
                     <article class="experience-item">
@@ -56,6 +130,16 @@
                             {% endfor %}
                         </ul>
 
+                        <div class="experience-actions">
+                            <a
+                                href="{% url 'main:update_experience' experience.id %}"
+                            >
+                                Edit experience
+                            </a>
+
+                            {% include 'components/experience_delete_modal.html' with experience=experience %}
+                        </div>
+
                         {% if experience.thumbnail %}
                             <img
                                 class="experience-thumbnail"
@@ -67,7 +151,11 @@
                     </article>
                 {% empty %}
                     <p class="experience-empty">
-                        No experience has been added yet.
+                        {% if has_active_filters %}
+                            No experiences match the selected filters.
+                        {% else %}
+                            No experience has been added yet.
+                        {% endif %}
                     </p>
                 {% endfor %}
             </div>
