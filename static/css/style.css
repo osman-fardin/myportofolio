@@ -616,6 +616,37 @@ body:has(.site-menu[open]) {
     color: var(--copper);
 }
 
+.experience-actions {
+    margin-top: 1.25rem;
+    margin-left: 202px;
+}
+
+.experience-actions a {
+    display: inline-flex;
+    min-height: 38px;
+    align-items: center;
+    justify-content: center;
+    padding: 0.45rem 0.85rem;
+    color: var(--walnut);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition:
+        color 160ms ease,
+        border-color 160ms ease,
+        transform 160ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .experience-actions a:hover {
+        color: var(--copper);
+        border-color: var(--copper);
+        transform: translateY(-2px);
+    }
+}
+
 .experience-empty,
 .project-empty {
     padding-block: 2rem;
@@ -1225,7 +1256,8 @@ body:has(.site-menu[open]) {
         gap: 1.5rem;
     }
 
-    .experience-points {
+    .experience-points,
+    .experience-actions {
         margin-left: 164px;
     }
 
@@ -1391,7 +1423,8 @@ body:has(.site-menu[open]) {
         gap: 0.5rem;
     }
 
-    .experience-points {
+    .experience-points,
+    .experience-actions {
         margin-left: 0;
     }
 

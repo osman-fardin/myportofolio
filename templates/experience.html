@@ -63,6 +63,14 @@
                             {% endfor %}
                         </ul>
 
+                        <div class="experience-actions">
+                            <a
+                                href="{% url 'main:update_experience' experience.id %}"
+                            >
+                                Edit experience
+                            </a>
+                        </div>
+
                         {% if experience.thumbnail %}
                             <img
                                 class="experience-thumbnail"

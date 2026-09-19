@@ -64,6 +64,44 @@ def create_experience(request):
     return render(request, 'experience_form.html', context)
 
 
+def update_experience(request, experience_id):
+    experience = get_object_or_404(
+        Experience,
+        pk=experience_id,
+    )
+
+    if request.method == 'POST':
+        form = ExperienceForm(
+            request.POST,
+            instance=experience,
+        )
+
+        if form.is_valid():
+            form.save()
+            messages.success(
+                request,
+                'Experience updated successfully.',
+            )
+            return redirect('main:show_experience')
+    else:
+        form = ExperienceForm(instance=experience)
+
+    context = {
+        'name': 'Muhammad Osman Fardin',
+        'display_name': 'Muhammad Osman Fardin',
+        'form': form,
+        'form_kicker': 'Update experience',
+        'form_title': 'Edit experience',
+        'form_description': (
+            'Refine the role, timeline, or achievements '
+            'shown in this experience.'
+        ),
+        'submit_label': 'Save changes',
+    }
+
+    return render(request, 'experience_form.html', context)
+
+
 def show_projects(request):
     json_response = get_projects_json(request)
 
