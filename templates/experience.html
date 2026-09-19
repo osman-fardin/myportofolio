@@ -20,6 +20,13 @@
                 </p>
             </div>
 
+            <a
+                class="experience-add-link"
+                href="{% url 'main:create_experience' %}"
+            >
+                Add experience
+            </a>
+
             <div class="experience-list">
                 {% for experience in experience_list %}
                     <article class="experience-item">

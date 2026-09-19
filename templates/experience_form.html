@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block page_title %}{{ form_title }} | {{ name }}{% endblock %}
+
+{% block body_class %}experience-form-page{% endblock %}
+
+{% block content %}
+    <section
+        class="project-form-section experience-form-section"
+        aria-labelledby="experience-form-title"
+    >
+        <div class="container project-form-inner">
+            <header class="project-form-header">
+                <p class="section-kicker">{{ form_kicker }}</p>
+                <h1 id="experience-form-title">{{ form_title }}</h1>
+                <p>{{ form_description }}</p>
+            </header>
+
+            <form method="post" class="project-form">
+                {% csrf_token %}
+
+                {% for error in form.non_field_errors %}
+                    <p class="form-error">{{ error }}</p>
+                {% endfor %}
+
+                {% for field in form %}
+                    <div class="form-group">
+                        <label for="{{ field.id_for_label }}">
+                            {{ field.label }}
+
+                            {% if not field.field.required %}
+                                <span class="form-optional">
+                                    Optional
+                                </span>
+                            {% endif %}
+                        </label>
+
+                        {{ field }}
+
+                        {% for error in field.errors %}
+                            <p class="form-error">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+
+                <div class="project-form-actions">
+                    <button type="submit">{{ submit_label }}</button>
+                    <a href="{% url 'main:show_experience' %}">
+                        Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </section>
+{% endblock %}
