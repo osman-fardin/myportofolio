@@ -14,6 +14,13 @@ minimal multi-page interface with a warm visual theme.
 
 - Minimal homepage with direct paths to Projects and About
 - Database-backed Experience and Projects pages
+- Experience management melalui form create dan update yang menggunakan
+  `ModelForm` serta validasi tanggal
+- Penghapusan Experience yang hanya menerima request POST dan dilengkapi
+  confirmation popover
+- Pencarian dan filter Experience berdasarkan judul, kategori, dan status
+- Endpoint `/api/experiences/` yang menyediakan data terfilter dalam format JSON
+- Halaman Experience yang menampilkan kembali data setelah proses deserialisasi JSON
 - Project and experience management through Django Admin
 - Shared navigation and footer using Django template inheritance
 - Responsive layouts for desktop, tablet, and mobile screens
@@ -111,6 +118,26 @@ Open `http://127.0.0.1:8000/` in a browser.
 - Memeriksa hasil menggunakan `python manage.py check`,
   `python manage.py test`, `git diff --check`, dan pengujian desktop serta mobile.
 
+### Minggu 4: Form dan Data Delivery Experience (15 - 21 September 2026)
+
+- Membuat `ExperienceForm` menggunakan `ModelForm` untuk mengelola seluruh field
+  yang dapat diisi pengguna tanpa mengekspos UUID.
+- Menambahkan validasi agar tanggal selesai tidak dapat lebih awal daripada
+  tanggal mulai.
+- Membuat alur create dan update yang menggunakan satu template form bersama.
+- Menambahkan penghapusan berbasis POST, CSRF token, dan confirmation popover
+  agar data tidak terhapus hanya karena URL dibuka.
+- Membuat endpoint JSON untuk Experience dan helper filter bersama berdasarkan
+  judul, kategori, serta status ongoing atau completed.
+- Menampilkan data Experience pada halaman setelah melalui serialization dan
+  deserialization JSON.
+- Menambahkan filter responsif, selected state, tombol Clear, dan empty state
+  yang membedakan database kosong dengan hasil filter yang tidak ditemukan.
+- Menambah cakupan test menjadi 23 test untuk memeriksa form, validasi, CRUD,
+  keamanan delete, JSON, filter, 404, dan deserialization.
+- Membagi implementasi ke beberapa conventional commit pada feature branch dan
+  menggabungkannya ke `main` melalui pull request.
+
 ## Refleksi Tugas 1
 
 ### 1. Pada Tutorial dan Tugas 1, Anda diberi kebebasan untuk menentukan tampilan dari website portofolio Anda. Saat Anda merancang struktur HTML yang digunakan, apakah Anda menggunakan elemen semantik HTML5 seperti `section`, `article`, atau `aside`? Jika iya, bagaimana elemen tersebut membantu Anda dalam membuat static web? Jika tidak, mengapa tanpa elemen tersebut sudah memenuhi kebutuhan desain Anda?
@@ -153,15 +180,27 @@ Menurut pemahaman saya, `makemigrations` dan `migrate` sama-sama berhubungan den
 
 Sementara itu, `migrate` membaca file migration tersebut dan benar-benar menerapkannya ke database aktif. Dalam Tugas 2, setelah saya membuat model `Project`, saya menjalankan `makemigrations` untuk menghasilkan file `0002_project.py`. Setelah memeriksa isi file tersebut, saya menjalankan `migrate` agar tabel untuk model `Project` dibuat di database lokal. Jadi, saya memahami `makemigrations` sebagai tahap menyiapkan instruksi perubahan, sedangkan `migrate` adalah tahap menjalankan instruksi tersebut pada database.
 
+## Refleksi Tugas 3
+
+### 1. Mengapa kita menggunakan ModelForm pada Django alih-alih membuat form HTML secara manual? Mengapa kita wajib menambahkan `{% csrf_token %}` pada form tersebut?
+
+`ModelForm` membuat form tetap terhubung dengan model sehingga field, tipe data, dan validasi dasar tidak perlu ditulis ulang secara manual. Pada `ExperienceForm`, saya hanya memasukkan field yang boleh diisi pengguna dan menambahkan validasi tanggal melalui `clean()`. Form yang sama juga dapat digunakan untuk create dan update dengan memberikan `instance=experience`. Sementara itu, `{% csrf_token %}` melindungi request POST dari website lain yang mencoba mengirim request atas nama pengguna. Jadi, `ModelForm` mengatur data dan validasi, sedangkan CSRF token melindungi proses pengirimannya.
+
+### 2. Mengapa JSON lebih disukai dalam pengembangan aplikasi web modern dibandingkan XML?
+
+JSON lebih sering digunakan karena strukturnya ringkas, mudah dibaca, dan dekat dengan object JavaScript maupun dictionary Python. Dibandingkan XML yang menggunakan tag pembuka dan penutup, JSON biasanya menghasilkan payload yang lebih sederhana untuk kebutuhan API. Dukungan JSON juga sudah tersedia luas pada browser dan framework seperti Django. Namun, XML bukan berarti tidak berguna karena masih cocok untuk data dengan namespace, schema ketat, atau struktur dokumen kompleks. Untuk data Experience yang berbentuk record sederhana, JSON lebih sesuai dengan kebutuhan proyek saya.
+
+### 3. Jelaskan alur yang terjadi saat fungsi view mengembalikan data portofolio dalam bentuk JSON. Mengapa model Django perlu melalui serialization terlebih dahulu?
+
+Request ke `/api/experiences/` diarahkan ke `get_experiences_json`. View tersebut mengambil QuerySet melalui `_get_filtered_experiences()`, lalu mengubahnya menjadi JSON menggunakan `serializers.serialize()`. Hasilnya dikirim lewat `HttpResponse` dengan content type JSON. Serialization diperlukan karena QuerySet dan model Django adalah object Python yang tidak dapat langsung dikirim melalui HTTP. Pada halaman Experience, JSON tersebut di-decode, di-deserialize kembali menjadi object Experience, dimasukkan ke context sebagai `experience_list`, lalu ditampilkan oleh template. Helper filter yang sama dipakai oleh JSON dan halaman HTML supaya hasil keduanya tetap konsisten.
+
 ## AI Disclosure
 
-Selama mengerjakan Tutorial, Tugas 1, dan Tugas 2, saya memakai OpenAI Codex sebagai tutor dan coding assistant. AI membantu saya memahami konsep yang baru dipakai, merencanakan workflow Git, membagi pekerjaan menjadi beberapa commit, membaca error, serta memeriksa kode dan dokumentasi yang saya buat. Pada Tugas 2, saya juga memakainya untuk berdiskusi tentang alur MVT, model dan migration, routing, template inheritance, testing, serta pengembangan halaman Projects.
+Selama mengerjakan Tutorial sampai Tugas 3, saya memakai OpenAI Codex sebagai tutor dan coding assistant. AI membantu saya memahami konsep yang baru dipakai, merencanakan workflow Git, membagi pengerjaan menjadi beberapa module dan commit, membaca error, serta memeriksa dokumentasi. Pada Tugas 3, saya lebih banyak memakainya untuk bertanya tentang `ModelForm`, CSRF, serialization, deserialization, testing, dan membantu merapikan jawaban refleksi.
 
-Saat memberi prompt, saya menyertakan rubrik tugas, source code terbaru, CV, screenshot website, dan referensi visual yang saya sukai. Saya biasanya meminta penjelasan tentang letak perubahan, fungsi kode baru, dan alasan kode tersebut diperlukan sebelum melanjutkan. Sebagian besar langkah saya kerjakan sendiri mengikuti arahan tersebut. AI juga membantu mengedit beberapa bagian HTML dan CSS, memperbaiki style yang terduplikasi, membuat test, serta mencari beberapa alternatif visual yang kemudian saya pilih dan sesuaikan lagi.
+Saat memberi prompt, saya biasanya menyertakan rubrik, source code terbaru, error yang muncul, screenshot, atau referensi visual yang saya suka. Saya juga meminta penjelasan tentang letak perubahan dan fungsi kode baru sebelum melanjutkan. Sebagian besar langkah tetap saya kerjakan sendiri mengikuti arahan tersebut. AI sesekali membantu merapikan potongan HTML, CSS, atau test ketika ada masalah, tetapi keputusan tentang fitur, desain, dan hasil akhirnya tetap saya tentukan sendiri setelah mencobanya.
 
-Saya tidak langsung memakai semua saran dari AI. Pada Tugas 1, saya sempat memilih route rail dan Skills sebagai section tersendiri. Setelah struktur website berubah menjadi multi-page pada Tugas 2, saya memutuskan untuk menghapus keduanya karena terasa terlalu mengikuti template awal dan membuat navigasi menjadi berulang. Saya juga memilih sendiri desain homepage yang lebih singkat, project browser yang dapat dipilih, warna warm-brown, panel navy pada About, dan cloudscape sebagai background tipis. Jadi, hasil akhirnya beberapa kali berubah dari rancangan awal setelah saya mencoba langsung tampilannya.
-
-AI juga memiliki keterbatasan dan terkadang memberikan saran yang belum tentu cocok dengan kondisi proyek. Contohnya, penggunaan `:target` dan `:has()` untuk route rail tidak dapat mengikuti posisi scroll secara akurat. AI juga sempat membutuhkan koreksi setelah ada pengumuman versi Django 5.2 dan perbedaan database lokal dengan database PWS. Karena itu, saya tetap memeriksa tutorial, mencoba hasilnya di browser, membaca kembali diff Git, dan menguji proyek menggunakan `python manage.py check`, `python manage.py test`, serta `git diff --check`. Seluruh 11 test juga saya pastikan lulus. Bagi saya, AI berfungsi sebagai teman diskusi dan alat bantu, bukan sebagai pengganti pemahaman, pengujian, dan keputusan saya sendiri.
+Saya tidak langsung memakai semua saran AI karena beberapa di antaranya belum tentu cocok dengan kondisi proyek. Contohnya, saya menghapus route rail dan Skills setelah merasa keduanya tidak cocok dengan struktur website yang baru. Pada Tugas 3 juga sempat ada test yang terduplikasi ketika perubahan saya dan AI bertumpuk. Karena itu, saya tetap membaca diff dan memeriksa hasilnya menggunakan `python manage.py check`, `python manage.py test`, serta `git diff --check`. Seluruh 23 test berhasil dijalankan.
 
 Contoh prompt dan cara saya memakai hasilnya dapat dilihat pada
 [AI Prompt Log](docs/ai-prompt-log.md).
