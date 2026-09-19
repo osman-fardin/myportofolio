@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     create_experience,
     create_project,
+    delete_experience,
     delete_project,
     get_projects_json,
     show_experience,
@@ -27,6 +28,11 @@ urlpatterns = [
         'experience/<uuid:experience_id>/edit/',
         update_experience,
         name='update_experience',
+    ),
+    path(
+        'experience/<uuid:experience_id>/delete/',
+        delete_experience,
+        name='delete_experience',
     ),
     path('projects/', show_projects, name='show_projects'),
     path('projects/add/', create_project, name='create_project'),

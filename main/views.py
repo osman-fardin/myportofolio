@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.core import serializers
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from .forms import ExperienceForm, ProjectForm
 from .models import Experience, Project
@@ -100,6 +101,22 @@ def update_experience(request, experience_id):
     }
 
     return render(request, 'experience_form.html', context)
+
+
+@require_POST
+def delete_experience(request, experience_id):
+    experience = get_object_or_404(
+        Experience,
+        pk=experience_id,
+    )
+    experience.delete()
+
+    messages.success(
+        request,
+        'Experience deleted successfully.',
+    )
+
+    return redirect('main:show_experience')
 
 
 def show_projects(request):
