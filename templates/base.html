@@ -55,6 +55,27 @@
                             <span>05</span>
                             Contact
                         </a>
+                        {% if user.is_authenticated %}
+                            <p class="menu-account">
+                                Signed in as
+                                <strong>{{ user.username }}</strong>
+                            </p>
+
+                            <a href="{% url 'main:logout' %}">
+                                <span>06</span>
+                                Logout
+                            </a>
+                        {% else %}
+                            <a href="{% url 'main:login' %}">
+                                <span>06</span>
+                                Login
+                            </a>
+
+                            <a href="{% url 'main:register' %}">
+                                <span>07</span>
+                                Register
+                            </a>
+                        {% endif %}
                     </nav>
                 </div>
             </details>

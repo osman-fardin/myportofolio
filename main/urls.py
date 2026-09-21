@@ -7,6 +7,9 @@ from .views import (
     delete_project,
     get_experiences_json,
     get_projects_json,
+    login_user,
+    logout_user,
+    register,
     show_experience,
     show_main,
     show_project_detail,
@@ -19,6 +22,9 @@ app_name = 'main'
 
 urlpatterns = [
     path('', show_main, name='show_main'),
+    path('login/', login_user, name='login'),
+    path('logout/', logout_user, name='logout'),
+    path('register/', register, name='register'),
     path('experience/', show_experience, name='show_experience'),
     path(
         'experience/add/',
