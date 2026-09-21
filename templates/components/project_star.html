@@ -1,0 +1,20 @@
+{% if user.is_authenticated %}
+    <form
+        method="post"
+        action="{% url 'main:toggle_project_star' project.id %}"
+        class="project-star-form"
+    >
+        {% csrf_token %}
+        <button
+            type="submit"
+            class="project-star-button"
+            aria-pressed="{% if user in project.starred_by.all %}true{% else %}false{% endif %}"
+        >
+            <span aria-hidden="true">&#9733;</span>
+            {% if user in project.starred_by.all %}Starred{% else %}Star{% endif %}
+            <span class="project-star-count">{{ project.starred_by.count }}</span>
+        </button>
+    </form>
+{% else %}
+    <a href="{% url 'main:login' %}">Log in to star</a>
+{% endif %}

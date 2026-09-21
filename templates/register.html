@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Register | {{ name }}{% endblock %}
+
+{% block body_class %}project-form-page{% endblock %}
+
+{% block content %}
+    <section
+        class="project-form-section"
+        aria-labelledby="register-title"
+    >
+        <div class="container project-form-inner">
+            <header class="project-form-header">
+                <p class="section-kicker">Create an account</p>
+                <h1 id="register-title">Register</h1>
+                <p>
+                    Create an account to interact with this portfolio.
+                </p>
+            </header>
+
+            <form
+                method="post"
+                action="{% url 'main:register' %}"
+                class="project-form"
+            >
+                {% csrf_token %}
+
+                {% for error in form.non_field_errors %}
+                    <p class="form-error">{{ error }}</p>
+                {% endfor %}
+
+                {% for field in form %}
+                    <div class="form-group">
+                        <label for="{{ field.id_for_label }}">
+                            {{ field.label }}
+                        </label>
+
+                        {{ field }}
+
+                        {% if field.help_text %}
+                            <div class="form-help">
+                                {{ field.help_text }}
+                            </div>
+                        {% endif %}
+
+                        {% for error in field.errors %}
+                            <p class="form-error">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+
+                <div class="project-form-actions">
+                    <button type="submit">Register</button>
+                </div>
+            </form>
+
+            <p>
+                Already have an account?
+                <a href="{% url 'main:login' %}">Log in here</a>.
+            </p>
+        </div>
+    </section>
+{% endblock %}

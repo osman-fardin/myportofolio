@@ -1,5 +1,6 @@
 import uuid
 
+from django.conf import settings
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
@@ -62,6 +63,11 @@ class Project(models.Model):
     live_url = models.URLField()
     source_url = models.URLField(blank=True)
     display_order = models.PositiveSmallIntegerField(default=0)
+    starred_by = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name='starred_projects',
+        blank=True,
+    )
 
     class Meta:
         ordering = ['display_order', 'title']

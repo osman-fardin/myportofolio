@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Login | {{ name }}{% endblock %}
+
+{% block body_class %}project-form-page{% endblock %}
+
+{% block content %}
+    <section
+        class="project-form-section"
+        aria-labelledby="login-title"
+    >
+        <div class="container project-form-inner">
+            <header class="project-form-header">
+                <p class="section-kicker">Welcome back</p>
+                <h1 id="login-title">Login</h1>
+                <p>
+                    Sign in to interact with this portfolio.
+                </p>
+            </header>
+
+            <form
+                method="post"
+                action="{% url 'main:login' %}"
+                class="project-form"
+            >
+                {% csrf_token %}
+
+                {% for field in form %}
+                    <div class="form-group">
+                        <label for="{{ field.id_for_label }}">
+                            {{ field.label }}
+                        </label>
+
+                        {{ field }}
+
+                        {% for error in field.errors %}
+                            <p class="form-error">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+
+                {% for error in form.non_field_errors %}
+                    <p class="form-error">{{ error }}</p>
+                {% endfor %}
+
+                <div class="project-form-actions">
+                    <button type="submit">Login</button>
+                </div>
+            </form>
+
+            <p>
+                Do not have an account yet?
+                <a href="{% url 'main:register' %}">
+                    Register here
+                </a>.
+            </p>
+        </div>
+    </section>
+{% endblock %}

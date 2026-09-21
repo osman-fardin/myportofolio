@@ -204,6 +204,16 @@ body:has(.site-menu[open]) {
     font-size: 0.75rem;
 }
 
+.menu-account {
+    margin: 1.25rem 0 0.25rem;
+    color: var(--cloud-soft);
+    font-size: 0.82rem;
+}
+
+.menu-account strong {
+    color: var(--surface);
+}
+
 @media (hover: hover) and (pointer: fine) {
     .menu-navigation a:hover {
         color: var(--cloud-soft);
@@ -1036,6 +1046,32 @@ body:has(.site-menu[open]) {
     border-color: var(--surface);
 }
 
+.project-star-button {
+    display: inline-flex;
+    min-height: 42px;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.55rem 0.9rem;
+    color: var(--surface);
+    background-color: transparent;
+    border: 1px solid rgb(255 255 255 / 48%);
+    border-radius: var(--radius);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.project-star-button[aria-pressed="true"] {
+    background-color: var(--copper);
+    border-color: var(--copper);
+}
+
+.project-star-count {
+    color: var(--cloud-soft);
+    font-size: 0.75rem;
+}
+
 .project-delete-trigger {
     min-height: 42px;
     padding: 0.55rem 0.9rem;
@@ -1232,6 +1268,17 @@ body:has(.site-menu[open]) {
     border-color: var(--cloud);
     outline: 2px solid rgb(82 111 122 / 18%);
     outline-offset: 2px;
+}
+
+.form-help {
+    margin-top: 0.45rem;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    line-height: 1.5;
+}
+
+.form-help ul {
+    padding-left: 1.1rem;
 }
 
 .form-error {

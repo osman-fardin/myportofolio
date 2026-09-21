@@ -2,6 +2,7 @@ import json
 import uuid
 from datetime import timedelta
 
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -489,3 +490,226 @@ class ProjectPageTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 404)
+
+
+class ProjectAccessTests(TestCase):
+    def test_guest_is_redirected_from_create_form(self):
+        url = reverse('main:create_project')
+
+        response = self.client.get(url)
+
+        self.assertRedirects(
+            response,
+            f"{reverse('main:login')}?next={url}",
+            fetch_redirect_response=False,
+        )
+
+    def test_regular_user_cannot_open_create_form(self):
+        user = get_user_model().objects.create_user(
+            username='regular_user',
+            password='test-password',
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(reverse('main:create_project'))
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_superuser_can_open_create_form(self):
+        admin = get_user_model().objects.create_superuser(
+            username='portfolio_owner',
+            email='owner@example.com',
+            password='test-password',
+        )
+        self.client.force_login(admin)
+
+        response = self.client.get(reverse('main:create_project'))
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_regular_user_cannot_delete_project(self):
+        project = Project.objects.create(
+            title='Protected Project',
+            project_type='Web App',
+            role='Developer',
+            description='This project must remain.',
+            technologies='Django',
+            live_url='https://example.com/',
+        )
+        user = get_user_model().objects.create_user(
+            username='regular_user',
+            password='test-password',
+        )
+        self.client.force_login(user)
+
+        response = self.client.post(
+            reverse('main:delete_project', args=[project.id])
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(Project.objects.filter(pk=project.pk).exists())
+
+    def test_superuser_can_delete_project(self):
+        project = Project.objects.create(
+            title='Project to Delete',
+            project_type='Web App',
+            role='Developer',
+            description='Temporary test project.',
+            technologies='Django',
+            live_url='https://example.com/',
+        )
+        admin = get_user_model().objects.create_superuser(
+            username='portfolio_owner',
+            email='owner@example.com',
+            password='test-password',
+        )
+        self.client.force_login(admin)
+
+        response = self.client.post(
+            reverse('main:delete_project', args=[project.id])
+        )
+
+        self.assertRedirects(response, reverse('main:show_projects'))
+        self.assertFalse(Project.objects.filter(pk=project.pk).exists())
+
+
+class ProjectStarTests(TestCase):
+    def setUp(self):
+        self.project = Project.objects.create(
+            title='Fasilkom Study Hub',
+            project_type='Web App',
+            role='Developer',
+            description='Study resources for students.',
+            technologies='Django',
+            live_url='https://example.com/',
+        )
+        user_model = get_user_model()
+        self.alice = user_model.objects.create_user(
+            username='alice',
+            password='test-password',
+        )
+        self.bob = user_model.objects.create_user(
+            username='bob',
+            password='test-password',
+        )
+        self.star_url = reverse(
+            'main:toggle_project_star',
+            args=[self.project.id],
+        )
+        self.detail_url = self.project.get_absolute_url()
+
+    def test_guest_cannot_star_project(self):
+        response = self.client.post(self.star_url)
+
+        self.assertRedirects(
+            response,
+            f"{reverse('main:login')}?next={self.star_url}",
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(self.project.starred_by.count(), 0)
+
+    def test_get_does_not_change_stars(self):
+        self.client.force_login(self.alice)
+
+        response = self.client.get(self.star_url)
+
+        self.assertEqual(response.status_code, 405)
+        self.assertEqual(self.project.starred_by.count(), 0)
+
+    def test_post_toggles_star_and_button_state(self):
+        self.client.force_login(self.alice)
+
+        response = self.client.post(self.star_url)
+
+        self.assertRedirects(response, self.detail_url)
+        self.assertTrue(
+            self.project.starred_by.filter(pk=self.alice.pk).exists()
+        )
+        self.assertContains(
+            self.client.get(self.detail_url),
+            'aria-pressed="true"',
+        )
+
+        response = self.client.post(self.star_url)
+
+        self.assertRedirects(response, self.detail_url)
+        self.assertEqual(self.project.starred_by.count(), 0)
+        self.assertContains(
+            self.client.get(self.detail_url),
+            'aria-pressed="false"',
+        )
+
+    def test_stars_are_independent_per_user(self):
+        self.client.force_login(self.alice)
+        self.client.post(self.star_url)
+
+        self.client.force_login(self.bob)
+        self.assertContains(
+            self.client.get(self.detail_url),
+            'aria-pressed="false"',
+        )
+        self.client.post(self.star_url)
+        self.assertEqual(self.project.starred_by.count(), 2)
+
+        self.client.force_login(self.alice)
+        self.client.post(self.star_url)
+
+        self.assertFalse(
+            self.project.starred_by.filter(pk=self.alice.pk).exists()
+        )
+        self.assertTrue(
+            self.project.starred_by.filter(pk=self.bob.pk).exists()
+        )
+        self.assertEqual(self.project.starred_by.count(), 1)
+
+    def test_project_api_uses_usernames_for_stars(self):
+        self.project.starred_by.add(self.alice, self.bob)
+
+        response = self.client.get(reverse('main:get_projects_json'))
+        projects = json.loads(response.content)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertCountEqual(
+            projects[0]['fields']['starred_by'],
+            [['alice'], ['bob']],
+        )
+
+
+class AuthenticationCookieTests(TestCase):
+    def test_login_sets_and_logout_deletes_last_login_cookie(self):
+        get_user_model().objects.create_user(
+            username='cookie_user',
+            password='test-password',
+        )
+
+        login_response = self.client.post(
+            reverse('main:login'),
+            {
+                'username': 'cookie_user',
+                'password': 'test-password',
+            },
+        )
+
+        self.assertRedirects(login_response, reverse('main:show_main'))
+        last_login = login_response.cookies['last_login'].value
+        self.assertRegex(
+            last_login,
+            r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$',
+        )
+        self.assertEqual(
+            self.client.get(reverse('main:show_main')).context['last_login'],
+            last_login,
+        )
+
+        logout_response = self.client.get(reverse('main:logout'))
+
+        self.assertRedirects(logout_response, reverse('main:show_main'))
+        self.assertEqual(logout_response.cookies['last_login'].value, '')
+        self.assertEqual(
+            logout_response.cookies['last_login']['max-age'],
+            0,
+        )
+        self.assertEqual(
+            self.client.get(reverse('main:show_main')).context['last_login'],
+            'No login session recorded',
+        )
