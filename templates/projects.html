@@ -126,6 +126,7 @@
                                             Source
                                         </a>
                                     {% endif %}
+                                    {% include 'components/project_star.html' with project=selected_project %}
                                     {% if user.is_superuser %}
                                         {% include 'components/project_delete_modal.html' with project=selected_project %}
                                     {% endif %}

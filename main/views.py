@@ -339,3 +339,16 @@ def show_project_detail(request, project_id):
     }
 
     return render(request, 'projects.html', context)
+
+
+@login_required(login_url='/login/')
+@require_POST
+def toggle_project_star(request, project_id):
+    project = get_object_or_404(Project, pk=project_id)
+
+    if project.starred_by.filter(pk=request.user.pk).exists():
+        project.starred_by.remove(request.user)
+    else:
+        project.starred_by.add(request.user)
+
+    return redirect('main:show_project_detail', project_id=project.id)

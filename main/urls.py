@@ -15,6 +15,7 @@ from .views import (
     show_project_detail,
     show_projects,
     update_experience,
+    toggle_project_star,
 )
 
 
@@ -52,6 +53,11 @@ urlpatterns = [
         'projects/<uuid:project_id>/',
         show_project_detail,
         name='show_project_detail',
+    ),
+    path(
+        'projects/<uuid:project_id>/star/',
+        toggle_project_star,
+        name='toggle_project_star',
     ),
     path(
         'api/projects/',
