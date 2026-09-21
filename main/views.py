@@ -2,8 +2,10 @@ import datetime
 
 from django.contrib import messages
 from django.contrib.auth import login, logout
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.core import serializers
+from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -289,7 +291,11 @@ def get_projects_json(request):
     )
 
 
+@login_required(login_url='/login/')
 def create_project(request):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+
     if request.method == 'POST':
         form = ProjectForm(request.POST)
 
@@ -309,7 +315,11 @@ def create_project(request):
     return render(request, 'projects_form.html', context)
 
 
+@login_required(login_url='/login/')
 def delete_project(request, project_id):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+
     project = get_object_or_404(Project, pk=project_id)
 
     if request.method == 'POST':

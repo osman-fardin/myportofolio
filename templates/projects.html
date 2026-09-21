@@ -20,12 +20,14 @@
                 </p>
             </div>
 
-            <a
-                class="project-add-link"
-                href="{% url 'main:create_project' %}"
-            >
-                Add project
-            </a>
+            {% if user.is_superuser %}
+                <a
+                    class="project-add-link"
+                    href="{% url 'main:create_project' %}"
+                >
+                    Add project
+                </a>
+            {% endif %}
 
             <form
                 method="get"
@@ -124,7 +126,9 @@
                                             Source
                                         </a>
                                     {% endif %}
-                                    {% include 'components/project_delete_modal.html' with project=selected_project %}
+                                    {% if user.is_superuser %}
+                                        {% include 'components/project_delete_modal.html' with project=selected_project %}
+                                    {% endif %}
                                 </div>
                             </article>
                         {% else %}
