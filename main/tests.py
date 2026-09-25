@@ -811,6 +811,128 @@ class ProjectStarTests(TestCase):
         self.assertNotIn('starred_by', project_fields)
 
 
+class PersonalStarredProjectFilterTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.alice = user_model.objects.create_user(
+            username='alice_filter',
+            password='test-password',
+        )
+        self.bob = user_model.objects.create_user(
+            username='bob_filter',
+            password='test-password',
+        )
+
+        self.cloud_project = Project.objects.create(
+            title='Cloud Security Dashboard',
+            project_type='Web App',
+            role='Developer',
+            description='Cloud security monitoring.',
+            technologies='Django',
+            live_url='https://example.com/cloud/',
+        )
+        self.study_project = Project.objects.create(
+            title='Student Study Hub',
+            project_type='Web App',
+            role='Developer',
+            description='Student learning resources.',
+            technologies='Django',
+            live_url='https://example.com/study/',
+        )
+        self.bob_project = Project.objects.create(
+            title='Bob Personal Project',
+            project_type='Web App',
+            role='Developer',
+            description='A project starred only by Bob.',
+            technologies='Django',
+            live_url='https://example.com/bob/',
+        )
+
+        self.cloud_project.starred_by.add(self.alice)
+        self.study_project.starred_by.add(self.alice)
+        self.bob_project.starred_by.add(self.bob)
+
+        self.projects_url = reverse('main:show_projects')
+
+    def test_user_sees_only_personal_starred_projects(self):
+        self.client.force_login(self.alice)
+
+        response = self.client.get(
+            self.projects_url,
+            {'starred': 'mine'},
+        )
+        project_ids = {
+            project.id
+            for project in response.context['project_list']
+        }
+
+        self.assertSetEqual(
+            project_ids,
+            {
+                self.cloud_project.id,
+                self.study_project.id,
+            },
+        )
+        self.assertNotIn(self.bob_project.id, project_ids)
+
+    def test_personal_filter_combines_with_title_search(self):
+        self.client.force_login(self.alice)
+
+        response = self.client.get(
+            self.projects_url,
+            {
+                'starred': 'mine',
+                'title': 'cloud',
+            },
+        )
+        projects = response.context['project_list']
+
+        self.assertEqual(len(projects), 1)
+        self.assertEqual(projects[0].id, self.cloud_project.id)
+
+    def test_personal_filter_is_isolated_between_users(self):
+        self.client.force_login(self.bob)
+
+        response = self.client.get(
+            self.projects_url,
+            {'starred': 'mine'},
+        )
+        project_ids = {
+            project.id
+            for project in response.context['project_list']
+        }
+
+        self.assertSetEqual(
+            project_ids,
+            {self.bob_project.id},
+        )
+
+    def test_guest_cannot_view_a_personal_collection(self):
+        response = self.client.get(
+            self.projects_url,
+            {'starred': 'mine'},
+        )
+
+        self.assertEqual(response.context['project_list'], [])
+        self.assertNotContains(response, 'name="starred"')
+
+    def test_empty_personal_collection_has_clear_feedback(self):
+        self.client.force_login(self.alice)
+        self.cloud_project.starred_by.remove(self.alice)
+        self.study_project.starred_by.remove(self.alice)
+
+        response = self.client.get(
+            self.projects_url,
+            {'starred': 'mine'},
+        )
+
+        self.assertContains(
+            response,
+            'You have not starred any projects yet.',
+        )
+        self.assertContains(response, 'checked')
+
+
 class ProjectApiPrivacyTests(TestCase):
     def setUp(self):
         self.project = Project.objects.create(
