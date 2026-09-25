@@ -42,7 +42,26 @@
                     class="project-search-input"
                     aria-label="Search projects by title"
                 >
+                {% if user.is_authenticated %}
+                    <label class="project-starred-filter">
+                        <input
+                            type="checkbox"
+                            name="starred"
+                            value="mine"
+                            {% if starred_filter == 'mine' %}checked{% endif %}
+                        >
+                        <span>Starred by me</span>
+                    </label>
+                {% endif %}
                 <button type="submit">Search</button>
+                {% if title_query or starred_filter %}
+                    <a
+                        href="{% url 'main:show_projects' %}"
+                        class="project-filter-clear"
+                    >
+                        Clear
+                    </a>
+                {% endif %}
             </form>
 
             {% if project_list %}
