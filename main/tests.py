@@ -798,16 +798,91 @@ class ProjectStarTests(TestCase):
         )
         self.assertEqual(self.project.starred_by.count(), 1)
 
-    def test_project_api_uses_usernames_for_stars(self):
+    def test_project_api_hides_starred_user_identities(self):
         self.project.starred_by.add(self.alice, self.bob)
 
-        response = self.client.get(reverse('main:get_projects_json'))
+        response = self.client.get(
+            reverse('main:get_projects_json')
+        )
         projects = json.loads(response.content)
+        project_fields = projects[0]['fields']
 
         self.assertEqual(response.status_code, 200)
-        self.assertCountEqual(
-            projects[0]['fields']['starred_by'],
-            [['alice'], ['bob']],
+        self.assertNotIn('starred_by', project_fields)
+
+
+class ProjectApiPrivacyTests(TestCase):
+    def setUp(self):
+        self.project = Project.objects.create(
+            title='Cloud Security Dashboard',
+            project_type='Web App',
+            role='Developer',
+            description='A security monitoring dashboard.',
+            technologies='Django\nPostgreSQL',
+            live_url='https://example.com/cloud/',
+        )
+        self.other_project = Project.objects.create(
+            title='Student Study Hub',
+            project_type='Web App',
+            role='Developer',
+            description='A study resource platform.',
+            technologies='Django',
+            live_url='https://example.com/study/',
+        )
+        self.user = get_user_model().objects.create_user(
+            username='private_user',
+            email='private@example.com',
+            password='private-password',
+        )
+        self.project.starred_by.add(self.user)
+        self.api_url = reverse('main:get_projects_json')
+
+    def test_project_api_only_contains_public_fields(self):
+        response = self.client.get(self.api_url)
+        projects = response.json()
+
+        expected_fields = {
+            'title',
+            'project_type',
+            'role',
+            'description',
+            'technologies',
+            'thumbnail_path',
+            'live_url',
+            'source_url',
+            'display_order',
+        }
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.headers['Content-Type'],
+            'application/json',
+        )
+        self.assertEqual(
+            set(projects[0]['fields']),
+            expected_fields,
+        )
+
+    def test_project_api_does_not_expose_account_data(self):
+        response = self.client.get(self.api_url)
+
+        self.assertNotContains(response, 'starred_by')
+        self.assertNotContains(response, self.user.username)
+        self.assertNotContains(response, self.user.email)
+        self.assertNotContains(response, 'private-password')
+
+    def test_project_api_keeps_title_filter(self):
+        response = self.client.get(
+            self.api_url,
+            {'title': 'cloud'},
+        )
+        projects = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(projects), 1)
+        self.assertEqual(
+            projects[0]['fields']['title'],
+            self.project.title,
         )
 
 
