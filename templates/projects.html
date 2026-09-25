@@ -172,7 +172,11 @@
                 </div>
             {% else %}
                 <p class="project-empty">
-                    {% if title_query %}
+                    {% if starred_filter == 'mine' and title_query %}
+                        No starred projects match “{{ title_query }}”.
+                    {% elif starred_filter == 'mine' %}
+                        You have not starred any projects yet.
+                    {% elif title_query %}
                         No projects match “{{ title_query }}”.
                     {% else %}
                         No projects have been added yet.
