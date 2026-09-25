@@ -14,6 +14,19 @@ from .forms import ExperienceForm, ProjectForm
 from .models import Experience, Project
 
 
+PROJECT_API_FIELDS = (
+    'title',
+    'project_type',
+    'role',
+    'description',
+    'technologies',
+    'thumbnail_path',
+    'live_url',
+    'source_url',
+    'display_order',
+)
+
+
 def show_main(request):
     last_login = (
         request.COOKIES.get('last_login')
@@ -286,7 +299,7 @@ def get_projects_json(request):
     projects_json = serializers.serialize(
         'json',
         projects,
-        use_natural_foreign_keys=True,
+        fields=PROJECT_API_FIELDS,
     )
 
     return HttpResponse(

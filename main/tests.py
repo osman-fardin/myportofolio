@@ -798,17 +798,17 @@ class ProjectStarTests(TestCase):
         )
         self.assertEqual(self.project.starred_by.count(), 1)
 
-    def test_project_api_uses_usernames_for_stars(self):
+    def test_project_api_hides_starred_user_identities(self):
         self.project.starred_by.add(self.alice, self.bob)
 
-        response = self.client.get(reverse('main:get_projects_json'))
+        response = self.client.get(
+            reverse('main:get_projects_json')
+        )
         projects = json.loads(response.content)
+        project_fields = projects[0]['fields']
 
         self.assertEqual(response.status_code, 200)
-        self.assertCountEqual(
-            projects[0]['fields']['starred_by'],
-            [['alice'], ['bob']],
-        )
+        self.assertNotIn('starred_by', project_fields)
 
 
 class AuthenticationCookieTests(TestCase):
