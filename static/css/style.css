@@ -802,7 +802,9 @@ body:has(.site-menu[open]) {
 
 .project-search {
     display: flex;
-    max-width: 560px;
+    max-width: 820px;
+    align-items: center;
+    flex-wrap: wrap;
     gap: 0.65rem;
     margin-bottom: 2rem;
 }
@@ -837,6 +839,45 @@ body:has(.site-menu[open]) {
     font: inherit;
     font-size: 0.82rem;
     font-weight: 700;
+}
+
+.project-starred-filter {
+    display: inline-flex;
+    min-height: 42px;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.75rem;
+    color: var(--cloud-soft);
+    background-color: rgb(255 255 255 / 8%);
+    border: 1px solid rgb(255 255 255 / 28%);
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.project-starred-filter input {
+    width: 1rem;
+    height: 1rem;
+    accent-color: var(--copper);
+}
+
+.project-filter-clear {
+    display: inline-flex;
+    min-height: 42px;
+    align-items: center;
+    color: var(--cloud-soft);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.25rem;
+}
+
+.project-search button:focus-visible,
+.project-starred-filter input:focus-visible {
+    outline: 2px solid var(--surface);
+    outline-offset: 3px;
 }
 
 .project-browser {
