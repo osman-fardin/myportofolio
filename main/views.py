@@ -314,6 +314,48 @@ def create_project(request):
         'name': 'Muhammad Osman Fardin',
         'display_name': 'Muhammad Osman Fardin',
         'form': form,
+        'form_kicker': 'New project',
+        'form_title': 'Add a project',
+        'form_description': 'Add a project to the portfolio database.',
+        'submit_label': 'Add project',
+    }
+
+    return render(request, 'projects_form.html', context)
+
+
+@login_required(login_url='/login/')
+def update_project(request, project_id):
+    if not request.user.has_perm('main.change_project'):
+        raise PermissionDenied
+
+    project = get_object_or_404(Project, pk=project_id)
+
+    if request.method == 'POST':
+        form = ProjectForm(
+            request.POST,
+            instance=project,
+        )
+
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Project updated successfully.')
+            return redirect(
+                'main:show_project_detail',
+                project_id=project.id,
+            )
+    else:
+        form = ProjectForm(instance=project)
+
+    context = {
+        'name': 'Muhammad Osman Fardin',
+        'display_name': 'Muhammad Osman Fardin',
+        'form': form,
+        'form_kicker': 'Update project',
+        'form_title': 'Edit project',
+        'form_description': (
+            'Update the project information shown in the portfolio.'
+        ),
+        'submit_label': 'Save changes',
     }
 
     return render(request, 'projects_form.html', context)

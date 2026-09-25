@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block page_title %}Add Project | {{ name }}{% endblock %}
+{% block page_title %}{{ form_title }} | {{ name }}{% endblock %}
 
 {% block body_class %}project-form-page{% endblock %}
 
@@ -11,16 +11,13 @@
     >
         <div class="container project-form-inner">
             <header class="project-form-header">
-                <p class="section-kicker">New project</p>
-                <h1 id="project-form-title">Add a project</h1>
-                <p>
-                    Add a project to the portfolio database.
-                </p>
+                <p class="section-kicker">{{ form_kicker }}</p>
+                <h1 id="project-form-title">{{ form_title }}</h1>
+                <p>{{ form_description }}</p>
             </header>
 
             <form
                 method="post"
-                action="{% url 'main:create_project' %}"
                 class="project-form"
             >
                 {% csrf_token %}
@@ -40,7 +37,7 @@
                 {% endfor %}
 
                 <div class="project-form-actions">
-                    <button type="submit">Add project</button>
+                    <button type="submit">{{ submit_label }}</button>
                     <a href="{% url 'main:show_projects' %}">
                         Cancel
                     </a>

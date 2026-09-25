@@ -2,6 +2,7 @@ import json
 import uuid
 from datetime import timedelta
 
+from django.contrib.auth.models import Group, Permission
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -9,6 +10,7 @@ from django.utils import timezone
 
 from .forms import ExperienceForm
 from .models import Experience, Project
+
 
 
 class MainTest(TestCase):
@@ -571,6 +573,140 @@ class ProjectAccessTests(TestCase):
 
         self.assertRedirects(response, reverse('main:show_projects'))
         self.assertFalse(Project.objects.filter(pk=project.pk).exists())
+
+
+class ProjectUpdatePermissionTests(TestCase):
+    def setUp(self):
+        self.project = Project.objects.create(
+            title='Editable Project',
+            project_type='Web App',
+            role='Developer',
+            description='Original description.',
+            technologies='Django',
+            live_url='https://example.com/',
+        )
+        self.update_url = reverse(
+            'main:update_project',
+            args=[self.project.id],
+        )
+
+        user_model = get_user_model()
+
+        self.regular_user = user_model.objects.create_user(
+            username='regular_user',
+            password='test-password',
+        )
+        self.editor = user_model.objects.create_user(
+            username='project_editor',
+            password='test-password',
+        )
+        self.superuser = user_model.objects.create_superuser(
+            username='portfolio_owner',
+            email='owner@example.com',
+            password='test-password',
+        )
+
+        editor_group = Group.objects.create(name='Editor')
+        change_permission = Permission.objects.get(
+            content_type__app_label='main',
+            codename='change_project',
+        )
+        editor_group.permissions.add(change_permission)
+        self.editor.groups.add(editor_group)
+
+    def test_guest_is_redirected_from_update_form(self):
+        response = self.client.get(self.update_url)
+
+        self.assertRedirects(
+            response,
+            f"{reverse('main:login')}?next={self.update_url}",
+            fetch_redirect_response=False,
+        )
+
+    def test_regular_user_cannot_open_update_form(self):
+        self.client.force_login(self.regular_user)
+
+        response = self.client.get(self.update_url)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_editor_can_open_update_form(self):
+        self.client.force_login(self.editor)
+
+        response = self.client.get(self.update_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Edit project')
+        self.assertContains(response, self.project.title)
+
+    def test_superuser_can_open_update_form(self):
+        self.client.force_login(self.superuser)
+
+        response = self.client.get(self.update_url)
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_editor_can_update_project(self):
+        self.client.force_login(self.editor)
+
+        response = self.client.post(
+            self.update_url,
+            {
+                'title': 'Updated Project',
+                'project_type': 'Web Platform',
+                'role': 'Lead Developer',
+                'description': 'Updated description.',
+                'technologies': 'Django\nPostgreSQL',
+                'thumbnail_path': '',
+                'live_url': 'https://example.com/updated/',
+                'source_url': '',
+                'display_order': 1,
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse(
+                'main:show_project_detail',
+                args=[self.project.id],
+            ),
+        )
+
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.title, 'Updated Project')
+        self.assertEqual(self.project.role, 'Lead Developer')
+
+
+    def test_editor_cannot_create_or_delete_project(self):
+        self.client.force_login(self.editor)
+
+        create_response = self.client.get(
+            reverse('main:create_project')
+        )
+        delete_response = self.client.post(
+            reverse(
+                'main:delete_project',
+                args=[self.project.id],
+            )
+        )
+
+        self.assertEqual(create_response.status_code, 403)
+        self.assertEqual(delete_response.status_code, 403)
+        self.assertTrue(
+            Project.objects.filter(pk=self.project.pk).exists()
+        )
+
+
+    def test_edit_link_follows_change_permission(self):
+        detail_url = self.project.get_absolute_url()
+
+        self.client.force_login(self.regular_user)
+        regular_response = self.client.get(detail_url)
+        self.assertNotContains(regular_response, self.update_url)
+
+        self.client.force_login(self.editor)
+        editor_response = self.client.get(detail_url)
+        self.assertContains(editor_response, self.update_url)
 
 
 class ProjectStarTests(TestCase):

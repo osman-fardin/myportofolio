@@ -109,6 +109,13 @@
                                 </div>
 
                                 <div class="project-actions">
+                                    {% if perms.main.change_project %}
+                                        <a
+                                            href="{% url 'main:update_project' selected_project.id %}"
+                                        >
+                                            Edit project
+                                        </a>
+                                    {% endif %}
                                     <a
                                         href="{{ selected_project.live_url }}"
                                         target="_blank"
