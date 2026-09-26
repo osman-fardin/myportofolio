@@ -256,11 +256,15 @@ Request ke `/api/experiences/` diarahkan ke `get_experiences_json`. View tersebu
 
 ## AI Disclosure
 
-Selama mengerjakan Tutorial sampai Tugas 3, saya memakai OpenAI Codex sebagai tutor dan coding assistant. AI membantu saya memahami konsep yang baru dipakai, merencanakan workflow Git, membagi pengerjaan menjadi beberapa module dan commit, membaca error, serta memeriksa dokumentasi. Pada Tugas 3, saya lebih banyak memakainya untuk bertanya tentang `ModelForm`, CSRF, serialization, deserialization, testing, dan membantu merapikan jawaban refleksi.
+## AI Disclosure
 
-Saat memberi prompt, saya biasanya menyertakan rubrik, source code terbaru, error yang muncul, screenshot, atau referensi visual yang saya suka. Saya juga meminta penjelasan tentang letak perubahan dan fungsi kode baru sebelum melanjutkan. Sebagian besar langkah tetap saya kerjakan sendiri mengikuti arahan tersebut. AI sesekali membantu merapikan potongan HTML, CSS, atau test ketika ada masalah, tetapi keputusan tentang fitur, desain, dan hasil akhirnya tetap saya tentukan sendiri setelah mencobanya.
+Selama mengerjakan Tutorial sampai Tugas 4, saya memakai OpenAI Codex sebagai tutor dan coding assistant. AI lebih banyak membantu menjelaskan konsep yang baru saya pakai, merencanakan workflow Git, membagi pengerjaan menjadi beberapa module dan commit, membaca error, serta memeriksa hasil test. Pada Tugas 4, saya memakainya untuk memahami Django Group dan Permission, relasi ManyToMany per user, authorization setiap role, dan privacy pada endpoint JSON.
 
-Saya tidak langsung memakai semua saran AI karena beberapa di antaranya belum tentu cocok dengan kondisi proyek. Contohnya, saya menghapus route rail dan Skills setelah merasa keduanya tidak cocok dengan struktur website yang baru. Pada Tugas 3 juga sempat ada test yang terduplikasi ketika perubahan saya dan AI bertumpuk. Karena itu, saya tetap membaca diff dan memeriksa hasilnya menggunakan `python manage.py check`, `python manage.py test`, serta `git diff --check`. Seluruh 23 test berhasil dijalankan.
+Saat memberi prompt, saya biasanya menyertakan rubrik, source code terbaru, error yang muncul, atau hasil command Git. Saya juga meminta penjelasan tentang letak perubahan dan fungsi kode baru sebelum melanjutkan. Sebagian besar langkah tetap saya ketik dan coba sendiri mengikuti arahan tersebut. AI sesekali membantu memperbaiki bagian tertentu ketika saya meminta, tetapi keputusan untuk memakai role Editor, fitur **Starred by me**, pembagian branch, dan hasil akhirnya tetap saya tentukan setelah mencoba fiturnya.
+
+Saya tidak langsung memakai semua saran AI karena hasilnya tetap perlu diperiksa. Contohnya, pada filter personal stars saya sempat salah menempatkan `else` sehingga request biasa menghasilkan QuerySet kosong. AI membantu menunjukkan masalah indentasinya, lalu saya memeriksa kembali alurnya. Test lama juga awalnya masih mengharapkan username pemberi star muncul di JSON, padahal behavior tersebut perlu dihapus untuk menjaga privacy.
+
+Karena itu, saya tetap membaca diff dan memeriksa hasilnya menggunakan `python manage.py check`, `python manage.py makemigrations --check --dry-run`, `python manage.py test`, dan `git diff --check`. Pada akhir implementasi Tugas 4, seluruh 49 automated test berhasil dijalankan.
 
 Contoh prompt dan cara saya memakai hasilnya dapat dilihat pada
 [AI Prompt Log](docs/ai-prompt-log.md).
