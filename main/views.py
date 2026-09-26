@@ -277,6 +277,7 @@ def show_projects(request):
     projects = [project.object for project in projects]
 
     title_query = request.GET.get('title', '').strip()
+    starred_filter = request.GET.get('starred', '').strip()
 
     context = {
         'name': 'Muhammad Osman Fardin',
@@ -284,6 +285,7 @@ def show_projects(request):
         'project_list': projects,
         'selected_project': None,
         'title_query': title_query,
+        'starred_filter': starred_filter,
     }
 
     return render(request, 'projects.html', context)
@@ -291,7 +293,14 @@ def show_projects(request):
 
 def get_projects_json(request):
     title_query = request.GET.get('title', '').strip()
+    starred_filter = request.GET.get('starred', '').strip()
     projects = Project.objects.all()
+
+    if starred_filter == 'mine':
+        if request.user.is_authenticated:
+            projects = projects.filter(starred_by=request.user)
+        else:
+            projects = projects.none()
 
     if title_query:
         projects = projects.filter(title__icontains=title_query)
