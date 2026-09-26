@@ -1,9 +1,9 @@
 # AI Prompt Log
 
 Dokumen ini berisi beberapa contoh prompt yang mewakili penggunaan OpenAI Codex
-selama pengerjaan Tutorial, Tugas 1, Tugas 2, dan Tugas 3. Prompt di bawah diringkas dari
-percakapan asli agar lebih mudah dibaca. Informasi sensitif dan percakapan yang
-tidak berkaitan dengan tugas tidak disertakan.
+selama pengerjaan Tutorial, Tugas 1, Tugas 2, Tugas 3, dan Tugas 4. Prompt di
+bawah diringkas dari percakapan asli agar lebih mudah dibaca. Informasi sensitif
+dan percakapan yang tidak berkaitan dengan tugas tidak disertakan.
 
 ## 1. Memahami Tugas 2
 
@@ -181,6 +181,82 @@ seluruh test tersebut bersama test lama hingga total 23 test berhasil lulus.
 AI membantu menghubungkan pertanyaan refleksi dengan `ExperienceForm`, CSRF,
 endpoint `/api/experiences/`, serta proses serialization dan deserialization.
 Jawabannya kemudian saya ringkas dan sesuaikan lagi dengan gaya README saya.
+
+## 13. Merencanakan Tugas 4
+
+**Prompt:**
+
+> Tolong baca Tugas 4 dulu ya. Aku mau Git history-nya tetap rapi seperti tugas
+> sebelumnya, jadi bantu pecah pengerjaannya menjadi beberapa branch, module,
+> dan commit. Jelasin juga fitur tambahan apa yang masih nyambung dengan materi
+> authentication dan authorization.
+
+**Hasil penggunaan:**
+
+AI membantu merangkum kebutuhan role guest, user biasa, Editor, dan superuser,
+lalu membagi pengerjaan menjadi authorization, API privacy, personal stars,
+testing, dan dokumentasi. Saya memilih fitur **Starred by me** karena masih
+berhubungan langsung dengan user dan relasi ManyToMany.
+
+## 14. Memahami Group dan Permission
+
+**Prompt:**
+
+> Aku masih bingung role Editor ini bagusnya dibuat gimana. Kenapa tidak cukup
+> cek username atau bikin role string sendiri? Jelasin cara kerja Group,
+> `change_project`, `has_perm`, dan `perms` di template pelan-pelan ya.
+
+**Hasil penggunaan:**
+
+AI menjelaskan bahwa permission bawaan Django lebih aman daripada memeriksa
+username atau menyimpan role manual. Saya kemudian memakai
+`main.change_project` pada view dan `perms.main.change_project` pada template,
+sedangkan create dan delete tetap dibatasi untuk superuser.
+
+## 15. Menjaga privacy endpoint JSON
+
+**Prompt:**
+
+> Endpoint JSON Project sekarang masih bisa nampilin username orang yang kasih
+> star. Ini aman atau harus dihapus? Tolong jelasin cara membatasi field yang
+> keluar tanpa merusak filter title dan halaman Projects.
+
+**Hasil penggunaan:**
+
+AI membantu menjelaskan penggunaan allowlist pada serializer. Saya membatasi
+response ke field Project yang memang publik dan memastikan `starred_by`,
+username, serta email tidak ikut dikirim. Filter title tetap diperiksa melalui
+automated test.
+
+## 16. Membuat personal starred projects
+
+**Prompt:**
+
+> Aku mau user yang login bisa lihat project yang dia star sendiri. Bantu
+> jelasin query ManyToMany-nya, cara gabungin dengan search title, empty state,
+> dan test supaya koleksi user A tidak kecampur sama user B.
+
+**Hasil penggunaan:**
+
+AI membantu membagi fitur menjadi backend query, kontrol filter, empty state,
+styling, dan test. Saya menerapkan query `starred_by=request.user`, mencoba
+fiturnya, lalu menambahkan test untuk isolasi antar-user, guest, kombinasi
+pencarian, dan koleksi kosong.
+
+## 17. Memeriksa bug filter
+
+**Prompt:**
+
+> Aku kayaknya salah nulis bagian filter personal stars karena project biasa
+> malah hilang. Tolong cek bagian yang salah, perbaiki hanya bagian itu, terus
+> jelasin aku salahnya di mana.
+
+**Hasil penggunaan:**
+
+AI membantu menemukan bahwa posisi `else` saya sejajar dengan kondisi
+`starred_filter`, bukan dengan pengecekan user login. Setelah diperbaiki, saya
+menjalankan seluruh test untuk memastikan request biasa, personal filter, dan
+guest kembali menghasilkan behavior yang benar.
 
 ## Verifikasi manual
 

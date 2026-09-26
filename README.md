@@ -26,6 +26,17 @@ minimal multi-page interface with a warm visual theme.
 - Responsive layouts for desktop, tablet, and mobile screens
 - Fullscreen navigation menu with subtle page transitions
 - Visible keyboard focus states and reduced-motion support
+- Registrasi, login, dan logout menggunakan sistem autentikasi bawaan Django
+- Session login dan cookie `last_login` untuk mencatat waktu login terakhir
+- Authorization Project untuk guest, user biasa, Editor, dan superuser
+- Update Project melalui permission `main.change_project`, sedangkan create dan
+  delete tetap dibatasi untuk superuser
+- Sistem star per user melalui relasi ManyToMany, request POST, dan CSRF token
+- Filter personal **Starred by me** yang dapat digabungkan dengan pencarian judul
+- Endpoint JSON Project dengan allowlist field publik agar identitas akun yang
+  memberi star tidak ikut dikirim
+- Automated test untuk autentikasi, permission, API privacy, dan isolasi data
+  personal antar-user
 
 ## Technology
 
@@ -74,6 +85,33 @@ python manage.py runserver
 ```
 
 Open `http://127.0.0.1:8000/` in a browser.
+
+## Editor Role Setup
+
+Role Editor memakai Django Group dan permission bawaan model. Karena data grup
+tersimpan di database, setup ini perlu dilakukan kembali pada database lokal
+maupun PWS dan tidak ikut terbawa hanya melalui Git.
+
+Buat superuser jika belum tersedia:
+
+```bash
+python manage.py createsuperuser
+```
+
+Jalankan server, lalu buka `http://127.0.0.1:8000/admin/` dan login menggunakan
+akun superuser. Setelah itu:
+
+1. Buka **Authentication and Authorization -> Groups**.
+2. Pilih **Add group** dan beri nama `Editor`.
+3. Tambahkan permission **Main | project | Can change project**.
+4. Simpan grup tersebut.
+5. Buka user yang ingin dijadikan Editor.
+6. Masukkan user tersebut ke grup `Editor`, lalu simpan.
+
+Editor dapat membuka dan menyimpan form update Project, tetapi tetap tidak dapat
+membuat atau menghapus Project. Create dan delete hanya tersedia untuk
+superuser. Guest diarahkan ke halaman login, sedangkan user yang sudah login
+tetapi tidak mempunyai permission akan mendapat response `403 Forbidden`.
 
 ## Progres Mingguan
 
@@ -136,7 +174,29 @@ Open `http://127.0.0.1:8000/` in a browser.
 - Menambah cakupan test menjadi 23 test untuk memeriksa form, validasi, CRUD,
   keamanan delete, JSON, filter, 404, dan deserialization.
 - Membagi implementasi ke beberapa conventional commit pada feature branch dan
-  menggabungkannya ke `main` melalui pull request.
+  menggabungkannya ke `main` melalui pull
+
+### Minggu 5: Authentication, Authorization, dan Personal Stars (22 - 28 September 2026)
+
+- Menambahkan alur registrasi, login, dan logout menggunakan autentikasi bawaan
+  Django serta cookie untuk menampilkan waktu login terakhir.
+- Membatasi create dan delete Project hanya untuk superuser, sedangkan user yang
+  tergabung dalam grup Editor dapat mengubah Project melalui permission
+  `main.change_project`.
+- Membuat form update Project dengan `instance=project` agar object lama diperbarui
+  dan tidak menghasilkan data duplikat.
+- Menambahkan sistem star berbasis user melalui relasi ManyToMany, request POST,
+  CSRF token, status Star atau Starred, dan jumlah star pada setiap Project.
+- Menambahkan filter **Starred by me** yang dapat digabungkan dengan pencarian
+  judul dan tetap memisahkan koleksi milik setiap user.
+- Membatasi endpoint JSON Project menggunakan allowlist field publik agar daftar
+  username pemberi star tidak ikut terekspos.
+- Menambahkan empty state personal, kontrol filter responsif, dan focus state
+  untuk penggunaan keyboard.
+- Menambah cakupan menjadi 49 automated test untuk memeriksa authentication,
+  cookie, permission setiap role, personal stars, API privacy, dan fitur lama.
+- Membagi implementasi ke beberapa feature branch dan conventional commit, lalu
+  menggabungkannya ke `main` melalui pull request setelah seluruh test lulus.
 
 ## Refleksi Tugas 1
 
@@ -196,11 +256,13 @@ Request ke `/api/experiences/` diarahkan ke `get_experiences_json`. View tersebu
 
 ## AI Disclosure
 
-Selama mengerjakan Tutorial sampai Tugas 3, saya memakai OpenAI Codex sebagai tutor dan coding assistant. AI membantu saya memahami konsep yang baru dipakai, merencanakan workflow Git, membagi pengerjaan menjadi beberapa module dan commit, membaca error, serta memeriksa dokumentasi. Pada Tugas 3, saya lebih banyak memakainya untuk bertanya tentang `ModelForm`, CSRF, serialization, deserialization, testing, dan membantu merapikan jawaban refleksi.
+Selama mengerjakan Tutorial sampai Tugas 4, saya memakai OpenAI Codex sebagai tutor dan coding assistant. AI lebih banyak membantu menjelaskan konsep yang baru saya pakai, merencanakan workflow Git, membagi pengerjaan menjadi beberapa module dan commit, membaca error, serta memeriksa hasil test. Pada Tugas 4, saya memakainya untuk memahami Django Group dan Permission, relasi ManyToMany per user, authorization setiap role, dan privacy pada endpoint JSON.
 
-Saat memberi prompt, saya biasanya menyertakan rubrik, source code terbaru, error yang muncul, screenshot, atau referensi visual yang saya suka. Saya juga meminta penjelasan tentang letak perubahan dan fungsi kode baru sebelum melanjutkan. Sebagian besar langkah tetap saya kerjakan sendiri mengikuti arahan tersebut. AI sesekali membantu merapikan potongan HTML, CSS, atau test ketika ada masalah, tetapi keputusan tentang fitur, desain, dan hasil akhirnya tetap saya tentukan sendiri setelah mencobanya.
+Saat memberi prompt, saya biasanya menyertakan rubrik, source code terbaru, error yang muncul, atau hasil command Git. Saya juga meminta penjelasan tentang letak perubahan dan fungsi kode baru sebelum melanjutkan. Sebagian besar langkah tetap saya ketik dan coba sendiri mengikuti arahan tersebut. AI sesekali membantu memperbaiki bagian tertentu ketika saya meminta, tetapi keputusan untuk memakai role Editor, fitur **Starred by me**, pembagian branch, dan hasil akhirnya tetap saya tentukan setelah mencoba fiturnya.
 
-Saya tidak langsung memakai semua saran AI karena beberapa di antaranya belum tentu cocok dengan kondisi proyek. Contohnya, saya menghapus route rail dan Skills setelah merasa keduanya tidak cocok dengan struktur website yang baru. Pada Tugas 3 juga sempat ada test yang terduplikasi ketika perubahan saya dan AI bertumpuk. Karena itu, saya tetap membaca diff dan memeriksa hasilnya menggunakan `python manage.py check`, `python manage.py test`, serta `git diff --check`. Seluruh 23 test berhasil dijalankan.
+Saya tidak langsung memakai semua saran AI karena hasilnya tetap perlu diperiksa. Contohnya, pada filter personal stars saya sempat salah menempatkan `else` sehingga request biasa menghasilkan QuerySet kosong. AI membantu menunjukkan masalah indentasinya, lalu saya memeriksa kembali alurnya. Test lama juga awalnya masih mengharapkan username pemberi star muncul di JSON, padahal behavior tersebut perlu dihapus untuk menjaga privacy.
+
+Karena itu, saya tetap membaca diff dan memeriksa hasilnya menggunakan `python manage.py check`, `python manage.py makemigrations --check --dry-run`, `python manage.py test`, dan `git diff --check`. Pada akhir implementasi Tugas 4, seluruh 49 automated test berhasil dijalankan.
 
 Contoh prompt dan cara saya memakai hasilnya dapat dilihat pada
 [AI Prompt Log](docs/ai-prompt-log.md).
