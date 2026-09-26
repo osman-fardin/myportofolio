@@ -26,6 +26,17 @@ minimal multi-page interface with a warm visual theme.
 - Responsive layouts for desktop, tablet, and mobile screens
 - Fullscreen navigation menu with subtle page transitions
 - Visible keyboard focus states and reduced-motion support
+- Registrasi, login, dan logout menggunakan sistem autentikasi bawaan Django
+- Session login dan cookie `last_login` untuk mencatat waktu login terakhir
+- Authorization Project untuk guest, user biasa, Editor, dan superuser
+- Update Project melalui permission `main.change_project`, sedangkan create dan
+  delete tetap dibatasi untuk superuser
+- Sistem star per user melalui relasi ManyToMany, request POST, dan CSRF token
+- Filter personal **Starred by me** yang dapat digabungkan dengan pencarian judul
+- Endpoint JSON Project dengan allowlist field publik agar identitas akun yang
+  memberi star tidak ikut dikirim
+- Automated test untuk autentikasi, permission, API privacy, dan isolasi data
+  personal antar-user
 
 ## Technology
 
@@ -136,7 +147,29 @@ Open `http://127.0.0.1:8000/` in a browser.
 - Menambah cakupan test menjadi 23 test untuk memeriksa form, validasi, CRUD,
   keamanan delete, JSON, filter, 404, dan deserialization.
 - Membagi implementasi ke beberapa conventional commit pada feature branch dan
-  menggabungkannya ke `main` melalui pull request.
+  menggabungkannya ke `main` melalui pull
+
+### Minggu 5: Authentication, Authorization, dan Personal Stars (22 - 28 September 2026)
+
+- Menambahkan alur registrasi, login, dan logout menggunakan autentikasi bawaan
+  Django serta cookie untuk menampilkan waktu login terakhir.
+- Membatasi create dan delete Project hanya untuk superuser, sedangkan user yang
+  tergabung dalam grup Editor dapat mengubah Project melalui permission
+  `main.change_project`.
+- Membuat form update Project dengan `instance=project` agar object lama diperbarui
+  dan tidak menghasilkan data duplikat.
+- Menambahkan sistem star berbasis user melalui relasi ManyToMany, request POST,
+  CSRF token, status Star atau Starred, dan jumlah star pada setiap Project.
+- Menambahkan filter **Starred by me** yang dapat digabungkan dengan pencarian
+  judul dan tetap memisahkan koleksi milik setiap user.
+- Membatasi endpoint JSON Project menggunakan allowlist field publik agar daftar
+  username pemberi star tidak ikut terekspos.
+- Menambahkan empty state personal, kontrol filter responsif, dan focus state
+  untuk penggunaan keyboard.
+- Menambah cakupan menjadi 49 automated test untuk memeriksa authentication,
+  cookie, permission setiap role, personal stars, API privacy, dan fitur lama.
+- Membagi implementasi ke beberapa feature branch dan conventional commit, lalu
+  menggabungkannya ke `main` melalui pull request setelah seluruh test lulus.
 
 ## Refleksi Tugas 1
 
