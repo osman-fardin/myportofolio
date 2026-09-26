@@ -256,8 +256,6 @@ Request ke `/api/experiences/` diarahkan ke `get_experiences_json`. View tersebu
 
 ## AI Disclosure
 
-## AI Disclosure
-
 Selama mengerjakan Tutorial sampai Tugas 4, saya memakai OpenAI Codex sebagai tutor dan coding assistant. AI lebih banyak membantu menjelaskan konsep yang baru saya pakai, merencanakan workflow Git, membagi pengerjaan menjadi beberapa module dan commit, membaca error, serta memeriksa hasil test. Pada Tugas 4, saya memakainya untuk memahami Django Group dan Permission, relasi ManyToMany per user, authorization setiap role, dan privacy pada endpoint JSON.
 
 Saat memberi prompt, saya biasanya menyertakan rubrik, source code terbaru, error yang muncul, atau hasil command Git. Saya juga meminta penjelasan tentang letak perubahan dan fungsi kode baru sebelum melanjutkan. Sebagian besar langkah tetap saya ketik dan coba sendiri mengikuti arahan tersebut. AI sesekali membantu memperbaiki bagian tertentu ketika saya meminta, tetapi keputusan untuk memakai role Editor, fitur **Starred by me**, pembagian branch, dan hasil akhirnya tetap saya tentukan setelah mencoba fiturnya.
