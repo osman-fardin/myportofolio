@@ -86,6 +86,33 @@ python manage.py runserver
 
 Open `http://127.0.0.1:8000/` in a browser.
 
+## Editor Role Setup
+
+Role Editor memakai Django Group dan permission bawaan model. Karena data grup
+tersimpan di database, setup ini perlu dilakukan kembali pada database lokal
+maupun PWS dan tidak ikut terbawa hanya melalui Git.
+
+Buat superuser jika belum tersedia:
+
+```bash
+python manage.py createsuperuser
+```
+
+Jalankan server, lalu buka `http://127.0.0.1:8000/admin/` dan login menggunakan
+akun superuser. Setelah itu:
+
+1. Buka **Authentication and Authorization -> Groups**.
+2. Pilih **Add group** dan beri nama `Editor`.
+3. Tambahkan permission **Main | project | Can change project**.
+4. Simpan grup tersebut.
+5. Buka user yang ingin dijadikan Editor.
+6. Masukkan user tersebut ke grup `Editor`, lalu simpan.
+
+Editor dapat membuka dan menyimpan form update Project, tetapi tetap tidak dapat
+membuat atau menghapus Project. Create dan delete hanya tersedia untuk
+superuser. Guest diarahkan ke halaman login, sedangkan user yang sudah login
+tetapi tidak mempunyai permission akan mendapat response `403 Forbidden`.
+
 ## Progres Mingguan
 
 ### Minggu 1: Fondasi Proyek (26 Agustus - 1 September 2026)
