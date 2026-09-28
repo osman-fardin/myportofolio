@@ -6,25 +6,12 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.core import serializers
 from django.core.exceptions import PermissionDenied
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from .forms import ExperienceForm, ProjectForm
 from .models import Experience, Project
-
-
-PROJECT_API_FIELDS = (
-    'title',
-    'project_type',
-    'role',
-    'description',
-    'technologies',
-    'thumbnail_path',
-    'live_url',
-    'source_url',
-    'display_order',
-)
 
 
 def show_main(request):
@@ -294,7 +281,8 @@ def show_projects(request):
 def get_projects_json(request):
     title_query = request.GET.get('title', '').strip()
     starred_filter = request.GET.get('starred', '').strip()
-    projects = Project.objects.all()
+
+    projects = Project.objects.prefetch_related('starred_by').all()
 
     if starred_filter == 'mine':
         if request.user.is_authenticated:
@@ -305,16 +293,36 @@ def get_projects_json(request):
     if title_query:
         projects = projects.filter(title__icontains=title_query)
 
-    projects_json = serializers.serialize(
-        'json',
-        projects,
-        fields=PROJECT_API_FIELDS,
-    )
+    project_data = []
 
-    return HttpResponse(
-        projects_json,
-        content_type='application/json',
-    )
+    for project in projects:
+        starred_user_ids = {
+            user.pk
+            for user in project.starred_by.all()
+        }
+
+        project_data.append({
+            'model': 'main.project',
+            'pk': str(project.pk),
+            'fields': {
+                'title': project.title,
+                'project_type': project.project_type,
+                'role': project.role,
+                'description': project.description,
+                'technologies': project.technologies,
+                'thumbnail_path': project.thumbnail_path,
+                'live_url': project.live_url,
+                'source_url': project.source_url,
+                'display_order': project.display_order,
+            },
+            'star_count': len(starred_user_ids),
+            'is_starred': (
+                request.user.is_authenticated
+                and request.user.pk in starred_user_ids
+            ),
+        })
+
+    return JsonResponse(project_data, safe=False)
 
 
 @login_required(login_url='/login/')
