@@ -8,7 +8,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .forms import ExperienceForm
+from .forms import ExperienceForm, ProjectForm
 from .models import Experience, Project
 
 
@@ -141,6 +141,44 @@ class ExperienceFormTests(TestCase):
         self.assertIn(
             'End date cannot be earlier than start date.',
             form.errors['ended_at'],
+        )
+
+
+class ProjectFormTests(TestCase):
+    def setUp(self):
+        self.valid_data = {
+            'title': '<strong>Cloud Dashboard</strong>',
+            'project_type': '<em>Web App</em>',
+            'role': '<b>Developer</b>',
+            'description': (
+                '<script>alert("xss")</script>'
+                'A security monitoring dashboard.'
+            ),
+            'technologies': '<i>Django</i>\nPostgreSQL',
+            'thumbnail_path': '<b>img/project.jpg</b>',
+            'live_url': 'https://example.com/',
+            'source_url': '',
+            'display_order': 1,
+        }
+
+    def test_plain_text_fields_remove_html_tags(self):
+        form = ProjectForm(data=self.valid_data)
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+        project = form.save()
+
+        self.assertEqual(project.title, 'Cloud Dashboard')
+        self.assertEqual(project.project_type, 'Web App')
+        self.assertEqual(project.role, 'Developer')
+        self.assertNotIn('<script>', project.description)
+        self.assertEqual(
+            project.technologies,
+            'Django\nPostgreSQL',
+        )
+        self.assertEqual(
+            project.thumbnail_path,
+            'img/project.jpg',
         )
 
 
@@ -575,6 +613,77 @@ class ProjectAccessTests(TestCase):
         self.assertFalse(Project.objects.filter(pk=project.pk).exists())
 
 
+class ProjectAjaxCreateTests(TestCase):
+    def setUp(self):
+        admin = get_user_model().objects.create_superuser(
+            username='portfolio_owner',
+            email='owner@example.com',
+            password='test-password',
+        )
+        self.client.force_login(admin)
+
+        self.url = reverse('main:create_project')
+        self.valid_data = {
+            'title': 'Cloud Security Dashboard',
+            'project_type': 'Web App',
+            'role': 'Developer',
+            'description': 'A security monitoring dashboard.',
+            'technologies': 'Django\nPostgreSQL',
+            'thumbnail_path': '',
+            'live_url': 'https://example.com/',
+            'source_url': '',
+            'display_order': 1,
+        }
+
+    def test_ajax_create_returns_json_and_saves_project(self):
+        response = self.client.post(
+            self.url,
+            self.valid_data,
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        response_data = response.json()
+
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(response_data['success'])
+        self.assertEqual(
+            response_data['message'],
+            'Project added successfully.',
+        )
+        self.assertTrue(
+            Project.objects.filter(
+                pk=response_data['project_id'],
+            ).exists()
+        )
+
+    def test_invalid_ajax_create_returns_form_errors(self):
+        invalid_data = self.valid_data.copy()
+        invalid_data['title'] = ''
+
+        response = self.client.post(
+            self.url,
+            invalid_data,
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        response_data = response.json()
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response_data['success'])
+        self.assertIn('title', response_data['errors'])
+        self.assertEqual(Project.objects.count(), 0)
+
+    def test_normal_create_still_redirects(self):
+        response = self.client.post(
+            self.url,
+            self.valid_data,
+        )
+
+        self.assertRedirects(
+            response,
+            reverse('main:show_projects'),
+        )
+        self.assertEqual(Project.objects.count(), 1)
+
+
 class ProjectUpdatePermissionTests(TestCase):
     def setUp(self):
         self.project = Project.objects.create(
@@ -1006,6 +1115,31 @@ class ProjectApiPrivacyTests(TestCase):
             projects[0]['fields']['title'],
             self.project.title,
         )
+
+    def test_api_includes_session_aware_star_metadata(self):
+        guest_response = self.client.get(self.api_url)
+        guest_projects = guest_response.json()
+        guest_project = next(
+            project
+            for project in guest_projects
+            if project['pk'] == str(self.project.pk)
+        )
+
+        self.assertEqual(guest_project['star_count'], 1)
+        self.assertFalse(guest_project['is_starred'])
+
+        self.client.force_login(self.user)
+
+        user_response = self.client.get(self.api_url)
+        user_projects = user_response.json()
+        user_project = next(
+            project
+            for project in user_projects
+            if project['pk'] == str(self.project.pk)
+        )
+
+        self.assertEqual(user_project['star_count'], 1)
+        self.assertTrue(user_project['is_starred'])
 
 
 class AuthenticationCookieTests(TestCase):
