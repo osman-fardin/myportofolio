@@ -1,4 +1,5 @@
 from django import forms
+from django.utils.html import strip_tags
 
 from .models import Experience, Project
 
@@ -63,6 +64,25 @@ class ProjectForm(forms.ModelForm):
                 attrs={'min': 0}
             ),
         }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        plain_text_fields = (
+            'title',
+            'project_type',
+            'role',
+            'description',
+            'technologies',
+            'thumbnail_path',
+        )
+
+        for field_name in plain_text_fields:
+            value = cleaned_data.get(field_name)
+
+            if value:
+                cleaned_data[field_name] = strip_tags(value).strip()
+
+        return cleaned_data
 
 
 class ExperienceForm(forms.ModelForm):
