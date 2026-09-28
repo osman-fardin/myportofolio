@@ -1,4 +1,37 @@
 const projectIndex = document.getElementById('project-index');
+const projectSearchForm = document.getElementById('project-search-form');
+const projectSearchInput = document.getElementById('project-search-input');
+const projectStarredInput = document.getElementById(
+    'project-starred-input',
+);
+
+
+function debounce(callback, delay) {
+    let timeoutId;
+
+    return (...args) => {
+        window.clearTimeout(timeoutId);
+
+        timeoutId = window.setTimeout(() => {
+            callback(...args);
+        }, delay);
+    };
+}
+
+function getProjectFilters() {
+    const filters = new URLSearchParams();
+    const titleQuery = projectSearchInput.value.trim();
+
+    if (titleQuery) {
+        filters.set('title', titleQuery);
+    }
+
+    if (projectStarredInput?.checked) {
+        filters.set('starred', 'mine');
+    }
+
+    return filters;
+}
 
 function createProjectLink(project, index) {
     const link = document.createElement('a');
@@ -35,8 +68,9 @@ async function loadProjects() {
         projectIndex.dataset.projectsUrl,
         window.location.origin,
     );
+    const filters = getProjectFilters();
 
-    endpoint.search = window.location.search;
+    endpoint.search = filters.toString();
 
     const response = await fetch(endpoint);
 
@@ -45,19 +79,55 @@ async function loadProjects() {
     }
 
     const projects = await response.json();
+
+    if (projects.length === 0) {
+        const emptyState = document.createElement('p');
+
+        emptyState.className = 'project-empty';
+        emptyState.textContent = 'No projects match these filters.';
+
+        projectIndex.replaceChildren(emptyState);
+        return;
+    }
+
     const projectLinks = projects.map(createProjectLink);
 
     projectIndex.replaceChildren(...projectLinks);
 }
 
-if (projectIndex) {
-    loadProjects().catch((error) => {
-        console.error(error);
+function handleProjectLoadError(error) {
+    console.error(error);
 
-        showToast(
-            'Unable to refresh projects',
-            'The server-rendered project list is still available.',
-            'error',
-        );
+    showToast(
+        'Unable to refresh projects',
+        'Please try again in a moment.',
+        'error',
+    );
+}
+
+function refreshProjects() {
+    loadProjects().catch(handleProjectLoadError);
+}
+
+const debouncedRefreshProjects = debounce(refreshProjects, 400);
+
+if (projectIndex && projectSearchForm && projectSearchInput) {
+    projectSearchForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        refreshProjects();
     });
+
+    projectSearchInput.addEventListener(
+        'input',
+        debouncedRefreshProjects,
+    );
+
+    if (projectStarredInput) {
+        projectStarredInput.addEventListener(
+            'change',
+            refreshProjects,
+        );
+    }
+
+    refreshProjects();
 }
