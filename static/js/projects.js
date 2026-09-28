@@ -4,7 +4,12 @@ const projectSearchInput = document.getElementById('project-search-input');
 const projectStarredInput = document.getElementById(
     'project-starred-input',
 );
-
+const projectCreateForm = document.getElementById(
+    'project-create-form',
+);
+const projectCreateModal = document.getElementById(
+    'project-create-modal',
+);
 
 function debounce(callback, delay) {
     let timeoutId;
@@ -109,6 +114,72 @@ function refreshProjects() {
     loadProjects().catch(handleProjectLoadError);
 }
 
+function getFirstFormError(errors) {
+    const errorGroups = Object.values(errors);
+    const firstError = errorGroups.flat()[0];
+
+    return firstError?.message ?? 'Please check the project form.';
+}
+
+async function submitProject(event) {
+    event.preventDefault();
+
+    const submitButton = projectCreateForm.querySelector(
+        'button[type="submit"]',
+    );
+    const csrfToken = projectCreateForm.querySelector(
+        '[name="csrfmiddlewaretoken"]',
+    ).value;
+
+    submitButton.disabled = true;
+
+    try {
+        const response = await fetch(projectCreateForm.action, {
+            method: 'POST',
+            body: new FormData(projectCreateForm),
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+            showToast(
+                'Could not add project',
+                getFirstFormError(data.errors),
+                'error',
+            );
+            return;
+        }
+
+        projectCreateForm.reset();
+        projectCreateModal.hidePopover();
+
+        showToast(
+            'Project added',
+            data.message,
+            'success',
+        );
+
+        if (projectIndex) {
+            refreshProjects();
+        } else {
+            window.location.reload();
+        }
+    } catch (error) {
+        console.error(error);
+
+        showToast(
+            'Could not add project',
+            'Please try again in a moment.',
+            'error',
+        );
+    } finally {
+        submitButton.disabled = false;
+    }
+}
+
 const debouncedRefreshProjects = debounce(refreshProjects, 400);
 
 if (projectIndex && projectSearchForm && projectSearchInput) {
@@ -130,4 +201,11 @@ if (projectIndex && projectSearchForm && projectSearchInput) {
     }
 
     refreshProjects();
+}
+
+if (projectCreateForm && projectCreateModal) {
+    projectCreateForm.addEventListener(
+        'submit',
+        submitProject,
+    );
 }

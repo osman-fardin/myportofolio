@@ -336,13 +336,41 @@ def create_project(request):
     if not request.user.is_superuser:
         raise PermissionDenied
 
+    is_ajax = (
+        request.headers.get('X-Requested-With')
+        == 'XMLHttpRequest'
+    )
+
     if request.method == 'POST':
         form = ProjectForm(request.POST)
 
         if form.is_valid():
-            form.save()
-            messages.success(request, 'Project added successfully.')
+            project = form.save()
+
+            if is_ajax:
+                return JsonResponse(
+                    {
+                        'success': True,
+                        'message': 'Project added successfully.',
+                        'project_id': str(project.id),
+                    },
+                    status=201,
+                )
+
+            messages.success(
+                request,
+                'Project added successfully.',
+            )
             return redirect('main:show_projects')
+
+        if is_ajax:
+            return JsonResponse(
+                {
+                    'success': False,
+                    'errors': form.errors.get_json_data(),
+                },
+                status=400,
+            )
     else:
         form = ProjectForm()
 
