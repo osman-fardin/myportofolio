@@ -21,20 +21,25 @@
             </div>
 
             {% if user.is_superuser %}
-                <a
+                <button
+                    type="button"
                     class="project-add-link"
-                    href="{% url 'main:create_project' %}"
+                    popovertarget="project-create-modal"
                 >
                     Add project
-                </a>
+                </button>
+
+                {% include 'components/project_create_modal.html' %}
             {% endif %}
 
             <form
+                id="project-search-form"
                 method="get"
                 action="{% url 'main:show_projects' %}"
                 class="project-search"
             >
                 <input
+                    id="project-search-input"
                     type="search"
                     name="title"
                     value="{{ title_query }}"
@@ -45,6 +50,7 @@
                 {% if user.is_authenticated %}
                     <label class="project-starred-filter">
                         <input
+                            id="project-starred-input"
                             type="checkbox"
                             name="starred"
                             value="mine"
@@ -67,8 +73,11 @@
             {% if project_list %}
                 <div class="project-browser">
                     <nav
+                        id="project-index"
                         class="project-index"
                         aria-label="Project list"
+                        aria-live="polite"
+                        data-projects-url="{% url 'main:get_projects_json' %}"
                     >
                         {% for project in project_list %}
                             <a
@@ -185,4 +194,8 @@
             {% endif %}
         </div>
     </section>
+{% endblock %}
+
+{% block scripts %}
+    <script src="{% static 'js/projects.js' %}" defer></script>
 {% endblock %}

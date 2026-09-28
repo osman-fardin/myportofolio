@@ -800,6 +800,75 @@ body:has(.site-menu[open]) {
         transform 160ms var(--ease-out);
 }
 
+.project-add-link {
+    cursor: pointer;
+    font: inherit;
+}
+
+.project-create-modal {
+    inset: 0;
+    width: min(calc(100% - 2rem), 760px);
+    max-height: min(86vh, 760px);
+    margin: auto;
+    padding: 0;
+    color: var(--ink);
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: 0 1.5rem 4rem rgb(45 33 28 / 24%);
+    overflow: hidden;
+}
+
+.project-create-modal::backdrop {
+    background-color: rgb(45 33 28 / 55%);
+    backdrop-filter: blur(3px);
+}
+
+.project-create-modal-content {
+    max-height: min(86vh, 760px);
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+.project-create-modal-header {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 1.5rem;
+}
+
+.project-create-modal-header h2 {
+    margin-top: 0.35rem;
+    color: var(--walnut);
+    font-size: 1.75rem;
+}
+
+.project-create-modal-close {
+    display: inline-grid;
+    width: 2.5rem;
+    height: 2.5rem;
+    flex: 0 0 auto;
+    place-items: center;
+    padding: 0;
+    color: var(--walnut);
+    background-color: transparent;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    cursor: pointer;
+    font: inherit;
+    font-size: 1.4rem;
+}
+
+.project-create-modal .project-form {
+    margin-top: 1.5rem;
+}
+
+.project-form-actions .project-create-cancel {
+    color: var(--walnut);
+    background-color: transparent;
+    border: 1px solid var(--line);
+}
+
 .project-search {
     display: flex;
     max-width: 820px;
@@ -1706,6 +1775,79 @@ body:has(.site-menu[open]) {
 
     .contact-links a {
         width: 100%;
+    }
+}
+
+.toast-component {
+    position: fixed;
+    inset: auto 1.5rem 1.5rem auto;
+    z-index: 200;
+    display: none;
+    width: min(calc(100% - 3rem), 380px);
+    align-items: center;
+    margin: 0;
+    padding: 1rem 1.1rem;
+    color: var(--ink);
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-left-width: 4px;
+    border-radius: var(--radius);
+    box-shadow: 0 1rem 2.5rem rgb(45 33 28 / 18%);
+    opacity: 0;
+    transform: translateY(1rem);
+    transition:
+        opacity 200ms ease,
+        transform 260ms var(--ease-out);
+}
+
+.toast-component:popover-open {
+    display: flex;
+}
+
+.toast-hidden {
+    opacity: 0;
+    transform: translateY(1rem);
+    pointer-events: none;
+}
+
+.toast-show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.toast-content {
+    min-width: 0;
+}
+
+.toast-title {
+    margin-bottom: 0.15rem;
+    color: var(--walnut);
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.toast-message {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.toast-success {
+    border-left-color: #2f7d5c;
+}
+
+.toast-error {
+    border-left-color: #a63d32;
+}
+
+.toast-normal {
+    border-left-color: var(--cloud);
+}
+
+@media (max-width: 600px) {
+    .toast-component {
+        inset: auto 1rem 1rem;
+        width: calc(100% - 2rem);
     }
 }
 
