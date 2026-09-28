@@ -273,6 +273,11 @@ def show_projects(request):
         'selected_project': None,
         'title_query': title_query,
         'starred_filter': starred_filter,
+        'project_form': (
+            ProjectForm()
+            if request.user.is_superuser
+            else None
+        ),
     }
 
     return render(request, 'projects.html', context)
@@ -413,6 +418,11 @@ def show_project_detail(request, project_id):
         'display_name': 'Muhammad Osman Fardin',
         'project_list': Project.objects.all(),
         'selected_project': get_object_or_404(Project, id=project_id),
+        'project_form': (
+            ProjectForm()
+            if request.user.is_superuser
+            else None
+        ),
     }
 
     return render(request, 'projects.html', context)

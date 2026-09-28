@@ -1,0 +1,63 @@
+<div
+    id="project-create-modal"
+    class="project-create-modal"
+    popover="auto"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="project-create-title"
+>
+    <div class="project-create-modal-content">
+        <header class="project-create-modal-header">
+            <div>
+                <p class="section-kicker">New project</p>
+                <h2 id="project-create-title">Add a project</h2>
+            </div>
+
+            <button
+                type="button"
+                class="project-create-modal-close"
+                popovertarget="project-create-modal"
+                popovertargetaction="hide"
+                aria-label="Close project form"
+            >
+                &times;
+            </button>
+        </header>
+
+        <form
+            id="project-create-form"
+            method="post"
+            action="{% url 'main:create_project' %}"
+            class="project-form"
+        >
+            {% csrf_token %}
+
+            {% for field in project_form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}">
+                        {{ field.label }}
+                    </label>
+
+                    {{ field }}
+
+                    {% for error in field.errors %}
+                        <p class="form-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            <div class="project-form-actions">
+                <button type="submit">Add project</button>
+
+                <button
+                    type="button"
+                    class="project-create-cancel"
+                    popovertarget="project-create-modal"
+                    popovertargetaction="hide"
+                >
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

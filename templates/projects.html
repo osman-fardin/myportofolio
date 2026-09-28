@@ -21,12 +21,15 @@
             </div>
 
             {% if user.is_superuser %}
-                <a
+                <button
+                    type="button"
                     class="project-add-link"
-                    href="{% url 'main:create_project' %}"
+                    popovertarget="project-create-modal"
                 >
                     Add project
-                </a>
+                </button>
+
+                {% include 'components/project_create_modal.html' %}
             {% endif %}
 
             <form
