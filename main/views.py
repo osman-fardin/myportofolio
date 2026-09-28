@@ -304,6 +304,7 @@ def get_projects_json(request):
         project_data.append({
             'model': 'main.project',
             'pk': str(project.pk),
+            'detail_url': project.get_absolute_url(),
             'fields': {
                 'title': project.title,
                 'project_type': project.project_type,

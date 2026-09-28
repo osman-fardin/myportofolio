@@ -67,8 +67,10 @@
             {% if project_list %}
                 <div class="project-browser">
                     <nav
+                        id="project-index"
                         class="project-index"
                         aria-label="Project list"
+                        data-projects-url="{% url 'main:get_projects_json' %}"
                     >
                         {% for project in project_list %}
                             <a
@@ -185,4 +187,8 @@
             {% endif %}
         </div>
     </section>
+{% endblock %}
+
+{% block scripts %}
+    <script src="{% static 'js/projects.js' %}" defer></script>
 {% endblock %}
