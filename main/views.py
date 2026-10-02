@@ -128,7 +128,6 @@ def _get_filtered_experiences(request):
 
 
 def show_experience(request):
-    experiences = _get_filtered_experiences(request)
 
     title_query = request.GET.get('title', '').strip()
     category_filter = request.GET.get('category', '').strip()
@@ -137,7 +136,6 @@ def show_experience(request):
     context = {
         'name': 'Muhammad Osman Fardin',
         'display_name': 'Muhammad Osman Fardin',
-        'experience_list': experiences,
         'category_choices': Experience.EXPERIENCE_CHOICES,
         'title_query': title_query,
         'category_filter': category_filter,

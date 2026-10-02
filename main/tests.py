@@ -55,49 +55,43 @@ class MainTest(TestCase):
             ],
         )
 
-    def test_experience_page(self):
+    def test_experience_page_renders_ajax_shell(self):
         response = self.client.get(reverse('main:show_experience'))
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'experience.html')
-        self.assertContains(response, self.experience.title)
-
-        for point in self.experience.description_points:
-            self.assertContains(response, point)
-
-        self.assertContains(
-            response,
-            self.experience.get_category_display(),
-        )
-        self.assertContains(response, 'Present')
+        self.assertContains(response, 'Loading experiences...')
+        self.assertContains(response, 'data-experiences-url=')
+        self.assertNotContains(response, self.experience.title)
 
         main_url = reverse('main:show_main')
         self.assertContains(response, f'href="{main_url}"')
 
-    def test_empty_experience_page(self):
+    def test_empty_experience_api(self):
         Experience.objects.all().delete()
 
-        response = self.client.get(reverse('main:show_experience'))
-
-        self.assertContains(
-            response,
-            'No experience has been added yet.',
+        response = self.client.get(
+            reverse('main:get_experiences_json')
         )
-        self.assertNotContains(response, self.experience.title)
 
-    def test_completed_experience(self):
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json.loads(response.content), [])
+
+    def test_completed_experience_api_state(self):
         self.experience.ended_at = timezone.now()
         self.experience.save()
 
-        response = self.client.get(reverse('main:show_experience'))
+        response = self.client.get(
+            reverse('main:get_experiences_json')
+        )
+        item = json.loads(response.content)[0]
 
         self.assertFalse(self.experience.is_ongoing)
-        self.assertNotContains(response, 'Present')
-
-        completed_month = timezone.localtime(
-            self.experience.ended_at
-        ).strftime('%b %Y')
-        self.assertContains(response, completed_month)
+        self.assertFalse(item['is_ongoing'])
+        self.assertEqual(
+            item['ended_at'],
+            self.experience.ended_at.isoformat(),
+        )
 
 
 class ExperienceFormTests(TestCase):
@@ -440,23 +434,20 @@ class ExperiencePermissionTests(TestCase):
             Experience.objects.filter(pk=self.experience.pk).exists()
         )
 
-    def test_action_controls_follow_user_permissions(self):
+    def test_create_control_is_visible_only_to_superuser(self):
         guest_response = self.client.get(self.list_url)
         self.assertNotContains(guest_response, self.create_url)
-        self.assertNotContains(guest_response, self.update_url)
-        self.assertNotContains(guest_response, self.delete_url)
+        self.assertNotContains(guest_response, 'experience-delete-modal')
 
         self.client.force_login(self.editor)
         editor_response = self.client.get(self.list_url)
         self.assertNotContains(editor_response, self.create_url)
-        self.assertContains(editor_response, self.update_url)
-        self.assertNotContains(editor_response, self.delete_url)
+        self.assertNotContains(editor_response, 'experience-delete-modal')
 
         self.client.force_login(self.superuser)
         superuser_response = self.client.get(self.list_url)
         self.assertContains(superuser_response, self.create_url)
-        self.assertContains(superuser_response, self.update_url)
-        self.assertContains(superuser_response, self.delete_url)
+        self.assertContains(superuser_response, 'experience-delete-modal')
 
 
 class ExperienceJsonTests(TestCase):
@@ -636,41 +627,22 @@ class ExperienceJsonTests(TestCase):
         self.assertTrue(superuser_data[0]['can_change'])
         self.assertTrue(superuser_data[0]['can_delete'])
 
-    def test_experience_page_renders_filtered_objects(self):
+    def test_experience_page_renders_shell_without_objects(self):
         response = self.client.get(
             reverse('main:show_experience'),
             {'status': 'ongoing'},
         )
 
-        experience_list = response.context['experience_list']
-
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(experience_list), 1)
-        self.assertIsInstance(
-            experience_list[0],
-            Experience,
-        )
-        self.assertEqual(
-            experience_list[0].id,
-            self.ongoing_experience.id,
-        )
+        self.assertNotIn('experience_list', response.context)
+        self.assertEqual(response.context['status_filter'], 'ongoing')
         self.assertContains(
             response,
-            self.ongoing_experience.title,
+            'data-experiences-url="/api/experiences/"',
         )
-        self.assertNotContains(
-            response,
-            self.completed_experience.title,
-        )
-
-        no_match_response = self.client.get(
-            reverse('main:show_experience'),
-            {'title': 'definitely-not-found'},
-        )
-        self.assertContains(
-            no_match_response,
-            'No experiences match the selected filters.',
-        )
+        self.assertContains(response, 'Loading experiences...')
+        self.assertNotContains(response, self.ongoing_experience.title)
+        self.assertNotContains(response, self.completed_experience.title)
 
 
 class ProjectPageTests(TestCase):

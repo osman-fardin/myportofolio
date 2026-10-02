@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block page_title %}Experience | {{ name }}{% endblock %}
 
@@ -96,73 +97,22 @@
                 {% endif %}
             </form>
 
-            <div class="experience-list">
-                {% for experience in experience_list %}
-                    <article class="experience-item">
-                        <header class="experience-item-header">
-                            <div>
-                                <p class="experience-organization">
-                                    {{ experience.get_category_display }}
-                                </p>
-                                <h2>{{ experience.title }}</h2>
-                            </div>
-
-                            <p class="experience-period">
-                                <time
-                                    datetime="{{ experience.started_at|date:'Y-m-d' }}"
-                                >
-                                    {{ experience.started_at|date:"M Y" }}
-                                </time>
-                                &ndash;
-                                {% if experience.is_ongoing %}
-                                    Present
-                                {% else %}
-                                    <time
-                                        datetime="{{ experience.ended_at|date:'Y-m-d' }}"
-                                    >
-                                        {{ experience.ended_at|date:"M Y" }}
-                                    </time>
-                                {% endif %}
-                            </p>
-                        </header>
-
-                        <ul class="experience-points">
-                            {% for point in experience.description_points %}
-                                <li>{{ point }}</li>
-                            {% endfor %}
-                        </ul>
-
-                        {% if perms.main.change_experience %}
-                            <div class="experience-actions">
-                                <a href="{% url 'main:update_experience' experience.id %}">
-                                    Edit experience
-                                </a>
-
-                                {% if user.is_superuser %}
-                                    {% include 'components/experience_delete_modal.html' with experience=experience %}
-                                {% endif %}
-                            </div>
-                        {% endif %}
-
-                        {% if experience.thumbnail %}
-                            <img
-                                class="experience-thumbnail"
-                                src="{{ experience.thumbnail }}"
-                                alt="Thumbnail for {{ experience.title }}"
-                                loading="lazy"
-                            >
-                        {% endif %}
-                    </article>
-                {% empty %}
-                    <p class="experience-empty">
-                        {% if has_active_filters %}
-                            No experiences match the selected filters.
-                        {% else %}
-                            No experience has been added yet.
-                        {% endif %}
-                    </p>
-                {% endfor %}
+            <div
+                id="experience-list"
+                class="experience-list"
+                data-experiences-url="{% url 'main:get_experiences_json' %}"
+                aria-live="polite"
+                aria-busy="true"
+            >
+                <p class="experience-loading">Loading experiences...</p>
             </div>
+            {% if user.is_superuser %}
+                {% include 'components/experience_delete_modal.html' %}
+            {% endif %}
         </div>
     </section>
+{% endblock %}
+
+{% block scripts %}
+    <script src="{% static 'js/experiences.js' %}" defer></script>
 {% endblock %}

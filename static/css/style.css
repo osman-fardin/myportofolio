@@ -764,6 +764,33 @@ body:has(.site-menu[open]) {
     border-bottom: 1px solid var(--line);
 }
 
+.experience-loading,
+.experience-error {
+    padding-block: 2rem;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--line);
+}
+
+.experience-error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.experience-retry {
+    min-height: 42px;
+    padding: 0.45rem 0.85rem;
+    color: var(--walnut);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
 .projects-page .projects-section {
     color: var(--surface);
     background-color: var(--walnut);
