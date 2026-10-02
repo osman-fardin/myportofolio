@@ -491,7 +491,7 @@ class ExperienceJsonTests(TestCase):
         )
         self.assertEqual(len(data), 2)
         self.assertEqual(
-            {item['pk'] for item in data},
+            {item['id'] for item in data},
             {
                 str(self.ongoing_experience.id),
                 str(self.completed_experience.id),
@@ -535,13 +535,108 @@ class ExperienceJsonTests(TestCase):
             with self.subTest(case=case_name):
                 _, data = self._get_json(params)
                 actual_ids = {
-                    item['pk']
+                    item['id']
                     for item in data
                 }
 
                 self.assertEqual(actual_ids, expected_ids)
 
-    def test_experience_page_renders_deserialized_objects(self):
+    def test_json_payload_contains_only_public_guest_state(self):
+        starred_user = get_user_model().objects.create_user(
+            username='experience-fan',
+            password='test-password',
+        )
+        self.ongoing_experience.starred_by.add(starred_user)
+
+        _, data = self._get_json({'title': 'Teaching'})
+        item = data[0]
+
+        required_keys = {
+            'id',
+            'title',
+            'description_points',
+            'category',
+            'category_label',
+            'thumbnail',
+            'started_at',
+            'ended_at',
+            'is_ongoing',
+            'star_count',
+            'is_starred',
+            'can_star',
+            'can_change',
+            'can_delete',
+            'update_url',
+            'delete_url',
+        }
+
+        self.assertTrue(required_keys.issubset(item))
+        self.assertEqual(item['description_points'], [
+            'Guide students through programming exercises.',
+        ])
+        self.assertEqual(item['category_label'], 'Part-Time')
+        self.assertEqual(item['star_count'], 1)
+        self.assertFalse(item['is_starred'])
+        self.assertFalse(item['can_star'])
+        self.assertFalse(item['can_change'])
+        self.assertFalse(item['can_delete'])
+
+        for private_key in (
+            'username',
+            'email',
+            'password',
+            'groups',
+            'starred_by',
+        ):
+            self.assertNotIn(private_key, item)
+
+    def test_json_uses_current_user_star_state(self):
+        user = get_user_model().objects.create_user(
+            username='signed-in-fan',
+            password='test-password',
+        )
+        self.ongoing_experience.starred_by.add(user)
+        self.client.force_login(user)
+
+        _, data = self._get_json({'title': 'Teaching'})
+        item = data[0]
+
+        self.assertEqual(item['star_count'], 1)
+        self.assertTrue(item['is_starred'])
+        self.assertTrue(item['can_star'])
+        self.assertFalse(item['can_change'])
+        self.assertFalse(item['can_delete'])
+
+    def test_json_capabilities_follow_user_permissions(self):
+        user_model = get_user_model()
+        editor = user_model.objects.create_user(
+            username='json-editor',
+            password='test-password',
+        )
+        change_permission = Permission.objects.get(
+            content_type__app_label='main',
+            codename='change_experience',
+        )
+        editor.user_permissions.add(change_permission)
+        self.client.force_login(editor)
+
+        _, editor_data = self._get_json({'title': 'Teaching'})
+
+        self.assertTrue(editor_data[0]['can_change'])
+        self.assertFalse(editor_data[0]['can_delete'])
+
+        superuser = user_model.objects.create_superuser(
+            username='json-owner',
+            password='test-password',
+        )
+        self.client.force_login(superuser)
+
+        _, superuser_data = self._get_json({'title': 'Teaching'})
+
+        self.assertTrue(superuser_data[0]['can_change'])
+        self.assertTrue(superuser_data[0]['can_delete'])
+
+    def test_experience_page_renders_filtered_objects(self):
         response = self.client.get(
             reverse('main:show_experience'),
             {'status': 'ongoing'},

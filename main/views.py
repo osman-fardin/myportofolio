@@ -8,6 +8,7 @@ from django.core import serializers
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from .forms import ExperienceForm, ProjectForm
@@ -94,7 +95,11 @@ def logout_user(request):
 
 
 def _get_filtered_experiences(request):
-    experiences = Experience.objects.order_by('-started_at')
+    experiences = (
+        Experience.objects
+        .prefetch_related('starred_by')
+        .order_by('-started_at')
+    )
 
     title_query = request.GET.get('title', '').strip()
     category_filter = request.GET.get('category', '').strip()
@@ -123,16 +128,7 @@ def _get_filtered_experiences(request):
 
 
 def show_experience(request):
-    json_response = get_experiences_json(request)
-
-    experiences = serializers.deserialize(
-        'json',
-        json_response.content.decode('utf-8'),
-    )
-    experiences = [
-        experience.object
-        for experience in experiences
-    ]
+    experiences = _get_filtered_experiences(request)
 
     title_query = request.GET.get('title', '').strip()
     category_filter = request.GET.get('category', '').strip()
@@ -156,18 +152,56 @@ def show_experience(request):
     return render(request, 'experience.html', context)
 
 
+def _serialize_experience(experience, request):
+    starred_user_ids = {
+        user.pk
+        for user in experience.starred_by.all()
+    }
+
+    return {
+        'id': str(experience.pk),
+        'title': experience.title,
+        'description_points': experience.description_points,
+        'category': experience.category,
+        'category_label': experience.get_category_display(),
+        'thumbnail': experience.thumbnail or '',
+        'started_at': experience.started_at.isoformat(),
+        'ended_at': (
+            experience.ended_at.isoformat()
+            if experience.ended_at
+            else None
+        ),
+        'is_ongoing': experience.is_ongoing,
+        'star_count': len(starred_user_ids),
+        'is_starred': (
+            request.user.is_authenticated
+            and request.user.pk in starred_user_ids
+        ),
+        'can_star': request.user.is_authenticated,
+        'can_change': request.user.has_perm(
+            'main.change_experience'
+        ),
+        'can_delete': request.user.is_superuser,
+        'update_url': reverse(
+            'main:update_experience',
+            args=[experience.pk],
+        ),
+        'delete_url': reverse(
+            'main:delete_experience',
+            args=[experience.pk],
+        ),
+    }
+
+
 def get_experiences_json(request):
     experiences = _get_filtered_experiences(request)
 
-    experiences_json = serializers.serialize(
-        'json',
-        experiences,
-    )
+    experience_data = [
+        _serialize_experience(experience, request)
+        for experience in experiences
+    ]
 
-    return HttpResponse(
-        experiences_json,
-        content_type='application/json',
-    )
+    return JsonResponse(experience_data, safe=False)
 
 
 @login_required(login_url='/login/')
