@@ -170,7 +170,11 @@ def get_experiences_json(request):
     )
 
 
+@login_required(login_url='/login/')
 def create_experience(request):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+
     if request.method == 'POST':
         form = ExperienceForm(request.POST)
 
@@ -200,7 +204,11 @@ def create_experience(request):
     return render(request, 'experience_form.html', context)
 
 
+@login_required(login_url='/login/')
 def update_experience(request, experience_id):
+    if not request.user.has_perm('main.change_experience'):
+        raise PermissionDenied
+
     experience = get_object_or_404(
         Experience,
         pk=experience_id,
@@ -238,8 +246,12 @@ def update_experience(request, experience_id):
     return render(request, 'experience_form.html', context)
 
 
+@login_required(login_url='/login/')
 @require_POST
 def delete_experience(request, experience_id):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+
     experience = get_object_or_404(
         Experience,
         pk=experience_id,

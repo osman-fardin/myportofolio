@@ -20,12 +20,14 @@
                 </p>
             </div>
 
-            <a
-                class="experience-add-link"
-                href="{% url 'main:create_experience' %}"
-            >
-                Add experience
-            </a>
+            {% if user.is_superuser %}
+                <a
+                    class="experience-add-link"
+                    href="{% url 'main:create_experience' %}"
+                >
+                    Add experience
+                </a>
+            {% endif %}
 
             <form
                 method="get"
@@ -130,15 +132,17 @@
                             {% endfor %}
                         </ul>
 
-                        <div class="experience-actions">
-                            <a
-                                href="{% url 'main:update_experience' experience.id %}"
-                            >
-                                Edit experience
-                            </a>
+                        {% if perms.main.change_experience %}
+                            <div class="experience-actions">
+                                <a href="{% url 'main:update_experience' experience.id %}">
+                                    Edit experience
+                                </a>
 
-                            {% include 'components/experience_delete_modal.html' with experience=experience %}
-                        </div>
+                                {% if user.is_superuser %}
+                                    {% include 'components/experience_delete_modal.html' with experience=experience %}
+                                {% endif %}
+                            </div>
+                        {% endif %}
 
                         {% if experience.thumbnail %}
                             <img

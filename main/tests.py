@@ -189,6 +189,11 @@ class ExperienceCrudTests(TestCase):
             description='Guide students through programming exercises.',
             category='part-time',
         )
+        self.superuser = get_user_model().objects.create_superuser(
+            username='experience-admin',
+            password='test-password-123',
+        )
+        self.client.force_login(self.superuser)
 
     def _form_data(self, **overrides):
         data = {
@@ -345,6 +350,114 @@ class ExperienceCrudTests(TestCase):
                 id=experience_id,
             ).exists()
         )
+
+
+class ExperiencePermissionTests(TestCase):
+    def setUp(self):
+        self.experience = Experience.objects.create(
+            title='Protected Experience',
+            description='This experience is protected by permissions.',
+            category='part-time',
+        )
+
+        self.list_url = reverse('main:show_experience')
+        self.create_url = reverse('main:create_experience')
+        self.update_url = reverse(
+            'main:update_experience',
+            args=[self.experience.id],
+        )
+        self.delete_url = reverse(
+            'main:delete_experience',
+            args=[self.experience.id],
+        )
+
+        user_model = get_user_model()
+
+        self.regular_user = user_model.objects.create_user(
+            username='experience-user',
+            password='test-password',
+        )
+        self.editor = user_model.objects.create_user(
+            username='experience-editor',
+            password='test-password',
+        )
+        self.superuser = user_model.objects.create_superuser(
+            username='experience-owner',
+            password='test-password',
+        )
+
+        editor_group = Group.objects.create(name='Experience Editor')
+        change_permission = Permission.objects.get(
+            content_type__app_label='main',
+            codename='change_experience',
+        )
+        editor_group.permissions.add(change_permission)
+        self.editor.groups.add(editor_group)
+
+    def test_guest_is_redirected_from_mutation_views(self):
+        responses = [
+            (self.client.get(self.create_url), self.create_url),
+            (self.client.get(self.update_url), self.update_url),
+            (self.client.post(self.delete_url), self.delete_url),
+        ]
+
+        for response, destination in responses:
+            with self.subTest(destination=destination):
+                self.assertRedirects(
+                    response,
+                    f"{reverse('main:login')}?next={destination}",
+                    fetch_redirect_response=False,
+                )
+
+    def test_regular_user_cannot_mutate_experiences(self):
+        self.client.force_login(self.regular_user)
+
+        responses = [
+            self.client.get(self.create_url),
+            self.client.get(self.update_url),
+            self.client.post(self.delete_url),
+        ]
+
+        for response in responses:
+            with self.subTest(path=response.request['PATH_INFO']):
+                self.assertEqual(response.status_code, 403)
+
+        self.assertTrue(
+            Experience.objects.filter(pk=self.experience.pk).exists()
+        )
+
+    def test_editor_can_edit_but_cannot_create_or_delete(self):
+        self.client.force_login(self.editor)
+
+        create_response = self.client.get(self.create_url)
+        update_response = self.client.get(self.update_url)
+        delete_response = self.client.post(self.delete_url)
+
+        self.assertEqual(create_response.status_code, 403)
+        self.assertEqual(update_response.status_code, 200)
+        self.assertEqual(delete_response.status_code, 403)
+        self.assertTrue(
+            Experience.objects.filter(pk=self.experience.pk).exists()
+        )
+
+    def test_action_controls_follow_user_permissions(self):
+        guest_response = self.client.get(self.list_url)
+        self.assertNotContains(guest_response, self.create_url)
+        self.assertNotContains(guest_response, self.update_url)
+        self.assertNotContains(guest_response, self.delete_url)
+
+        self.client.force_login(self.editor)
+        editor_response = self.client.get(self.list_url)
+        self.assertNotContains(editor_response, self.create_url)
+        self.assertContains(editor_response, self.update_url)
+        self.assertNotContains(editor_response, self.delete_url)
+
+        self.client.force_login(self.superuser)
+        superuser_response = self.client.get(self.list_url)
+        self.assertContains(superuser_response, self.create_url)
+        self.assertContains(superuser_response, self.update_url)
+        self.assertContains(superuser_response, self.delete_url)
+
 
 class ExperienceJsonTests(TestCase):
     def setUp(self):
