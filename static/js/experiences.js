@@ -1,4 +1,22 @@
 const experienceList = document.getElementById('experience-list');
+const experienceFilterForm = document.getElementById(
+    'experience-filter-form',
+);
+const experienceTitleFilter = document.getElementById(
+    'experience-title-filter',
+);
+const experienceCategoryFilter = document.getElementById(
+    'experience-category-filter',
+);
+const experienceStatusFilter = document.getElementById(
+    'experience-status-filter',
+);
+const experienceFilterClear = document.getElementById(
+    'experience-filter-clear',
+);
+const experienceResultCount = document.getElementById(
+    'experience-result-count',
+);
 
 const experienceDeleteForm = document.getElementById(
     'experience-delete-form',
@@ -6,6 +24,57 @@ const experienceDeleteForm = document.getElementById(
 const experienceDeleteName = document.getElementById(
     'experience-delete-name',
 );
+
+let experienceRequestController = null;
+
+function debounce(callback, delay) {
+    let timeoutId;
+
+    return (...args) => {
+        window.clearTimeout(timeoutId);
+
+        timeoutId = window.setTimeout(() => {
+            callback(...args);
+        }, delay);
+    };
+}
+
+function getExperienceFilters() {
+    const filters = new URLSearchParams();
+    const title = experienceTitleFilter.value.trim();
+    const category = experienceCategoryFilter.value;
+    const status = experienceStatusFilter.value;
+
+    if (title) {
+        filters.set('title', title);
+    }
+
+    if (category) {
+        filters.set('category', category);
+    }
+
+    if (status) {
+        filters.set('status', status);
+    }
+
+    return filters;
+}
+
+function syncExperienceUrl(filters) {
+    const query = filters.toString();
+    const nextUrl = query
+        ? `${window.location.pathname}?${query}`
+        : window.location.pathname;
+
+    window.history.replaceState(null, '', nextUrl);
+    experienceFilterClear.hidden = !query;
+}
+
+function renderExperienceCount(count) {
+    const label = count === 1 ? 'experience' : 'experiences';
+
+    experienceResultCount.textContent = `${count} ${label} found`;
+}
 
 function createTextElement(tagName, className, text) {
     const element = document.createElement(tagName);
@@ -146,11 +215,12 @@ function renderExperienceLoading() {
     );
 
     experienceList.setAttribute('aria-busy', 'true');
+    experienceResultCount.textContent = '';
     experienceList.replaceChildren(loading);
 }
 
 function renderExperienceEmpty() {
-    const filters = new URLSearchParams(window.location.search);
+    const filters = getExperienceFilters();
     const message = filters.toString()
         ? 'No experiences match these filters.'
         : 'No experience has been added yet.';
@@ -161,6 +231,7 @@ function renderExperienceEmpty() {
     );
 
     experienceList.setAttribute('aria-busy', 'false');
+    renderExperienceCount(0);
     experienceList.replaceChildren(emptyState);
 }
 
@@ -183,24 +254,35 @@ function renderExperienceError() {
 
     errorState.append(message, retryButton);
     experienceList.setAttribute('aria-busy', 'false');
+    experienceResultCount.textContent = '';
     experienceList.replaceChildren(errorState);
 }
 
 async function loadExperiences() {
+    if (experienceRequestController) {
+        experienceRequestController.abort();
+    }
+
+    const requestController = new AbortController();
+    const filters = getExperienceFilters();
+
+    experienceRequestController = requestController;
     renderExperienceLoading();
+    syncExperienceUrl(filters);
 
     const endpoint = new URL(
         experienceList.dataset.experiencesUrl,
         window.location.origin,
     );
 
-    endpoint.search = window.location.search;
+    endpoint.search = filters.toString();
 
     try {
         const response = await fetch(endpoint, {
             headers: {
                 Accept: 'application/json',
             },
+            signal: requestController.signal,
         });
 
         if (!response.ok) {
@@ -221,8 +303,13 @@ async function loadExperiences() {
         );
 
         experienceList.setAttribute('aria-busy', 'false');
+        renderExperienceCount(experiences.length);
         experienceList.replaceChildren(...experienceCards);
     } catch (error) {
+        if (error.name === 'AbortError') {
+            return;
+        }
+
         console.error(error);
         renderExperienceError();
 
@@ -231,9 +318,52 @@ async function loadExperiences() {
             'Please try again in a moment.',
             'error',
         );
+    } finally {
+        if (experienceRequestController === requestController) {
+            experienceRequestController = null;
+        }
     }
 }
 
-if (experienceList) {
+const debouncedLoadExperiences = debounce(loadExperiences, 400);
+
+if (
+    experienceList
+    && experienceFilterForm
+    && experienceTitleFilter
+    && experienceCategoryFilter
+    && experienceStatusFilter
+    && experienceFilterClear
+    && experienceResultCount
+) {
+    experienceFilterForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        loadExperiences();
+    });
+
+    experienceTitleFilter.addEventListener(
+        'input',
+        debouncedLoadExperiences,
+    );
+
+    experienceCategoryFilter.addEventListener(
+        'change',
+        loadExperiences,
+    );
+    experienceStatusFilter.addEventListener(
+        'change',
+        loadExperiences,
+    );
+
+    experienceFilterClear.addEventListener('click', (event) => {
+        event.preventDefault();
+
+        experienceTitleFilter.value = '';
+        experienceCategoryFilter.value = '';
+        experienceStatusFilter.value = '';
+
+        loadExperiences();
+    });
+
     loadExperiences();
 }

@@ -640,6 +640,10 @@ body:has(.site-menu[open]) {
     border: 1px solid var(--line);
 }
 
+.experience-filters > a[hidden] {
+    display: none;
+}
+
 @media (hover: hover) and (pointer: fine) {
     .experience-filters button:hover {
         background-color: var(--copper);
@@ -654,6 +658,14 @@ body:has(.site-menu[open]) {
 
 .experience-list {
     border-top: 1px solid var(--line);
+}
+
+.experience-result-count {
+    min-height: 1.25rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
 }
 
 .experience-item {
