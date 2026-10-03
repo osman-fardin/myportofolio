@@ -1,0 +1,71 @@
+<div
+    id="experience-create-modal"
+    class="project-create-modal experience-create-modal"
+    popover="auto"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="experience-create-title"
+>
+    <div class="project-create-modal-content">
+        <header class="project-create-modal-header">
+            <div>
+                <p class="section-kicker">New experience</p>
+                <h2 id="experience-create-title">Add an experience</h2>
+            </div>
+
+            <button
+                type="button"
+                class="project-create-modal-close"
+                popovertarget="experience-create-modal"
+                popovertargetaction="hide"
+                aria-label="Close experience form"
+            >
+                &times;
+            </button>
+        </header>
+
+        <form
+            id="experience-create-form"
+            method="post"
+            action="{% url 'main:create_experience' %}"
+            class="project-form"
+        >
+            {% csrf_token %}
+
+            {% for error in experience_form.non_field_errors %}
+                <p class="form-error">{{ error }}</p>
+            {% endfor %}
+
+            {% for field in experience_form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}">
+                        {{ field.label }}
+
+                        {% if not field.field.required %}
+                            <span class="form-optional">Optional</span>
+                        {% endif %}
+                    </label>
+
+                    {{ field }}
+
+                    {% for error in field.errors %}
+                        <p class="form-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            <div class="project-form-actions">
+                <button type="submit">Add experience</button>
+
+                <button
+                    type="button"
+                    class="project-create-cancel"
+                    popovertarget="experience-create-modal"
+                    popovertargetaction="hide"
+                >
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

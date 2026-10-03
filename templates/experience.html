@@ -22,12 +22,15 @@
             </div>
 
             {% if user.is_superuser %}
-                <a
+                <button
+                    type="button"
                     class="experience-add-link"
-                    href="{% url 'main:create_experience' %}"
+                    popovertarget="experience-create-modal"
                 >
                     Add experience
-                </a>
+                </button>
+
+                {% include 'components/experience_create_modal.html' %}
             {% endif %}
 
             <form

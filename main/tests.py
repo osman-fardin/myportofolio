@@ -436,17 +436,26 @@ class ExperiencePermissionTests(TestCase):
 
     def test_create_control_is_visible_only_to_superuser(self):
         guest_response = self.client.get(self.list_url)
+        self.assertIsNone(guest_response.context['experience_form'])
         self.assertNotContains(guest_response, self.create_url)
+        self.assertNotContains(guest_response, 'experience-create-modal')
         self.assertNotContains(guest_response, 'experience-delete-modal')
 
         self.client.force_login(self.editor)
         editor_response = self.client.get(self.list_url)
+        self.assertIsNone(editor_response.context['experience_form'])
         self.assertNotContains(editor_response, self.create_url)
+        self.assertNotContains(editor_response, 'experience-create-modal')
         self.assertNotContains(editor_response, 'experience-delete-modal')
 
         self.client.force_login(self.superuser)
         superuser_response = self.client.get(self.list_url)
+        self.assertIsInstance(
+            superuser_response.context['experience_form'],
+            ExperienceForm,
+        )
         self.assertContains(superuser_response, self.create_url)
+        self.assertContains(superuser_response, 'experience-create-modal')
         self.assertContains(superuser_response, 'experience-delete-modal')
 
 
