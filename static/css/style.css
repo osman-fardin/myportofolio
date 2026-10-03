@@ -753,6 +753,42 @@ body:has(.site-menu[open]) {
         transform 160ms var(--ease-out);
 }
 
+.experience-star-button {
+    display: inline-flex;
+    min-height: 42px;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.85rem;
+    color: var(--walnut);
+    background-color: transparent;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    transition:
+        color 160ms ease,
+        background-color 160ms ease,
+        border-color 160ms ease,
+        transform 160ms var(--ease-out);
+}
+
+.experience-star-button[aria-pressed="true"] {
+    color: var(--surface);
+    background-color: var(--copper);
+    border-color: var(--copper);
+}
+
+.experience-star-button:disabled {
+    cursor: wait;
+    opacity: 0.65;
+}
+
+.experience-star-count {
+    font-size: 0.72rem;
+}
+
 .experience-actions .experience-delete-trigger {
     color: var(--copper);
 }
@@ -768,6 +804,16 @@ body:has(.site-menu[open]) {
         color: var(--surface);
         background-color: var(--copper);
         transform: translateY(-2px);
+    }
+
+    .experience-star-button:not(:disabled):hover {
+        color: var(--copper);
+        border-color: var(--copper);
+        transform: translateY(-2px);
+    }
+
+    .experience-star-button[aria-pressed="true"]:not(:disabled):hover {
+        color: var(--surface);
     }
 }
 

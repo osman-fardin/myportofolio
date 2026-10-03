@@ -113,6 +113,7 @@
                 id="experience-list"
                 class="experience-list"
                 data-experiences-url="{% url 'main:get_experiences_json' %}"
+                data-csrf-token="{{ csrf_token }}"
                 aria-live="polite"
                 aria-busy="true"
             >

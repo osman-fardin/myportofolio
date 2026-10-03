@@ -193,6 +193,10 @@ def _serialize_experience(experience, request):
             'main:delete_experience',
             args=[experience.pk],
         ),
+        'star_url': reverse(
+            'main:toggle_experience_star',
+            args=[experience.pk],
+        ),
     }
 
 
@@ -205,6 +209,24 @@ def get_experiences_json(request):
     ]
 
     return JsonResponse(experience_data, safe=False)
+
+
+@login_required(login_url='/login/')
+@require_POST
+def toggle_experience_star(request, experience_id):
+    experience = get_object_or_404(Experience, pk=experience_id)
+
+    if experience.starred_by.filter(pk=request.user.pk).exists():
+        experience.starred_by.remove(request.user)
+        is_starred = False
+    else:
+        experience.starred_by.add(request.user)
+        is_starred = True
+
+    return JsonResponse({
+        'is_starred': is_starred,
+        'star_count': experience.starred_by.count(),
+    })
 
 
 def create_experience(request):

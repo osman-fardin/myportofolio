@@ -119,6 +119,84 @@ function createTimeElement(value) {
     return time;
 }
 
+function updateExperienceStarButton(button, isStarred, starCount) {
+    const label = button.querySelector('.experience-star-label');
+    const count = button.querySelector('.experience-star-count');
+
+    button.setAttribute('aria-pressed', String(isStarred));
+    label.textContent = isStarred ? 'Starred' : 'Star';
+    count.textContent = String(starCount);
+}
+
+async function toggleExperienceStar(button, experience) {
+    button.disabled = true;
+
+    try {
+        const response = await fetch(experience.star_url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': experienceList.dataset.csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+                Accept: 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error(
+                `Failed to update experience star: ${response.status}`,
+            );
+        }
+
+        const data = await response.json();
+
+        updateExperienceStarButton(
+            button,
+            data.is_starred,
+            data.star_count,
+        );
+    } catch (error) {
+        console.error(error);
+
+        showToast(
+            'Could not update star',
+            'Please try again in a moment.',
+            'error',
+        );
+    } finally {
+        button.disabled = false;
+    }
+}
+
+function createExperienceStarButton(experience) {
+    const button = document.createElement('button');
+    const icon = createTextElement('span', '', '★');
+    const label = createTextElement(
+        'span',
+        'experience-star-label',
+        '',
+    );
+    const count = createTextElement(
+        'span',
+        'experience-star-count',
+        '',
+    );
+
+    button.type = 'button';
+    button.className = 'experience-star-button';
+    icon.setAttribute('aria-hidden', 'true');
+    button.append(icon, label, count);
+    updateExperienceStarButton(
+        button,
+        experience.is_starred,
+        experience.star_count,
+    );
+    button.addEventListener('click', () => {
+        toggleExperienceStar(button, experience);
+    });
+
+    return button;
+}
+
 function createExperienceCard(experience) {
     const article = document.createElement('article');
     const header = document.createElement('header');
@@ -158,10 +236,18 @@ function createExperienceCard(experience) {
     header.append(information, period);
     article.append(header, points);
 
-    if (experience.can_change || experience.can_delete) {
+    if (
+        experience.can_star
+        || experience.can_change
+        || experience.can_delete
+    ) {
         const actions = document.createElement('div');
 
         actions.className = 'experience-actions';
+
+        if (experience.can_star) {
+            actions.append(createExperienceStarButton(experience));
+        }
 
         if (experience.can_change) {
             const editLink = createTextElement(

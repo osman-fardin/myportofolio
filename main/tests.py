@@ -689,6 +689,7 @@ class ExperienceJsonTests(TestCase):
             'can_delete',
             'update_url',
             'delete_url',
+            'star_url',
         }
 
         self.assertTrue(required_keys.issubset(item))
@@ -773,6 +774,90 @@ class ExperienceJsonTests(TestCase):
         self.assertContains(response, 'Loading experiences...')
         self.assertNotContains(response, self.ongoing_experience.title)
         self.assertNotContains(response, self.completed_experience.title)
+
+
+class ExperienceStarTests(TestCase):
+    def setUp(self):
+        self.experience = Experience.objects.create(
+            title='Teaching Assistant',
+            description='Guide students through programming exercises.',
+            category='part-time',
+        )
+        user_model = get_user_model()
+        self.alice = user_model.objects.create_user(
+            username='experience-star-alice',
+            password='test-password',
+        )
+        self.bob = user_model.objects.create_user(
+            username='experience-star-bob',
+            password='test-password',
+        )
+        self.star_url = reverse(
+            'main:toggle_experience_star',
+            args=[self.experience.id],
+        )
+
+    def test_guest_cannot_star_experience(self):
+        response = self.client.post(self.star_url)
+
+        self.assertRedirects(
+            response,
+            f"{reverse('main:login')}?next={self.star_url}",
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(self.experience.starred_by.count(), 0)
+
+    def test_get_does_not_change_experience_stars(self):
+        self.client.force_login(self.alice)
+
+        response = self.client.get(self.star_url)
+
+        self.assertEqual(response.status_code, 405)
+        self.assertEqual(self.experience.starred_by.count(), 0)
+
+    def test_post_toggles_star_and_returns_minimal_json(self):
+        self.client.force_login(self.alice)
+
+        star_response = self.client.post(self.star_url)
+
+        self.assertEqual(star_response.status_code, 200)
+        self.assertEqual(
+            star_response.json(),
+            {
+                'is_starred': True,
+                'star_count': 1,
+            },
+        )
+
+        unstar_response = self.client.post(self.star_url)
+
+        self.assertEqual(
+            unstar_response.json(),
+            {
+                'is_starred': False,
+                'star_count': 0,
+            },
+        )
+
+    def test_stars_are_independent_per_user(self):
+        self.client.force_login(self.alice)
+        self.client.post(self.star_url)
+
+        self.client.force_login(self.bob)
+        self.client.post(self.star_url)
+
+        self.assertEqual(self.experience.starred_by.count(), 2)
+
+        self.client.force_login(self.alice)
+        self.client.post(self.star_url)
+
+        self.assertFalse(
+            self.experience.starred_by.filter(pk=self.alice.pk).exists()
+        )
+        self.assertTrue(
+            self.experience.starred_by.filter(pk=self.bob.pk).exists()
+        )
+        self.assertEqual(self.experience.starred_by.count(), 1)
 
 
 class ProjectPageTests(TestCase):
