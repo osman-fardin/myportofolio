@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from django.contrib.auth.models import Group, Permission
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -466,6 +466,19 @@ class ExperienceAjaxCreateTests(TestCase):
         self.assertFalse(response.json()['success'])
         self.assertEqual(Experience.objects.count(), 0)
 
+    def test_ajax_create_rejects_missing_csrf_token(self):
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.superuser)
+
+        response = csrf_client.post(
+            self.create_url,
+            self.valid_data,
+            **self.ajax_headers,
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(Experience.objects.count(), 0)
+
 
 class ExperiencePermissionTests(TestCase):
     def setUp(self):
@@ -692,7 +705,7 @@ class ExperienceJsonTests(TestCase):
             'star_url',
         }
 
-        self.assertTrue(required_keys.issubset(item))
+        self.assertEqual(set(item), required_keys)
         self.assertEqual(item['description_points'], [
             'Guide students through programming exercises.',
         ])
@@ -813,6 +826,26 @@ class ExperienceStarTests(TestCase):
         response = self.client.get(self.star_url)
 
         self.assertEqual(response.status_code, 405)
+        self.assertEqual(self.experience.starred_by.count(), 0)
+
+    def test_missing_experience_star_route_returns_404(self):
+        self.client.force_login(self.alice)
+        missing_url = reverse(
+            'main:toggle_experience_star',
+            args=[uuid.uuid4()],
+        )
+
+        response = self.client.post(missing_url)
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_star_rejects_missing_csrf_token(self):
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.alice)
+
+        response = csrf_client.post(self.star_url)
+
+        self.assertEqual(response.status_code, 403)
         self.assertEqual(self.experience.starred_by.count(), 0)
 
     def test_post_toggles_star_and_returns_minimal_json(self):
