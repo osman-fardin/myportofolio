@@ -549,6 +549,8 @@ body:has(.site-menu[open]) {
     background-color: var(--walnut);
     border: 1px solid var(--walnut);
     border-radius: var(--radius);
+    cursor: pointer;
+    font: inherit;
     font-size: 0.82rem;
     font-weight: 700;
     text-decoration: none;
@@ -640,6 +642,10 @@ body:has(.site-menu[open]) {
     border: 1px solid var(--line);
 }
 
+.experience-filters > a[hidden] {
+    display: none;
+}
+
 @media (hover: hover) and (pointer: fine) {
     .experience-filters button:hover {
         background-color: var(--copper);
@@ -654,6 +660,14 @@ body:has(.site-menu[open]) {
 
 .experience-list {
     border-top: 1px solid var(--line);
+}
+
+.experience-result-count {
+    min-height: 1.25rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
 }
 
 .experience-item {
@@ -739,6 +753,42 @@ body:has(.site-menu[open]) {
         transform 160ms var(--ease-out);
 }
 
+.experience-star-button {
+    display: inline-flex;
+    min-height: 42px;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.85rem;
+    color: var(--walnut);
+    background-color: transparent;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    transition:
+        color 160ms ease,
+        background-color 160ms ease,
+        border-color 160ms ease,
+        transform 160ms var(--ease-out);
+}
+
+.experience-star-button[aria-pressed="true"] {
+    color: var(--surface);
+    background-color: var(--copper);
+    border-color: var(--copper);
+}
+
+.experience-star-button:disabled {
+    cursor: wait;
+    opacity: 0.65;
+}
+
+.experience-star-count {
+    font-size: 0.72rem;
+}
+
 .experience-actions .experience-delete-trigger {
     color: var(--copper);
 }
@@ -755,6 +805,16 @@ body:has(.site-menu[open]) {
         background-color: var(--copper);
         transform: translateY(-2px);
     }
+
+    .experience-star-button:not(:disabled):hover {
+        color: var(--copper);
+        border-color: var(--copper);
+        transform: translateY(-2px);
+    }
+
+    .experience-star-button[aria-pressed="true"]:not(:disabled):hover {
+        color: var(--surface);
+    }
 }
 
 .experience-empty,
@@ -762,6 +822,33 @@ body:has(.site-menu[open]) {
     padding-block: 2rem;
     color: var(--text-muted);
     border-bottom: 1px solid var(--line);
+}
+
+.experience-loading,
+.experience-error {
+    padding-block: 2rem;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--line);
+}
+
+.experience-error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.experience-retry {
+    min-height: 42px;
+    padding: 0.45rem 0.85rem;
+    color: var(--walnut);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
 }
 
 .projects-page .projects-section {

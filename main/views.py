@@ -4,10 +4,12 @@ from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
+from django.contrib.auth.views import redirect_to_login
 from django.core import serializers
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from .forms import ExperienceForm, ProjectForm
@@ -94,7 +96,11 @@ def logout_user(request):
 
 
 def _get_filtered_experiences(request):
-    experiences = Experience.objects.order_by('-started_at')
+    experiences = (
+        Experience.objects
+        .prefetch_related('starred_by')
+        .order_by('-started_at')
+    )
 
     title_query = request.GET.get('title', '').strip()
     category_filter = request.GET.get('category', '').strip()
@@ -123,17 +129,6 @@ def _get_filtered_experiences(request):
 
 
 def show_experience(request):
-    json_response = get_experiences_json(request)
-
-    experiences = serializers.deserialize(
-        'json',
-        json_response.content.decode('utf-8'),
-    )
-    experiences = [
-        experience.object
-        for experience in experiences
-    ]
-
     title_query = request.GET.get('title', '').strip()
     category_filter = request.GET.get('category', '').strip()
     status_filter = request.GET.get('status', '').strip()
@@ -141,7 +136,11 @@ def show_experience(request):
     context = {
         'name': 'Muhammad Osman Fardin',
         'display_name': 'Muhammad Osman Fardin',
-        'experience_list': experiences,
+        'experience_form': (
+            ExperienceForm()
+            if request.user.is_superuser
+            else None
+        ),
         'category_choices': Experience.EXPERIENCE_CHOICES,
         'title_query': title_query,
         'category_filter': category_filter,
@@ -156,31 +155,143 @@ def show_experience(request):
     return render(request, 'experience.html', context)
 
 
+def _serialize_experience(experience, request):
+    starred_user_ids = {
+        user.pk
+        for user in experience.starred_by.all()
+    }
+
+    return {
+        'id': str(experience.pk),
+        'title': experience.title,
+        'description_points': experience.description_points,
+        'category': experience.category,
+        'category_label': experience.get_category_display(),
+        'thumbnail': experience.thumbnail or '',
+        'started_at': experience.started_at.isoformat(),
+        'ended_at': (
+            experience.ended_at.isoformat()
+            if experience.ended_at
+            else None
+        ),
+        'is_ongoing': experience.is_ongoing,
+        'star_count': len(starred_user_ids),
+        'is_starred': (
+            request.user.is_authenticated
+            and request.user.pk in starred_user_ids
+        ),
+        'can_star': request.user.is_authenticated,
+        'can_change': request.user.has_perm(
+            'main.change_experience'
+        ),
+        'can_delete': request.user.is_superuser,
+        'update_url': reverse(
+            'main:update_experience',
+            args=[experience.pk],
+        ),
+        'delete_url': reverse(
+            'main:delete_experience',
+            args=[experience.pk],
+        ),
+        'star_url': reverse(
+            'main:toggle_experience_star',
+            args=[experience.pk],
+        ),
+    }
+
+
 def get_experiences_json(request):
     experiences = _get_filtered_experiences(request)
 
-    experiences_json = serializers.serialize(
-        'json',
-        experiences,
-    )
+    experience_data = [
+        _serialize_experience(experience, request)
+        for experience in experiences
+    ]
 
-    return HttpResponse(
-        experiences_json,
-        content_type='application/json',
-    )
+    return JsonResponse(experience_data, safe=False)
+
+
+@login_required(login_url='/login/')
+@require_POST
+def toggle_experience_star(request, experience_id):
+    experience = get_object_or_404(Experience, pk=experience_id)
+
+    if experience.starred_by.filter(pk=request.user.pk).exists():
+        experience.starred_by.remove(request.user)
+        is_starred = False
+    else:
+        experience.starred_by.add(request.user)
+        is_starred = True
+
+    return JsonResponse({
+        'is_starred': is_starred,
+        'star_count': experience.starred_by.count(),
+    })
 
 
 def create_experience(request):
+    is_ajax = (
+        request.headers.get('X-Requested-With')
+        == 'XMLHttpRequest'
+    )
+
+    if not request.user.is_authenticated:
+        if is_ajax:
+            return JsonResponse(
+                {
+                    'success': False,
+                    'message': 'Authentication required.',
+                },
+                status=403,
+            )
+
+        return redirect_to_login(
+            request.get_full_path(),
+            login_url='/login/',
+        )
+
+    if not request.user.is_superuser:
+        if is_ajax:
+            return JsonResponse(
+                {
+                    'success': False,
+                    'message': 'Permission denied.',
+                },
+                status=403,
+            )
+
+        raise PermissionDenied
+
     if request.method == 'POST':
         form = ExperienceForm(request.POST)
 
         if form.is_valid():
-            form.save()
+            experience = form.save()
+
+            if is_ajax:
+                return JsonResponse(
+                    {
+                        'success': True,
+                        'message': 'Experience added successfully.',
+                        'experience_id': str(experience.id),
+                    },
+                    status=201,
+                )
+
             messages.success(
                 request,
                 'Experience added successfully.',
             )
             return redirect('main:show_experience')
+
+        if is_ajax:
+            return JsonResponse(
+                {
+                    'success': False,
+                    'errors': form.errors.get_json_data(),
+                },
+                status=400,
+            )
     else:
         form = ExperienceForm()
 
@@ -200,7 +311,11 @@ def create_experience(request):
     return render(request, 'experience_form.html', context)
 
 
+@login_required(login_url='/login/')
 def update_experience(request, experience_id):
+    if not request.user.has_perm('main.change_experience'):
+        raise PermissionDenied
+
     experience = get_object_or_404(
         Experience,
         pk=experience_id,
@@ -238,8 +353,12 @@ def update_experience(request, experience_id):
     return render(request, 'experience_form.html', context)
 
 
+@login_required(login_url='/login/')
 @require_POST
 def delete_experience(request, experience_id):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+
     experience = get_object_or_404(
         Experience,
         pk=experience_id,

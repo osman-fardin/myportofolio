@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from django.contrib.auth.models import Group, Permission
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -55,49 +55,43 @@ class MainTest(TestCase):
             ],
         )
 
-    def test_experience_page(self):
+    def test_experience_page_renders_ajax_shell(self):
         response = self.client.get(reverse('main:show_experience'))
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'experience.html')
-        self.assertContains(response, self.experience.title)
-
-        for point in self.experience.description_points:
-            self.assertContains(response, point)
-
-        self.assertContains(
-            response,
-            self.experience.get_category_display(),
-        )
-        self.assertContains(response, 'Present')
+        self.assertContains(response, 'Loading experiences...')
+        self.assertContains(response, 'data-experiences-url=')
+        self.assertNotContains(response, self.experience.title)
 
         main_url = reverse('main:show_main')
         self.assertContains(response, f'href="{main_url}"')
 
-    def test_empty_experience_page(self):
+    def test_empty_experience_api(self):
         Experience.objects.all().delete()
 
-        response = self.client.get(reverse('main:show_experience'))
-
-        self.assertContains(
-            response,
-            'No experience has been added yet.',
+        response = self.client.get(
+            reverse('main:get_experiences_json')
         )
-        self.assertNotContains(response, self.experience.title)
 
-    def test_completed_experience(self):
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json.loads(response.content), [])
+
+    def test_completed_experience_api_state(self):
         self.experience.ended_at = timezone.now()
         self.experience.save()
 
-        response = self.client.get(reverse('main:show_experience'))
+        response = self.client.get(
+            reverse('main:get_experiences_json')
+        )
+        item = json.loads(response.content)[0]
 
         self.assertFalse(self.experience.is_ongoing)
-        self.assertNotContains(response, 'Present')
-
-        completed_month = timezone.localtime(
-            self.experience.ended_at
-        ).strftime('%b %Y')
-        self.assertContains(response, completed_month)
+        self.assertFalse(item['is_ongoing'])
+        self.assertEqual(
+            item['ended_at'],
+            self.experience.ended_at.isoformat(),
+        )
 
 
 class ExperienceFormTests(TestCase):
@@ -141,6 +135,36 @@ class ExperienceFormTests(TestCase):
         self.assertIn(
             'End date cannot be earlier than start date.',
             form.errors['ended_at'],
+        )
+
+    def test_plain_text_fields_remove_html_tags(self):
+        xss_payload = '<img src="x" onerror="alert(\'XSS!\')">'
+        form = ExperienceForm(
+            data={
+                **self.valid_data,
+                'title': f'Cloud Security {xss_payload} Intern',
+                'description': (
+                    'Reviewed cloud settings.\n'
+                    f'{xss_payload}\n'
+                    'Documented the findings.'
+                ),
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+        experience = form.save()
+
+        self.assertNotIn('<img', experience.title)
+        self.assertNotIn('onerror', experience.title)
+        self.assertNotIn('<img', experience.description)
+        self.assertNotIn('onerror', experience.description)
+        self.assertEqual(
+            experience.description_points,
+            [
+                'Reviewed cloud settings.',
+                'Documented the findings.',
+            ],
         )
 
 
@@ -189,6 +213,11 @@ class ExperienceCrudTests(TestCase):
             description='Guide students through programming exercises.',
             category='part-time',
         )
+        self.superuser = get_user_model().objects.create_superuser(
+            username='experience-admin',
+            password='test-password-123',
+        )
+        self.client.force_login(self.superuser)
 
     def _form_data(self, **overrides):
         data = {
@@ -346,6 +375,224 @@ class ExperienceCrudTests(TestCase):
             ).exists()
         )
 
+
+class ExperienceAjaxCreateTests(TestCase):
+    def setUp(self):
+        self.create_url = reverse('main:create_experience')
+        self.ajax_headers = {
+            'HTTP_X_REQUESTED_WITH': 'XMLHttpRequest',
+        }
+        self.valid_data = {
+            'title': 'Cloud Security Intern',
+            'description': 'Reviewed cloud security configurations.',
+            'category': 'internship',
+            'thumbnail': '',
+            'started_at': '2026-09-19T10:00',
+            'ended_at': '',
+        }
+        self.superuser = get_user_model().objects.create_superuser(
+            username='experience-ajax-admin',
+            password='test-password-123',
+        )
+
+    def test_valid_ajax_post_returns_201_and_creates_experience(self):
+        self.client.force_login(self.superuser)
+
+        response = self.client.post(
+            self.create_url,
+            self.valid_data,
+            **self.ajax_headers,
+        )
+        data = response.json()
+
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(data['success'])
+        self.assertTrue(
+            Experience.objects.filter(
+                pk=data['experience_id'],
+                title='Cloud Security Intern',
+            ).exists()
+        )
+
+    def test_invalid_ajax_post_returns_field_errors(self):
+        self.client.force_login(self.superuser)
+
+        response = self.client.post(
+            self.create_url,
+            {
+                **self.valid_data,
+                'title': '',
+            },
+            **self.ajax_headers,
+        )
+        data = response.json()
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(data['success'])
+        self.assertIn('title', data['errors'])
+        self.assertFalse(
+            Experience.objects.filter(
+                description=self.valid_data['description'],
+            ).exists()
+        )
+
+    def test_guest_ajax_post_returns_json_403(self):
+        response = self.client.post(
+            self.create_url,
+            self.valid_data,
+            **self.ajax_headers,
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response['Content-Type'], 'application/json')
+        self.assertFalse(response.json()['success'])
+        self.assertEqual(Experience.objects.count(), 0)
+
+    def test_regular_user_ajax_post_returns_json_403(self):
+        regular_user = get_user_model().objects.create_user(
+            username='experience-ajax-user',
+            password='test-password-123',
+        )
+        self.client.force_login(regular_user)
+
+        response = self.client.post(
+            self.create_url,
+            self.valid_data,
+            **self.ajax_headers,
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response['Content-Type'], 'application/json')
+        self.assertFalse(response.json()['success'])
+        self.assertEqual(Experience.objects.count(), 0)
+
+    def test_ajax_create_rejects_missing_csrf_token(self):
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.superuser)
+
+        response = csrf_client.post(
+            self.create_url,
+            self.valid_data,
+            **self.ajax_headers,
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(Experience.objects.count(), 0)
+
+
+class ExperiencePermissionTests(TestCase):
+    def setUp(self):
+        self.experience = Experience.objects.create(
+            title='Protected Experience',
+            description='This experience is protected by permissions.',
+            category='part-time',
+        )
+
+        self.list_url = reverse('main:show_experience')
+        self.create_url = reverse('main:create_experience')
+        self.update_url = reverse(
+            'main:update_experience',
+            args=[self.experience.id],
+        )
+        self.delete_url = reverse(
+            'main:delete_experience',
+            args=[self.experience.id],
+        )
+
+        user_model = get_user_model()
+
+        self.regular_user = user_model.objects.create_user(
+            username='experience-user',
+            password='test-password',
+        )
+        self.editor = user_model.objects.create_user(
+            username='experience-editor',
+            password='test-password',
+        )
+        self.superuser = user_model.objects.create_superuser(
+            username='experience-owner',
+            password='test-password',
+        )
+
+        editor_group = Group.objects.create(name='Experience Editor')
+        change_permission = Permission.objects.get(
+            content_type__app_label='main',
+            codename='change_experience',
+        )
+        editor_group.permissions.add(change_permission)
+        self.editor.groups.add(editor_group)
+
+    def test_guest_is_redirected_from_mutation_views(self):
+        responses = [
+            (self.client.get(self.create_url), self.create_url),
+            (self.client.get(self.update_url), self.update_url),
+            (self.client.post(self.delete_url), self.delete_url),
+        ]
+
+        for response, destination in responses:
+            with self.subTest(destination=destination):
+                self.assertRedirects(
+                    response,
+                    f"{reverse('main:login')}?next={destination}",
+                    fetch_redirect_response=False,
+                )
+
+    def test_regular_user_cannot_mutate_experiences(self):
+        self.client.force_login(self.regular_user)
+
+        responses = [
+            self.client.get(self.create_url),
+            self.client.get(self.update_url),
+            self.client.post(self.delete_url),
+        ]
+
+        for response in responses:
+            with self.subTest(path=response.request['PATH_INFO']):
+                self.assertEqual(response.status_code, 403)
+
+        self.assertTrue(
+            Experience.objects.filter(pk=self.experience.pk).exists()
+        )
+
+    def test_editor_can_edit_but_cannot_create_or_delete(self):
+        self.client.force_login(self.editor)
+
+        create_response = self.client.get(self.create_url)
+        update_response = self.client.get(self.update_url)
+        delete_response = self.client.post(self.delete_url)
+
+        self.assertEqual(create_response.status_code, 403)
+        self.assertEqual(update_response.status_code, 200)
+        self.assertEqual(delete_response.status_code, 403)
+        self.assertTrue(
+            Experience.objects.filter(pk=self.experience.pk).exists()
+        )
+
+    def test_create_control_is_visible_only_to_superuser(self):
+        guest_response = self.client.get(self.list_url)
+        self.assertIsNone(guest_response.context['experience_form'])
+        self.assertNotContains(guest_response, self.create_url)
+        self.assertNotContains(guest_response, 'experience-create-modal')
+        self.assertNotContains(guest_response, 'experience-delete-modal')
+
+        self.client.force_login(self.editor)
+        editor_response = self.client.get(self.list_url)
+        self.assertIsNone(editor_response.context['experience_form'])
+        self.assertNotContains(editor_response, self.create_url)
+        self.assertNotContains(editor_response, 'experience-create-modal')
+        self.assertNotContains(editor_response, 'experience-delete-modal')
+
+        self.client.force_login(self.superuser)
+        superuser_response = self.client.get(self.list_url)
+        self.assertIsInstance(
+            superuser_response.context['experience_form'],
+            ExperienceForm,
+        )
+        self.assertContains(superuser_response, self.create_url)
+        self.assertContains(superuser_response, 'experience-create-modal')
+        self.assertContains(superuser_response, 'experience-delete-modal')
+
+
 class ExperienceJsonTests(TestCase):
     def setUp(self):
         self.ongoing_experience = Experience.objects.create(
@@ -378,7 +625,7 @@ class ExperienceJsonTests(TestCase):
         )
         self.assertEqual(len(data), 2)
         self.assertEqual(
-            {item['pk'] for item in data},
+            {item['id'] for item in data},
             {
                 str(self.ongoing_experience.id),
                 str(self.completed_experience.id),
@@ -422,47 +669,228 @@ class ExperienceJsonTests(TestCase):
             with self.subTest(case=case_name):
                 _, data = self._get_json(params)
                 actual_ids = {
-                    item['pk']
+                    item['id']
                     for item in data
                 }
 
                 self.assertEqual(actual_ids, expected_ids)
 
-    def test_experience_page_renders_deserialized_objects(self):
+    def test_json_payload_contains_only_public_guest_state(self):
+        starred_user = get_user_model().objects.create_user(
+            username='experience-fan',
+            password='test-password',
+        )
+        self.ongoing_experience.starred_by.add(starred_user)
+
+        _, data = self._get_json({'title': 'Teaching'})
+        item = data[0]
+
+        required_keys = {
+            'id',
+            'title',
+            'description_points',
+            'category',
+            'category_label',
+            'thumbnail',
+            'started_at',
+            'ended_at',
+            'is_ongoing',
+            'star_count',
+            'is_starred',
+            'can_star',
+            'can_change',
+            'can_delete',
+            'update_url',
+            'delete_url',
+            'star_url',
+        }
+
+        self.assertEqual(set(item), required_keys)
+        self.assertEqual(item['description_points'], [
+            'Guide students through programming exercises.',
+        ])
+        self.assertEqual(item['category_label'], 'Part-Time')
+        self.assertEqual(item['star_count'], 1)
+        self.assertFalse(item['is_starred'])
+        self.assertFalse(item['can_star'])
+        self.assertFalse(item['can_change'])
+        self.assertFalse(item['can_delete'])
+
+        for private_key in (
+            'username',
+            'email',
+            'password',
+            'groups',
+            'starred_by',
+        ):
+            self.assertNotIn(private_key, item)
+
+    def test_json_uses_current_user_star_state(self):
+        user = get_user_model().objects.create_user(
+            username='signed-in-fan',
+            password='test-password',
+        )
+        self.ongoing_experience.starred_by.add(user)
+        self.client.force_login(user)
+
+        _, data = self._get_json({'title': 'Teaching'})
+        item = data[0]
+
+        self.assertEqual(item['star_count'], 1)
+        self.assertTrue(item['is_starred'])
+        self.assertTrue(item['can_star'])
+        self.assertFalse(item['can_change'])
+        self.assertFalse(item['can_delete'])
+
+    def test_json_capabilities_follow_user_permissions(self):
+        user_model = get_user_model()
+        editor = user_model.objects.create_user(
+            username='json-editor',
+            password='test-password',
+        )
+        change_permission = Permission.objects.get(
+            content_type__app_label='main',
+            codename='change_experience',
+        )
+        editor.user_permissions.add(change_permission)
+        self.client.force_login(editor)
+
+        _, editor_data = self._get_json({'title': 'Teaching'})
+
+        self.assertTrue(editor_data[0]['can_change'])
+        self.assertFalse(editor_data[0]['can_delete'])
+
+        superuser = user_model.objects.create_superuser(
+            username='json-owner',
+            password='test-password',
+        )
+        self.client.force_login(superuser)
+
+        _, superuser_data = self._get_json({'title': 'Teaching'})
+
+        self.assertTrue(superuser_data[0]['can_change'])
+        self.assertTrue(superuser_data[0]['can_delete'])
+
+    def test_experience_page_renders_shell_without_objects(self):
         response = self.client.get(
             reverse('main:show_experience'),
             {'status': 'ongoing'},
         )
 
-        experience_list = response.context['experience_list']
-
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(experience_list), 1)
-        self.assertIsInstance(
-            experience_list[0],
-            Experience,
-        )
-        self.assertEqual(
-            experience_list[0].id,
-            self.ongoing_experience.id,
-        )
+        self.assertNotIn('experience_list', response.context)
+        self.assertEqual(response.context['status_filter'], 'ongoing')
         self.assertContains(
             response,
-            self.ongoing_experience.title,
+            'data-experiences-url="/api/experiences/"',
         )
-        self.assertNotContains(
-            response,
-            self.completed_experience.title,
+        self.assertContains(response, 'Loading experiences...')
+        self.assertNotContains(response, self.ongoing_experience.title)
+        self.assertNotContains(response, self.completed_experience.title)
+
+
+class ExperienceStarTests(TestCase):
+    def setUp(self):
+        self.experience = Experience.objects.create(
+            title='Teaching Assistant',
+            description='Guide students through programming exercises.',
+            category='part-time',
+        )
+        user_model = get_user_model()
+        self.alice = user_model.objects.create_user(
+            username='experience-star-alice',
+            password='test-password',
+        )
+        self.bob = user_model.objects.create_user(
+            username='experience-star-bob',
+            password='test-password',
+        )
+        self.star_url = reverse(
+            'main:toggle_experience_star',
+            args=[self.experience.id],
         )
 
-        no_match_response = self.client.get(
-            reverse('main:show_experience'),
-            {'title': 'definitely-not-found'},
+    def test_guest_cannot_star_experience(self):
+        response = self.client.post(self.star_url)
+
+        self.assertRedirects(
+            response,
+            f"{reverse('main:login')}?next={self.star_url}",
+            fetch_redirect_response=False,
         )
-        self.assertContains(
-            no_match_response,
-            'No experiences match the selected filters.',
+        self.assertEqual(self.experience.starred_by.count(), 0)
+
+    def test_get_does_not_change_experience_stars(self):
+        self.client.force_login(self.alice)
+
+        response = self.client.get(self.star_url)
+
+        self.assertEqual(response.status_code, 405)
+        self.assertEqual(self.experience.starred_by.count(), 0)
+
+    def test_missing_experience_star_route_returns_404(self):
+        self.client.force_login(self.alice)
+        missing_url = reverse(
+            'main:toggle_experience_star',
+            args=[uuid.uuid4()],
         )
+
+        response = self.client.post(missing_url)
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_star_rejects_missing_csrf_token(self):
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.alice)
+
+        response = csrf_client.post(self.star_url)
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(self.experience.starred_by.count(), 0)
+
+    def test_post_toggles_star_and_returns_minimal_json(self):
+        self.client.force_login(self.alice)
+
+        star_response = self.client.post(self.star_url)
+
+        self.assertEqual(star_response.status_code, 200)
+        self.assertEqual(
+            star_response.json(),
+            {
+                'is_starred': True,
+                'star_count': 1,
+            },
+        )
+
+        unstar_response = self.client.post(self.star_url)
+
+        self.assertEqual(
+            unstar_response.json(),
+            {
+                'is_starred': False,
+                'star_count': 0,
+            },
+        )
+
+    def test_stars_are_independent_per_user(self):
+        self.client.force_login(self.alice)
+        self.client.post(self.star_url)
+
+        self.client.force_login(self.bob)
+        self.client.post(self.star_url)
+
+        self.assertEqual(self.experience.starred_by.count(), 2)
+
+        self.client.force_login(self.alice)
+        self.client.post(self.star_url)
+
+        self.assertFalse(
+            self.experience.starred_by.filter(pk=self.alice.pk).exists()
+        )
+        self.assertTrue(
+            self.experience.starred_by.filter(pk=self.bob.pk).exists()
+        )
+        self.assertEqual(self.experience.starred_by.count(), 1)
 
 
 class ProjectPageTests(TestCase):

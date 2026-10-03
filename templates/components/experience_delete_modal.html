@@ -1,24 +1,15 @@
-<button
-    type="button"
-    class="project-delete-trigger experience-delete-trigger"
-    popovertarget="delete-experience-{{ experience.id }}"
-    aria-label="Delete {{ experience.title }}"
->
-    Delete experience
-</button>
-
 <div
-    id="delete-experience-{{ experience.id }}"
+    id="experience-delete-modal"
     class="project-delete-modal"
     popover="auto"
     role="dialog"
     aria-modal="true"
-    aria-labelledby="delete-experience-title-{{ experience.id }}"
+    aria-labelledby="experience-delete-title"
 >
     <button
         type="button"
         class="project-delete-modal-backdrop"
-        popovertarget="delete-experience-{{ experience.id }}"
+        popovertarget="experience-delete-modal"
         popovertargetaction="hide"
         aria-label="Close delete confirmation"
     ></button>
@@ -27,35 +18,30 @@
         <button
             type="button"
             class="project-delete-modal-close"
-            popovertarget="delete-experience-{{ experience.id }}"
+            popovertarget="experience-delete-modal"
             popovertargetaction="hide"
             aria-label="Close delete confirmation"
         >
             &times;
         </button>
 
-        <h2 id="delete-experience-title-{{ experience.id }}">
-            Delete experience?
-        </h2>
+        <h2 id="experience-delete-title">Delete experience?</h2>
 
         <p>
             Are you sure you want to delete
-            <strong>{{ experience.title }}</strong>?
+            <strong id="experience-delete-name">this experience</strong>?
         </p>
 
         <div class="project-delete-modal-actions">
             <button
                 type="button"
-                popovertarget="delete-experience-{{ experience.id }}"
+                popovertarget="experience-delete-modal"
                 popovertargetaction="hide"
             >
                 Cancel
             </button>
 
-            <form
-                method="post"
-                action="{% url 'main:delete_experience' experience.id %}"
-            >
+            <form id="experience-delete-form" method="post">
                 {% csrf_token %}
                 <button type="submit">Yes, delete</button>
             </form>
