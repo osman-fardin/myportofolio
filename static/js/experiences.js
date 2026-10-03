@@ -17,6 +17,12 @@ const experienceFilterClear = document.getElementById(
 const experienceResultCount = document.getElementById(
     'experience-result-count',
 );
+const experienceCreateForm = document.getElementById(
+    'experience-create-form',
+);
+const experienceCreateModal = document.getElementById(
+    'experience-create-modal',
+);
 
 const experienceDeleteForm = document.getElementById(
     'experience-delete-form',
@@ -86,6 +92,13 @@ function createTextElement(tagName, className, text) {
     element.textContent = text;
 
     return element;
+}
+
+function getFirstFormError(errors = {}) {
+    const errorGroups = Object.values(errors);
+    const firstError = errorGroups.flat()[0];
+
+    return firstError?.message ?? 'Please check the experience form.';
 }
 
 function formatMonthYear(value) {
@@ -325,6 +338,62 @@ async function loadExperiences() {
     }
 }
 
+async function submitExperience(event) {
+    event.preventDefault();
+
+    const submitButton = experienceCreateForm.querySelector(
+        'button[type="submit"]',
+    );
+    const csrfToken = experienceCreateForm.querySelector(
+        '[name="csrfmiddlewaretoken"]',
+    ).value;
+
+    submitButton.disabled = true;
+
+    try {
+        const response = await fetch(experienceCreateForm.action, {
+            method: 'POST',
+            body: new FormData(experienceCreateForm),
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+                Accept: 'application/json',
+            },
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+            showToast(
+                'Could not add experience',
+                data.message ?? getFirstFormError(data.errors),
+                'error',
+            );
+            return;
+        }
+
+        experienceCreateForm.reset();
+        experienceCreateModal.hidePopover();
+
+        showToast(
+            'Experience added',
+            data.message,
+            'success',
+        );
+
+        await loadExperiences();
+    } catch (error) {
+        console.error(error);
+
+        showToast(
+            'Could not add experience',
+            'Please try again in a moment.',
+            'error',
+        );
+    } finally {
+        submitButton.disabled = false;
+    }
+}
+
 const debouncedLoadExperiences = debounce(loadExperiences, 400);
 
 if (
@@ -366,4 +435,11 @@ if (
     });
 
     loadExperiences();
+}
+
+if (experienceCreateForm && experienceCreateModal) {
+    experienceCreateForm.addEventListener(
+        'submit',
+        submitExperience,
+    );
 }

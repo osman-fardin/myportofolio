@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
+from django.contrib.auth.views import redirect_to_login
 from django.core import serializers
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse, JsonResponse
@@ -206,21 +207,69 @@ def get_experiences_json(request):
     return JsonResponse(experience_data, safe=False)
 
 
-@login_required(login_url='/login/')
 def create_experience(request):
+    is_ajax = (
+        request.headers.get('X-Requested-With')
+        == 'XMLHttpRequest'
+    )
+
+    if not request.user.is_authenticated:
+        if is_ajax:
+            return JsonResponse(
+                {
+                    'success': False,
+                    'message': 'Authentication required.',
+                },
+                status=403,
+            )
+
+        return redirect_to_login(
+            request.get_full_path(),
+            login_url='/login/',
+        )
+
     if not request.user.is_superuser:
+        if is_ajax:
+            return JsonResponse(
+                {
+                    'success': False,
+                    'message': 'Permission denied.',
+                },
+                status=403,
+            )
+
         raise PermissionDenied
 
     if request.method == 'POST':
         form = ExperienceForm(request.POST)
 
         if form.is_valid():
-            form.save()
+            experience = form.save()
+
+            if is_ajax:
+                return JsonResponse(
+                    {
+                        'success': True,
+                        'message': 'Experience added successfully.',
+                        'experience_id': str(experience.id),
+                    },
+                    status=201,
+                )
+
             messages.success(
                 request,
                 'Experience added successfully.',
             )
             return redirect('main:show_experience')
+
+        if is_ajax:
+            return JsonResponse(
+                {
+                    'success': False,
+                    'errors': form.errors.get_json_data(),
+                },
+                status=400,
+            )
     else:
         form = ExperienceForm()
 

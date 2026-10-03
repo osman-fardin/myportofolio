@@ -346,6 +346,97 @@ class ExperienceCrudTests(TestCase):
         )
 
 
+class ExperienceAjaxCreateTests(TestCase):
+    def setUp(self):
+        self.create_url = reverse('main:create_experience')
+        self.ajax_headers = {
+            'HTTP_X_REQUESTED_WITH': 'XMLHttpRequest',
+        }
+        self.valid_data = {
+            'title': 'Cloud Security Intern',
+            'description': 'Reviewed cloud security configurations.',
+            'category': 'internship',
+            'thumbnail': '',
+            'started_at': '2026-09-19T10:00',
+            'ended_at': '',
+        }
+        self.superuser = get_user_model().objects.create_superuser(
+            username='experience-ajax-admin',
+            password='test-password-123',
+        )
+
+    def test_valid_ajax_post_returns_201_and_creates_experience(self):
+        self.client.force_login(self.superuser)
+
+        response = self.client.post(
+            self.create_url,
+            self.valid_data,
+            **self.ajax_headers,
+        )
+        data = response.json()
+
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(data['success'])
+        self.assertTrue(
+            Experience.objects.filter(
+                pk=data['experience_id'],
+                title='Cloud Security Intern',
+            ).exists()
+        )
+
+    def test_invalid_ajax_post_returns_field_errors(self):
+        self.client.force_login(self.superuser)
+
+        response = self.client.post(
+            self.create_url,
+            {
+                **self.valid_data,
+                'title': '',
+            },
+            **self.ajax_headers,
+        )
+        data = response.json()
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(data['success'])
+        self.assertIn('title', data['errors'])
+        self.assertFalse(
+            Experience.objects.filter(
+                description=self.valid_data['description'],
+            ).exists()
+        )
+
+    def test_guest_ajax_post_returns_json_403(self):
+        response = self.client.post(
+            self.create_url,
+            self.valid_data,
+            **self.ajax_headers,
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response['Content-Type'], 'application/json')
+        self.assertFalse(response.json()['success'])
+        self.assertEqual(Experience.objects.count(), 0)
+
+    def test_regular_user_ajax_post_returns_json_403(self):
+        regular_user = get_user_model().objects.create_user(
+            username='experience-ajax-user',
+            password='test-password-123',
+        )
+        self.client.force_login(regular_user)
+
+        response = self.client.post(
+            self.create_url,
+            self.valid_data,
+            **self.ajax_headers,
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response['Content-Type'], 'application/json')
+        self.assertFalse(response.json()['success'])
+        self.assertEqual(Experience.objects.count(), 0)
+
+
 class ExperiencePermissionTests(TestCase):
     def setUp(self):
         self.experience = Experience.objects.create(
