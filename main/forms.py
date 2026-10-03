@@ -140,6 +140,16 @@ class ExperienceForm(forms.ModelForm):
             ),
         }
 
+    def clean_title(self):
+        title = self.cleaned_data['title']
+
+        return strip_tags(title).strip()
+
+    def clean_description(self):
+        description = self.cleaned_data['description']
+
+        return strip_tags(description).strip()
+
     def clean(self):
         cleaned_data = super().clean()
         started_at = cleaned_data.get('started_at')

@@ -137,6 +137,36 @@ class ExperienceFormTests(TestCase):
             form.errors['ended_at'],
         )
 
+    def test_plain_text_fields_remove_html_tags(self):
+        xss_payload = '<img src="x" onerror="alert(\'XSS!\')">'
+        form = ExperienceForm(
+            data={
+                **self.valid_data,
+                'title': f'Cloud Security {xss_payload} Intern',
+                'description': (
+                    'Reviewed cloud settings.\n'
+                    f'{xss_payload}\n'
+                    'Documented the findings.'
+                ),
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+        experience = form.save()
+
+        self.assertNotIn('<img', experience.title)
+        self.assertNotIn('onerror', experience.title)
+        self.assertNotIn('<img', experience.description)
+        self.assertNotIn('onerror', experience.description)
+        self.assertEqual(
+            experience.description_points,
+            [
+                'Reviewed cloud settings.',
+                'Documented the findings.',
+            ],
+        )
+
 
 class ProjectFormTests(TestCase):
     def setUp(self):
