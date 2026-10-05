@@ -14,13 +14,15 @@ minimal multi-page interface with a warm visual theme.
 
 - Minimal homepage with direct paths to Projects and About
 - Database-backed Experience and Projects pages
-- Experience management melalui form create dan update yang menggunakan
-  `ModelForm` serta validasi tanggal
-- Penghapusan Experience yang hanya menerima request POST dan dilengkapi
-  confirmation popover
-- Pencarian dan filter Experience berdasarkan judul, kategori, dan status
-- Endpoint `/api/experiences/` yang menyediakan data terfilter dalam format JSON
-- Halaman Experience yang menampilkan kembali data setelah proses deserialisasi JSON
+- Experience dimuat dari endpoint JSON menggunakan Fetch API tanpa reload halaman
+- Pencarian dan filter Experience dengan debouncing serta request cancellation
+- Modal create Experience berbasis AJAX dengan response `201`, `400`, atau `403`
+- Loading, empty, no-results, error, retry, result count, dan toast feedback
+- Sanitasi input Experience menggunakan `strip_tags` dan output aman melalui
+  DOM `textContent`
+- Authorization Experience untuk guest, user biasa, Editor, dan superuser
+- AJAX star dan unstar Experience per user tanpa reload halaman
+- Penghapusan Experience berbasis POST dengan confirmation popover
 - Project and experience management through Django Admin
 - Shared navigation and footer using Django template inheritance
 - Responsive layouts for desktop, tablet, and mobile screens
@@ -35,8 +37,8 @@ minimal multi-page interface with a warm visual theme.
 - Filter personal **Starred by me** yang dapat digabungkan dengan pencarian judul
 - Endpoint JSON Project dengan allowlist field publik agar identitas akun yang
   memberi star tidak ikut dikirim
-- Automated test untuk autentikasi, permission, API privacy, dan isolasi data
-  personal antar-user
+- 73 automated test untuk AJAX, CSRF, XSS, autentikasi, permission, API privacy,
+  serta isolasi data personal antar-user
 
 ## Technology
 
@@ -78,6 +80,10 @@ pip install -r requirements.txt
 python manage.py migrate
 ```
 
+Perintah `migrate` juga menerapkan migration `0005_experience_starred_by` yang
+menambahkan relasi star per user pada Experience. Migration perlu dijalankan pada
+setiap database baru, termasuk database deployment PWS.
+
 Start the development server:
 
 ```bash
@@ -103,15 +109,27 @@ akun superuser. Setelah itu:
 
 1. Buka **Authentication and Authorization -> Groups**.
 2. Pilih **Add group** dan beri nama `Editor`.
-3. Tambahkan permission **Main | project | Can change project**.
+3. Tambahkan permission **Main | project | Can change project** dan
+   **Main | experience | Can change experience**.
 4. Simpan grup tersebut.
 5. Buka user yang ingin dijadikan Editor.
 6. Masukkan user tersebut ke grup `Editor`, lalu simpan.
 
-Editor dapat membuka dan menyimpan form update Project, tetapi tetap tidak dapat
-membuat atau menghapus Project. Create dan delete hanya tersedia untuk
-superuser. Guest diarahkan ke halaman login, sedangkan user yang sudah login
-tetapi tidak mempunyai permission akan mendapat response `403 Forbidden`.
+Editor dapat memperbarui Project dan Experience, tetapi tetap tidak dapat membuat
+atau menghapus keduanya. Create dan delete hanya tersedia untuk superuser. Guest
+diarahkan ke halaman login, sedangkan user yang sudah login tetapi tidak mempunyai
+permission akan mendapat response `403 Forbidden`.
+
+## Experience Routes
+
+| Route | Method | Fungsi | Akses |
+| --- | --- | --- | --- |
+| `/experience/` | GET | Menampilkan kerangka halaman dan interaksi Experience | Publik |
+| `/api/experiences/` | GET | Mengirim data Experience publik beserta state star | Publik |
+| `/experience/add/` | GET/POST | Fallback form dan AJAX create | Superuser |
+| `/experience/<uuid>/edit/` | GET/POST | Memperbarui Experience | Editor dan superuser |
+| `/experience/<uuid>/delete/` | POST | Menghapus Experience | Superuser |
+| `/experience/<uuid>/star/` | POST | Toggle star dan mengembalikan state terbaru | User login |
 
 ## Progres Mingguan
 
@@ -174,7 +192,7 @@ tetapi tidak mempunyai permission akan mendapat response `403 Forbidden`.
 - Menambah cakupan test menjadi 23 test untuk memeriksa form, validasi, CRUD,
   keamanan delete, JSON, filter, 404, dan deserialization.
 - Membagi implementasi ke beberapa conventional commit pada feature branch dan
-  menggabungkannya ke `main` melalui pull
+  menggabungkannya ke `main` melalui pull request.
 
 ### Minggu 5: Authentication, Authorization, dan Personal Stars (22 - 28 September 2026)
 
@@ -197,6 +215,29 @@ tetapi tidak mempunyai permission akan mendapat response `403 Forbidden`.
   cookie, permission setiap role, personal stars, API privacy, dan fitur lama.
 - Membagi implementasi ke beberapa feature branch dan conventional commit, lalu
   menggabungkannya ke `main` melalui pull request setelah seluruh test lulus.
+
+### Minggu 6: AJAX Experience dan Web Interactivity (29 September - 5 Oktober 2026)
+
+- Mengubah halaman Experience menjadi kerangka yang mengambil data dari endpoint
+  JSON manual menggunakan Fetch API.
+- Menambahkan loading, empty, no-results, error, retry, dan result count supaya
+  kondisi halaman tetap jelas tanpa reload.
+- Membuat pencarian title dengan debounce 400 ms serta `AbortController` agar
+  request lama tidak menimpa hasil pencarian terbaru.
+- Membuat modal add Experience menggunakan Popover API dan AJAX POST dengan
+  `FormData`, CSRF token, validasi `ModelForm`, toast, dan status HTTP yang sesuai.
+- Mempertahankan akses guest, user biasa, Editor, dan superuser pada view, bukan
+  hanya dengan menyembunyikan tombol di tampilan.
+- Membersihkan title dan description menggunakan `strip_tags`, lalu merender
+  seluruh data server melalui DOM API dan `textContent` untuk mencegah XSS.
+- Menambahkan fitur ekstra star dan unstar Experience melalui AJAX dengan jumlah
+  serta state yang berbeda untuk setiap user.
+- Menambahkan request cancellation, pencegahan double-click, error feedback, API
+  privacy, serta test CSRF dan UUID 404 sebagai perlindungan tambahan.
+- Membagi implementasi menjadi sepuluh conventional commit pada branch
+  `feat/tugas-5-experience-ajax`, lalu merge ke `main` melalui pull request #18.
+- Menambah cakupan menjadi 73 automated test dan memastikan Django check,
+  migration check, syntax JavaScript, serta browser smoke test berhasil.
 
 ## Refleksi Tugas 1
 
@@ -254,15 +295,29 @@ JSON lebih sering digunakan karena strukturnya ringkas, mudah dibaca, dan dekat 
 
 Request ke `/api/experiences/` diarahkan ke `get_experiences_json`. View tersebut mengambil QuerySet melalui `_get_filtered_experiences()`, lalu mengubahnya menjadi JSON menggunakan `serializers.serialize()`. Hasilnya dikirim lewat `HttpResponse` dengan content type JSON. Serialization diperlukan karena QuerySet dan model Django adalah object Python yang tidak dapat langsung dikirim melalui HTTP. Pada halaman Experience, JSON tersebut di-decode, di-deserialize kembali menjadi object Experience, dimasukkan ke context sebagai `experience_list`, lalu ditampilkan oleh template. Helper filter yang sama dipakai oleh JSON dan halaman HTML supaya hasil keduanya tetap konsisten.
 
+## Refleksi Tugas 5
+
+### 1. Jelaskan apa itu debouncing dan mengapa teknik ini penting diterapkan pada fitur pencarian yang menggunakan AJAX!
+
+Debouncing adalah cara menunda pemanggilan function sampai user berhenti melakukan input selama waktu tertentu. Pada pencarian Experience, saya memakai delay 400 ms. Jadi, ketika saya mengetik beberapa huruf dengan cepat, aplikasi tidak langsung mengirim request untuk setiap huruf, tetapi menunggu sampai saya berhenti mengetik. Cara ini mengurangi request yang tidak perlu, membuat hasil pencarian tidak terlalu sering berkedip, dan mengurangi beban server maupun network. Saya juga memakai `AbortController` untuk membatalkan request lama supaya response yang terlambat tidak menimpa hasil terbaru.
+
+### 2. Jelaskan fungsi dari penggunaan `await` ketika kita menggunakan `fetch()`! Apa yang akan terjadi jika kita tidak menggunakan `await`?
+
+`fetch()` langsung menghasilkan Promise karena request berjalan secara asynchronous. `await` dipakai agar function menunggu Promise tersebut selesai sebelum memakai response-nya. Setelah itu, `await response.json()` masih diperlukan karena membaca body JSON juga asynchronous. Tanpa `await`, variabel yang saya pakai masih berisi Promise, bukan response atau data Experience yang sebenarnya. Akibatnya, kode yang mencoba membaca `response.ok` atau membuat card dari data tersebut dapat berjalan terlalu cepat dan menghasilkan error. Proses ini tetap tidak membekukan seluruh browser karena hanya alur di dalam function `async` yang menunggu.
+
+### 3. Jelaskan apa itu serangan XSS (`Cross-Site Scripting`) dan mengapa data yang ditampilkan melalui AJAX/JavaScript lebih rentan terhadap serangan ini daripada data yang ditampilkan langsung melalui template Django!
+
+XSS terjadi ketika input berbahaya berhasil dijalankan sebagai script di browser pengguna lain. Template Django melakukan auto-escaping secara default, tetapi data AJAX dirender sendiri melalui JavaScript. Kalau data dari server langsung dimasukkan dengan `innerHTML`, browser dapat menganggap isinya sebagai markup aktif. Karena itu, pada Experience saya membuat elemen dengan DOM API dan mengisi teks memakai `textContent`. Input title dan description juga dibersihkan di server melalui `strip_tags` pada `clean_title()` dan `clean_description()`. Menurut saya dua lapisan ini tetap diperlukan karena data yang sudah berada di database belum tentu otomatis aman.
+
 ## AI Disclosure
 
-Selama mengerjakan Tutorial sampai Tugas 4, saya memakai OpenAI Codex sebagai tutor dan coding assistant. AI lebih banyak membantu menjelaskan konsep yang baru saya pakai, merencanakan workflow Git, membagi pengerjaan menjadi beberapa module dan commit, membaca error, serta memeriksa hasil test. Pada Tugas 4, saya memakainya untuk memahami Django Group dan Permission, relasi ManyToMany per user, authorization setiap role, dan privacy pada endpoint JSON.
+Selama mengerjakan Tutorial sampai Tugas 5, saya memakai OpenAI Codex sebagai tutor dan coding assistant. AI membantu menjelaskan konsep yang baru saya pakai, merencanakan workflow Git, membagi pengerjaan menjadi beberapa module dan commit, membaca error, serta memeriksa hasil test. Pada Tugas 5, AI juga membantu mengedit beberapa bagian view, JavaScript, CSS, dan automated test untuk alur AJAX Experience. Saya tetap menentukan bagian Experience yang dikembangkan, fitur ekstra star, pembagian akses tiap role, dan bentuk akhir interaksinya.
 
-Saat memberi prompt, saya biasanya menyertakan rubrik, source code terbaru, error yang muncul, atau hasil command Git. Saya juga meminta penjelasan tentang letak perubahan dan fungsi kode baru sebelum melanjutkan. Sebagian besar langkah tetap saya ketik dan coba sendiri mengikuti arahan tersebut. AI sesekali membantu memperbaiki bagian tertentu ketika saya meminta, tetapi keputusan untuk memakai role Editor, fitur **Starred by me**, pembagian branch, dan hasil akhirnya tetap saya tentukan setelah mencoba fiturnya.
+Saat memberi prompt, saya biasanya menyertakan rubrik, source code terbaru, error yang muncul, atau hasil command Git. Saya meminta pekerjaan dibagi per module, setiap konsep baru dijelaskan, dan perubahan diperiksa sebelum commit. Cara ini membantu saya mengikuti alasan di balik `fetch()`, `await`, debounce, `AbortController`, `FormData`, CSRF, serta penggunaan `textContent`, bukan hanya melihat hasil akhirnya.
 
-Saya tidak langsung memakai semua saran AI karena hasilnya tetap perlu diperiksa. Contohnya, pada filter personal stars saya sempat salah menempatkan `else` sehingga request biasa menghasilkan QuerySet kosong. AI membantu menunjukkan masalah indentasinya, lalu saya memeriksa kembali alurnya. Test lama juga awalnya masih mengharapkan username pemberi star muncul di JSON, padahal behavior tersebut perlu dihapus untuk menjaga privacy.
+Saya tidak langsung menganggap output AI pasti benar karena AI tetap bisa salah menempatkan kode atau melewatkan behavior lama. Contohnya, saat menambahkan test star Experience, class test sempat tersisip sebelum seluruh test JSON selesai. Masalah tersebut ditemukan saat review struktur file dan diperbaiki sebelum test dijalankan. Saya juga memastikan response star hanya berisi state dan jumlah, sanitizer tidak menggantikan output escaping, elemen modal dicek sebelum event listener dipasang, serta request pencarian lama dibatalkan agar hasilnya tidak tertukar.
 
-Karena itu, saya tetap membaca diff dan memeriksa hasilnya menggunakan `python manage.py check`, `python manage.py makemigrations --check --dry-run`, `python manage.py test`, dan `git diff --check`. Pada akhir implementasi Tugas 4, seluruh 49 automated test berhasil dijalankan.
+Karena itu, saya tetap membaca diff, mencoba alur lewat browser, dan memeriksa hasilnya menggunakan `python manage.py check`, `python manage.py makemigrations --check --dry-run`, `python manage.py test`, `node --check`, dan `git diff --check`. Pada akhir implementasi Tugas 5, seluruh 73 automated test berhasil dijalankan. Menurut saya AI paling membantu untuk memberi arah dan mempercepat pemeriksaan, tetapi keputusan desain, kesesuaian rubrik, dan verifikasi akhir tetap tidak bisa diserahkan begitu saja ke AI.
 
 Contoh prompt dan cara saya memakai hasilnya dapat dilihat pada
 [AI Prompt Log](docs/ai-prompt-log.md).
