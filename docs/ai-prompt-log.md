@@ -1,7 +1,7 @@
 # AI Prompt Log
 
 Dokumen ini berisi beberapa contoh prompt yang mewakili penggunaan OpenAI Codex
-selama pengerjaan Tutorial, Tugas 1, Tugas 2, Tugas 3, dan Tugas 4. Prompt di
+selama pengerjaan Tutorial, Tugas 1, Tugas 2, Tugas 3, Tugas 4, dan Tugas 5. Prompt di
 bawah diringkas dari percakapan asli agar lebih mudah dibaca. Informasi sensitif
 dan percakapan yang tidak berkaitan dengan tugas tidak disertakan.
 
@@ -258,6 +258,71 @@ AI membantu menemukan bahwa posisi `else` saya sejajar dengan kondisi
 menjalankan seluruh test untuk memastikan request biasa, personal filter, dan
 guest kembali menghasilkan behavior yang benar.
 
+## 18. Merencanakan Tugas 5
+
+**Prompt:**
+
+> Tolong baca Tugas 5 dulu ya. Seperti tugas sebelumnya, buatin roadmap dan
+> pembagian module serta commit supaya Git history-nya rapi. Bagian yang mau aku
+> kembangkan tetap Experience, dan pastikan semua requirement AJAX dari tutorial
+> diterapkan di sana, bukan cuma di Projects.
+
+**Hasil penggunaan:**
+
+AI membantu memetakan requirement menjadi JSON manual, role authorization, AJAX
+rendering, debounce, modal create, AJAX POST, XSS, star interaction, testing, dan
+dokumentasi. Saya memakai satu feature branch dan commit terpisah untuk setiap
+behavior supaya progresnya dapat diperiksa dengan jelas.
+
+## 19. Memahami rendering dan pencarian AJAX
+
+**Prompt:**
+
+> Experience sekarang masih dirender dari template. Jelasin gimana caranya bikin
+> halaman cuma jadi shell terus datanya diambil pakai fetch. Search title,
+> category, sama status harus tetap jalan tanpa reload, terus debounce dan
+> AbortController itu masing-masing gunanya apa?
+
+**Hasil penggunaan:**
+
+AI membantu menjelaskan perbedaan server-rendered list dan AJAX shell, alur
+`fetch()`, serta alasan debounce tidak cukup untuk mencegah response lama datang
+belakangan. Implementasi akhirnya memakai delay 400 ms dan `AbortController`,
+serta tetap menampilkan loading, empty, error, retry, dan result count.
+
+## 20. Menjaga keamanan modal create
+
+**Prompt:**
+
+> Untuk modal add Experience, bantu jelasin alur FormData, CSRF header, response
+> 201/400/403, dan cara nampilin error dari ModelForm. Aku juga mau ngetes payload
+> XSS yang pakai img onerror, tapi jangan sampai sanitizer bikin validasi tanggal
+> yang lama rusak.
+
+**Hasil penggunaan:**
+
+AI membantu menyusun alur AJAX POST dan beberapa bagian implementasinya. Saya
+memastikan permission tetap diperiksa di view, request membawa CSRF token, error
+server masuk ke toast, serta `strip_tags` hanya dipakai pada field teks. Rendering
+card tetap memakai `textContent` sebagai lapisan perlindungan output.
+
+## 21. Menambahkan fitur ekstra star Experience
+
+**Prompt:**
+
+> Aku mau fitur ekstra yang masih nyambung sama Tugas 4. Bisa bikin star dan
+> unstar Experience lewat AJAX tanpa reload? Response jangan bocorin user, tombol
+> jangan bisa didouble-click pas request, dan test user A sama user B harus tetap
+> kepisah.
+
+**Hasil penggunaan:**
+
+AI membantu menyesuaikan relasi star yang sudah ada menjadi endpoint AJAX khusus
+Experience. Response dibatasi ke `is_starred` dan `star_count`, sedangkan tombol
+memperbarui label, angka, dan `aria-pressed`. Interaksi star dan unstar diperiksa
+melalui browser, lalu ditambahkan test isolasi antar-user, GET rejection, CSRF,
+dan UUID 404.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa
@@ -271,6 +336,7 @@ git status
 git diff
 ```
 
-Saya juga mencoba navigasi, form Experience, filter, confirmation delete, empty
-state, detail project, dan layout desktop serta mobile melalui browser. Seluruh
-23 test juga saya pastikan lulus sebelum dokumentasi diselesaikan.
+Saya juga mencoba navigasi, filter AJAX, loading dan empty state, modal create,
+toast, confirmation delete, star dan unstar, serta layout desktop dan mobile
+melalui browser. Pada akhir Tugas 5, seluruh 73 automated test dipastikan lulus
+sebelum dokumentasi diselesaikan.
