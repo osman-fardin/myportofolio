@@ -6,6 +6,7 @@ from rest_framework.decorators import (
     authentication_classes,
     permission_classes,
 )
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .models import Project
@@ -76,4 +77,19 @@ def project_detail(request, project_id):
     serializer.is_valid(raise_exception=True)
     serializer.save()
 
+    return Response(serializer.data)
+
+
+@api_view(['POST'])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def project_star(request, project_id):
+    project = get_object_or_404(Project, pk=project_id)
+
+    if project.starred_by.filter(pk=request.user.pk).exists():
+        project.starred_by.remove(request.user)
+    else:
+        project.starred_by.add(request.user)
+
+    serializer = ProjectSerializer(project, context={'request': request})
     return Response(serializer.data)

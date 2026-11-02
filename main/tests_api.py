@@ -791,3 +791,202 @@ class ProjectDetailAPITests(APITestCase):
         self.assertEqual(delete.content, b'')
         self.assertFalse(Project.objects.filter(pk=self.project.pk).exists())
         self.assertTrue(Project.objects.filter(pk=self.other_project.pk).exists())
+
+class ProjectStarAPITests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        user_model = get_user_model()
+        cls.reader = user_model.objects.create_user(
+            username='star-reader',
+            password='test-password',
+        )
+        cls.other_reader = user_model.objects.create_user(username='star-other')
+        cls.editor = user_model.objects.create_user(username='star-editor')
+        cls.staff = user_model.objects.create_user(
+            username='star-staff',
+            is_staff=True,
+        )
+        cls.owner = user_model.objects.create_superuser(username='star-owner')
+        editor_group = Group.objects.create(name='Editor')
+        editor_group.permissions.add(Permission.objects.get(
+            content_type__app_label='main',
+            codename='change_project',
+        ))
+        cls.editor.groups.add(editor_group)
+
+        cls.payload = {
+            'title': 'Star project',
+            'project_type': 'Personal Website',
+            'role': 'Developer',
+            'description': 'Original description.',
+            'technologies': 'Django',
+            'live_url': 'https://example.com/',
+        }
+        cls.project = Project.objects.create(**cls.payload)
+        cls.other_project = Project.objects.create(**{
+            **cls.payload,
+            'title': 'Another project',
+        })
+
+    def setUp(self):
+        self.star_url = reverse('api:project-star', args=[self.project.pk])
+
+    def test_guest_is_denied_without_changing_stars(self):
+        for method in ('get', 'post'):
+            with self.subTest(method=method):
+                response = getattr(self.client, method)(self.star_url)
+
+                self.assertEqual(response.status_code, 403)
+                self.assertEqual(Project.starred_by.through.objects.count(), 0)
+                self.assertEqual(Project.objects.count(), 2)
+
+    def test_every_authenticated_role_can_toggle_its_own_star(self):
+        expected_fields = set(self.payload) | {
+            'id', 'thumbnail_path', 'source_url', 'display_order',
+            'star_count', 'is_starred',
+        }
+
+        for user in (self.reader, self.editor, self.staff, self.owner):
+            self.client.force_authenticate(user=user)
+            for expected_starred, expected_count in ((True, 1), (False, 0)):
+                with self.subTest(user=str(user), starred=expected_starred):
+                    response = self.client.post(self.star_url)
+
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(set(response.data), expected_fields)
+                    self.assertEqual(response.data['id'], str(self.project.pk))
+                    self.assertEqual(response.data['is_starred'], expected_starred)
+                    self.assertEqual(response.data['star_count'], expected_count)
+                    self.assertEqual(
+                        self.project.starred_by.filter(pk=user.pk).exists(),
+                        expected_starred,
+                    )
+                    self.assertEqual(self.project.starred_by.count(), expected_count)
+                    self.assertEqual(self.other_project.starred_by.count(), 0)
+
+    def test_star_state_is_isolated_and_visible_to_list_and_detail(self):
+        for user, expected_count in ((self.reader, 1), (self.other_reader, 2)):
+            self.client.force_authenticate(user=user)
+            response = self.client.post(self.star_url)
+
+            self.assertEqual(response.status_code, 200)
+            self.assertTrue(response.data['is_starred'])
+            self.assertEqual(response.data['star_count'], expected_count)
+
+        self.client.force_authenticate(user=self.reader)
+        response = self.client.post(self.star_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data['is_starred'])
+        self.assertEqual(response.data['star_count'], 1)
+        self.assertEqual(
+            list(self.project.starred_by.values_list('pk', flat=True)),
+            [self.other_reader.pk],
+        )
+
+        detail_url = reverse('api:project-detail', args=[self.project.pk])
+        detail = self.client.get(detail_url)
+        mine = self.client.get(reverse('api:project-list'), {'starred': 'mine'})
+        self.assertEqual(detail.status_code, 200)
+        self.assertFalse(detail.data['is_starred'])
+        self.assertEqual(detail.data['star_count'], 1)
+        self.assertEqual(mine.status_code, 200)
+        self.assertEqual(mine.data, [])
+
+        self.client.force_authenticate(user=self.other_reader)
+        detail = self.client.get(detail_url)
+        mine = self.client.get(reverse('api:project-list'), {'starred': 'mine'})
+        self.assertTrue(detail.data['is_starred'])
+        self.assertEqual([item['id'] for item in mine.data], [str(self.project.pk)])
+
+    def test_forged_payload_cannot_choose_a_user_or_modify_project_fields(self):
+        self.project.starred_by.add(self.other_reader)
+        self.client.force_authenticate(user=self.reader)
+        response = self.client.post(self.star_url, {
+            'user_id': self.other_reader.pk,
+            'starred_by': [],
+            'is_starred': False,
+            'star_count': 99,
+            'title': 'Forged title',
+        }, format='json')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data['is_starred'])
+        self.assertEqual(response.data['star_count'], 2)
+        self.assertEqual(
+            set(self.project.starred_by.values_list('pk', flat=True)),
+            {self.reader.pk, self.other_reader.pk},
+        )
+        self.project.refresh_from_db()
+        for field, value in self.payload.items():
+            with self.subTest(field=field):
+                self.assertEqual(getattr(self.project, field), value)
+        self.assertEqual(Project.objects.count(), 2)
+
+    def test_missing_project_returns_404_without_creating_stars(self):
+        self.client.force_authenticate(user=self.reader)
+        missing_url = reverse('api:project-star', args=[uuid4()])
+        response = self.client.post(missing_url)
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(Project.starred_by.through.objects.count(), 0)
+        self.assertEqual(Project.objects.count(), 2)
+
+    def test_wrong_methods_do_not_modify_stars(self):
+        self.client.force_authenticate(user=self.reader)
+
+        for method in ('get', 'head', 'put', 'patch', 'delete'):
+            with self.subTest(method=method):
+                response = getattr(self.client, method)(self.star_url)
+
+                self.assertEqual(response.status_code, 405)
+                self.assertEqual(Project.starred_by.through.objects.count(), 0)
+
+        self.assertEqual(self.client.options(self.star_url).status_code, 200)
+        self.assertEqual(Project.starred_by.through.objects.count(), 0)
+
+    def test_session_star_without_csrf_is_rejected(self):
+        client = APIClient(enforce_csrf_checks=True)
+        self.assertTrue(client.login(
+            username='star-reader', password='test-password',
+        ))
+        response = client.post(self.star_url)
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn('CSRF', str(response.data['detail']))
+        self.assertEqual(Project.starred_by.through.objects.count(), 0)
+
+    def test_session_star_with_wrong_csrf_is_rejected(self):
+        client = APIClient(enforce_csrf_checks=True)
+        self.assertTrue(client.login(
+            username='star-reader', password='test-password',
+        ))
+        page = client.get(reverse('main:login'))
+        self.assertEqual(page.status_code, 200)
+        self.assertIn('csrftoken', client.cookies)
+        response = client.post(self.star_url, HTTP_X_CSRFTOKEN='wrong-token')
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn('CSRF', str(response.data['detail']))
+        self.assertEqual(Project.starred_by.through.objects.count(), 0)
+
+    def test_session_star_and_unstar_with_csrf_succeed(self):
+        client = APIClient(enforce_csrf_checks=True)
+        self.assertTrue(client.login(
+            username='star-reader', password='test-password',
+        ))
+        page = client.get(reverse('main:login'))
+        self.assertEqual(page.status_code, 200)
+        token = client.cookies['csrftoken'].value
+
+        for expected_starred, expected_count in ((True, 1), (False, 0)):
+            with self.subTest(starred=expected_starred):
+                response = client.post(self.star_url, HTTP_X_CSRFTOKEN=token)
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.data['is_starred'], expected_starred)
+                self.assertEqual(response.data['star_count'], expected_count)
+                self.assertEqual(
+                    self.project.starred_by.filter(pk=self.reader.pk).exists(),
+                    expected_starred,
+                )
+                self.assertEqual(self.project.starred_by.count(), expected_count)

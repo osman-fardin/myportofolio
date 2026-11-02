@@ -435,6 +435,34 @@ berubah. Ada pemeriksaan UUID yang tidak ditemukan, field read-only, dan CSRF
 melalui login session untuk PUT, PATCH, dan DELETE. Form Editor lama tetap
 tersedia; halaman Projects belum dihubungkan ke endpoint baru pada checkpoint ini.
 
+## 27. Memahami toggle star lewat API
+
+**Prompt (ringkasan):**
+
+> Kalau CRUD Project sudah ada, gimana mengubah star lama menjadi endpoint API?
+> User biasa harus tetap bisa star walaupun tidak boleh mengedit Project. Gimana
+> memastikan akun pemberi star selalu dari user yang login, bukan ID di payload,
+> dan star user A tidak mengubah punya user B? Jelasin juga test CSRF yang perlu.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan API star dengan bantuan AI untuk penjelasan, implementasi,
+dan pengujian. Endpoint POST memakai `IsAuthenticated`, bukan permission
+owner-only CRUD. Akun pemberi star berasal dari `request.user`, dan response
+menggunakan serializer publik yang sama tanpa daftar akun pemberi star.
+
+Test mencakup toggle untuk seluruh role yang login, isolasi antar-user, payload
+yang mencoba memilih akun lain, method yang ditolak, UUID yang tidak ditemukan,
+serta login session dengan token CSRF yang tidak ada, salah, dan valid. Hasil
+star juga diperiksa melalui list, detail, dan filter personal. Toggle tidak boleh
+di-retry otomatis karena POST kedua justru membatalkan hasil pertama; tombol UI
+nanti dinonaktifkan selama request. Integrasi halaman masih menjadi tahap berikutnya.
+
+Pemeriksaan awal menemukan class test star tersisip di tengah class detail saat
+dibantu penambahan kode. Susunannya dibetulkan dengan memastikan seluruh test
+detail lama tetap utuh, lalu kedua kelompok test dijalankan ulang. Ini menjadi
+contoh kenapa bantuan implementasi tetap perlu diperiksa melalui test dan diff.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa
