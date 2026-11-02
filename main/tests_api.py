@@ -509,3 +509,285 @@ class ProjectListAPITests(APITestCase):
         self.assertEqual(response.status_code, 201)
         self.assertTrue(Project.objects.filter(pk=response.data['id']).exists())
         self.assertEqual(Project.objects.count(), 3)
+
+
+class ProjectDetailAPITests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        user_model = get_user_model()
+        cls.owner = user_model.objects.create_superuser(
+            username='detail-owner',
+            password='test-password',
+        )
+        cls.reader = user_model.objects.create_user(username='detail-reader')
+        cls.editor = user_model.objects.create_user(username='detail-editor')
+        cls.staff = user_model.objects.create_user(
+            username='detail-staff',
+            is_staff=True,
+        )
+        editor_group = Group.objects.create(name='Editor')
+        editor_group.permissions.add(Permission.objects.get(
+            content_type__app_label='main',
+            codename='change_project',
+        ))
+        cls.editor.groups.add(editor_group)
+
+        cls.payload = {
+            'title': 'Portfolio detail',
+            'project_type': 'Personal Website',
+            'role': 'Developer',
+            'description': 'Original description.',
+            'technologies': 'Django\nJavaScript',
+            'thumbnail_path': 'img/portfolio.png',
+            'live_url': 'https://example.com/',
+            'source_url': 'https://github.com/example/portfolio',
+            'display_order': 2,
+        }
+        cls.project = Project.objects.create(**cls.payload)
+        cls.project.starred_by.add(cls.reader)
+        cls.other_project = Project.objects.create(**{
+            **cls.payload,
+            'title': 'Another project',
+        })
+
+    def setUp(self):
+        self.detail_url = reverse('api:project-detail', args=[self.project.pk])
+
+    def test_detail_is_public_private_and_session_aware(self):
+        for user in (None, self.reader, self.editor, self.staff, self.owner):
+            with self.subTest(user=str(user)):
+                self.client.force_authenticate(user=user)
+                response = self.client.get(self.detail_url)
+
+                self.assertEqual(response.status_code, 200)
+                self.assertIsInstance(response.data, dict)
+                self.assertEqual(set(response.data), set(self.payload) | {
+                    'id', 'star_count', 'is_starred',
+                })
+                self.assertEqual(response.data['id'], str(self.project.pk))
+                self.assertEqual(response.data['star_count'], 1)
+                self.assertEqual(response.data['is_starred'], user == self.reader)
+
+        head = self.client.head(self.detail_url)
+        options = self.client.options(self.detail_url)
+        browsable = self.client.get(self.detail_url, HTTP_ACCEPT='text/html')
+        self.assertEqual(head.status_code, 200)
+        self.assertEqual(head.content, b'')
+        self.assertEqual(options.status_code, 200)
+        self.assertEqual(browsable.status_code, 200)
+        self.assertEqual(browsable.accepted_renderer.format, 'api')
+        self.assertEqual(Project.objects.count(), 2)
+        self.assertEqual(self.project.starred_by.count(), 1)
+
+    def test_missing_project_returns_404_for_allowed_requests(self):
+        missing_url = reverse('api:project-detail', args=[uuid4()])
+        self.assertEqual(self.client.get(missing_url).status_code, 404)
+        self.assertEqual(
+            self.client.get('/api/v1/projects/not-a-uuid/').status_code, 404,
+        )
+        self.client.force_authenticate(user=self.owner)
+
+        for method in ('get', 'put', 'patch', 'delete'):
+            with self.subTest(method=method):
+                if method in ('put', 'patch'):
+                    response = getattr(self.client, method)(
+                        missing_url, self.payload, format='json',
+                    )
+                else:
+                    response = getattr(self.client, method)(missing_url)
+
+                self.assertEqual(response.status_code, 404)
+                self.assertEqual(Project.objects.count(), 2)
+
+    def test_owner_patch_changes_only_the_submitted_fields(self):
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.patch(self.detail_url, {
+            'title': '<b>Updated portfolio</b>',
+        }, format='json')
+
+        self.assertEqual(response.status_code, 200)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.title, 'Updated portfolio')
+        for field, value in self.payload.items():
+            if field != 'title':
+                with self.subTest(field=field):
+                    self.assertEqual(getattr(self.project, field), value)
+        self.assertTrue(self.project.starred_by.filter(pk=self.reader.pk).exists())
+        self.other_project.refresh_from_db()
+        self.assertEqual(self.other_project.title, 'Another project')
+        self.assertEqual(Project.objects.count(), 2)
+
+    def test_owner_put_updates_the_existing_project(self):
+        self.client.force_authenticate(user=self.owner)
+        payload = {
+            **self.payload,
+            'title': 'Replacement title',
+            'description': '<p>Replacement description.</p>',
+            'thumbnail_path': '',
+            'source_url': '',
+            'display_order': 0,
+        }
+        response = self.client.put(self.detail_url, payload, format='json')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['id'], str(self.project.pk))
+        self.project.refresh_from_db()
+        expected = {**payload, 'description': 'Replacement description.'}
+        for field, value in expected.items():
+            with self.subTest(field=field):
+                self.assertEqual(getattr(self.project, field), value)
+        self.assertTrue(self.project.starred_by.filter(pk=self.reader.pk).exists())
+        self.assertEqual(Project.objects.count(), 2)
+
+    def test_invalid_put_and_patch_preserve_database_data(self):
+        before = list(Project.objects.values())
+
+        for method, payload, field in (
+            ('put', {'title': 'Incomplete'}, 'description'),
+            ('patch', {'title': '<img src="x" onerror="alert(1)">'}, 'title'),
+            ('patch', {'live_url': 'javascript:alert(1)'}, 'live_url'),
+            ('patch', {'technologies': '<b></b>'}, 'technologies'),
+            ('patch', {'display_order': -1}, 'display_order'),
+        ):
+            with self.subTest(method=method, field=field):
+                self.client.force_authenticate(user=self.owner)
+                response = getattr(self.client, method)(
+                    self.detail_url, payload, format='json',
+                )
+
+                self.assertEqual(response.status_code, 400)
+                self.assertIn(field, response.data)
+                self.assertEqual(list(Project.objects.values()), before)
+                self.assertTrue(
+                    self.project.starred_by.filter(pk=self.reader.pk).exists(),
+                )
+
+    def test_nonowners_cannot_update_or_delete_projects(self):
+        projects_before = list(Project.objects.values())
+        stars_before = list(Project.starred_by.through.objects.values())
+
+        for user in (None, self.reader, self.editor, self.staff):
+            for method in ('put', 'patch', 'delete'):
+                with self.subTest(user=str(user), method=method):
+                    self.client.force_authenticate(user=user)
+                    response = getattr(self.client, method)(
+                        self.detail_url,
+                        {**self.payload, 'title': 'Forbidden change'},
+                        format='json',
+                    )
+
+                    self.assertEqual(response.status_code, 403)
+                    self.assertEqual(list(Project.objects.values()), projects_before)
+                    self.assertEqual(
+                        list(Project.starred_by.through.objects.values()), stars_before,
+                    )
+
+    def test_owner_delete_returns_empty_204_and_removes_only_its_target(self):
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.delete(self.detail_url)
+
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response.content, b'')
+        self.assertFalse(Project.objects.filter(pk=self.project.pk).exists())
+        self.assertFalse(Project.starred_by.through.objects.filter(
+            project_id=self.project.pk,
+        ).exists())
+        self.assertTrue(Project.objects.filter(pk=self.other_project.pk).exists())
+        self.assertEqual(Project.objects.count(), 1)
+        self.assertEqual(self.client.get(self.detail_url).status_code, 404)
+
+    def test_update_cannot_overwrite_id_or_star_fields(self):
+        self.client.force_authenticate(user=self.owner)
+        forged_id = uuid4()
+        response = self.client.patch(self.detail_url, {
+            'title': 'Allowed change',
+            'id': str(forged_id),
+            'star_count': 99,
+            'is_starred': True,
+            'starred_by': [],
+        }, format='json')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['id'], str(self.project.pk))
+        self.assertEqual(response.data['star_count'], 1)
+        self.assertFalse(response.data['is_starred'])
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.title, 'Allowed change')
+        self.assertEqual(
+            list(self.project.starred_by.values_list('pk', flat=True)),
+            [self.reader.pk],
+        )
+        self.assertFalse(Project.objects.filter(pk=forged_id).exists())
+        self.assertEqual(Project.objects.count(), 2)
+
+    def test_post_to_detail_is_rejected_without_saving(self):
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.post(self.detail_url, self.payload, format='json')
+
+        self.assertEqual(response.status_code, 405)
+        self.assertEqual(Project.objects.count(), 2)
+
+    def test_forbidden_write_is_denied_before_missing_object_lookup(self):
+        missing_url = reverse('api:project-detail', args=[uuid4()])
+        self.client.force_authenticate(user=self.reader)
+        response = self.client.patch(
+            missing_url, {'title': 'Forbidden'}, format='json',
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(Project.objects.count(), 2)
+
+    def test_session_mutations_without_csrf_are_rejected(self):
+        client = APIClient(enforce_csrf_checks=True)
+        self.assertTrue(client.login(
+            username='detail-owner', password='test-password',
+        ))
+        before = list(Project.objects.values())
+
+        for method in ('put', 'patch', 'delete'):
+            with self.subTest(method=method):
+                response = getattr(client, method)(
+                    self.detail_url, self.payload, format='json',
+                )
+
+                self.assertEqual(response.status_code, 403)
+                self.assertIn('CSRF', str(response.data['detail']))
+                self.assertEqual(list(Project.objects.values()), before)
+                self.assertTrue(
+                    self.project.starred_by.filter(pk=self.reader.pk).exists(),
+                )
+
+    def test_session_put_patch_and_delete_with_csrf_succeed(self):
+        client = APIClient(enforce_csrf_checks=True)
+        self.assertTrue(client.login(
+            username='detail-owner', password='test-password',
+        ))
+        page = client.get(self.detail_url, HTTP_ACCEPT='text/html')
+        self.assertEqual(page.status_code, 200)
+        token = client.cookies['csrftoken'].value
+
+        put = client.put(
+            self.detail_url,
+            {**self.payload, 'title': 'Session PUT'},
+            format='json',
+            HTTP_X_CSRFTOKEN=token,
+        )
+        self.assertEqual(put.status_code, 200)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.title, 'Session PUT')
+
+        patch = client.patch(
+            self.detail_url,
+            {'title': 'Session PATCH'},
+            format='json',
+            HTTP_X_CSRFTOKEN=token,
+        )
+        self.assertEqual(patch.status_code, 200)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.title, 'Session PATCH')
+
+        delete = client.delete(self.detail_url, HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(delete.status_code, 204)
+        self.assertEqual(delete.content, b'')
+        self.assertFalse(Project.objects.filter(pk=self.project.pk).exists())
+        self.assertTrue(Project.objects.filter(pk=self.other_project.pk).exists())

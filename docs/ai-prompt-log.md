@@ -412,6 +412,29 @@ database uji dan `APIClient(enforce_csrf_checks=True)`, dengan dan tanpa token.
 Test penolakan juga memeriksa database. Integrasi JavaScript halaman belum
 dipindahkan ke API baru pada checkpoint ini.
 
+## 26. Memahami API detail, PUT, PATCH, dan DELETE
+
+**Prompt (ringkasan):**
+
+> Kalau API daftar dan tambah sudah ada, gimana cara membuat detail, update,
+> dan delete untuk UUID Project yang sama? Aku masih bingung bedanya PUT sama
+> PATCH dan kenapa setelah DELETE tidak boleh langsung membaca JSON. Jelasin
+> juga cara memastikan Editor tetap ditolak di API dan data tidak berubah saat
+> validasi atau CSRF gagal.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan API detail Project dengan bantuan AI untuk penjelasan,
+implementasi, dan pengujian. GET menghasilkan satu objek, PUT membutuhkan semua
+field wajib, sedangkan PATCH memakai `partial=True` supaya field yang tidak
+dikirim tetap dipertahankan. DELETE menghasilkan 204 dengan body kosong.
+
+Test memeriksa database setelah update, delete, dan penolakan akses, termasuk
+star yang harus tetap ada saat update serta Project lain yang tidak boleh ikut
+berubah. Ada pemeriksaan UUID yang tidak ditemukan, field read-only, dan CSRF
+melalui login session untuk PUT, PATCH, dan DELETE. Form Editor lama tetap
+tersedia; halaman Projects belum dihubungkan ke endpoint baru pada checkpoint ini.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa
