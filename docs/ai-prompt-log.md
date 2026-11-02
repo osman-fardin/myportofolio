@@ -388,6 +388,30 @@ benar-benar mempunyai permission edit Project. Pada checkpoint ini kelasnya
 belum dipasang ke endpoint; status HTTP dan perubahan database akan diperiksa
 lagi saat API view dibuat.
 
+## 25. Menghubungkan serializer dan permission ke API daftar Project
+
+**Prompt (ringkasan):**
+
+> Serializer sama permission sudah ada, terus gimana cara menghubungkannya jadi
+> endpoint daftar dan tambah Project? Jelasin alur request.data, query parameter,
+> dan Response. Search judul sama filter Starred by me yang lama harus tetap bisa
+> dipakai. Gimana juga cara memastikan session login tetap terlindungi CSRF?
+
+**Hasil penggunaan:**
+
+Saya melanjutkan endpoint daftar dan tambah Project dengan bantuan AI untuk
+penjelasan, implementasi, dan pengujian. API baru memakai URL `/api/v1/projects/`
+dan namespace `api`, sementara route lama tetap tersedia. GET menghasilkan daftar
+objek datar, dan POST yang valid menghasilkan 201 setelah melewati permission
+serta validasi serializer. Urutan `display_order`, pencarian judul, dan filter
+personal tetap mengikuti kebutuhan portofolio saya.
+
+Saya memahami bahwa test permission dengan `force_authenticate` berbeda dari
+test session dan CSRF. Karena itu ada test dengan login sungguhan memakai akun
+database uji dan `APIClient(enforce_csrf_checks=True)`, dengan dan tanpa token.
+Test penolakan juga memeriksa database. Integrasi JavaScript halaman belum
+dipindahkan ke API baru pada checkpoint ini.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa

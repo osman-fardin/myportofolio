@@ -2,7 +2,8 @@ from uuid import uuid4
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser, Group, Permission
-from rest_framework.test import APIRequestFactory, APITestCase
+from django.urls import reverse
+from rest_framework.test import APIClient, APIRequestFactory, APITestCase
 
 from .models import Project
 from .permissions import IsPortfolioOwnerOrReadOnly
@@ -260,3 +261,251 @@ class ProjectPermissionTests(APITestCase):
         for method in ('POST', 'PUT', 'PATCH', 'DELETE'):
             with self.subTest(method=method):
                 self.assertTrue(self.is_allowed(self.owner, method))
+
+
+class ProjectListAPITests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        user_model = get_user_model()
+        cls.owner = user_model.objects.create_superuser(
+            username='list-owner',
+            password='test-password',
+        )
+        cls.reader = user_model.objects.create_user(username='list-reader')
+        cls.other_reader = user_model.objects.create_user(username='list-other')
+        cls.editor = user_model.objects.create_user(username='list-editor')
+        cls.staff = user_model.objects.create_user(
+            username='list-staff',
+            is_staff=True,
+        )
+        editor_group = Group.objects.create(name='Editor')
+        editor_group.permissions.add(Permission.objects.get(
+            content_type__app_label='main',
+            codename='change_project',
+        ))
+        cls.editor.groups.add(editor_group)
+
+        cls.payload = {
+            'title': 'Portfolio',
+            'project_type': 'Personal Website',
+            'role': 'Developer',
+            'description': 'My portfolio website.',
+            'technologies': 'Django\nJavaScript',
+            'live_url': 'https://example.com/',
+            'display_order': 2,
+        }
+        cls.project = Project.objects.create(**cls.payload)
+        cls.other_project = Project.objects.create(**{
+            **cls.payload,
+            'title': 'Another project',
+            'display_order': 0,
+        })
+        cls.project.starred_by.add(cls.reader)
+        cls.other_project.starred_by.add(cls.other_reader)
+
+    def setUp(self):
+        self.list_url = reverse('api:project-list')
+
+    def test_public_list_is_flat_private_and_ordered_for_every_role(self):
+        expected_fields = set(self.payload) | {
+            'id', 'thumbnail_path', 'source_url', 'star_count', 'is_starred',
+        }
+
+        for user in (
+            None, self.reader, self.other_reader, self.editor, self.staff, self.owner,
+        ):
+            with self.subTest(user=str(user)):
+                self.client.force_authenticate(user=user)
+                response = self.client.get(self.list_url)
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    [item['id'] for item in response.data],
+                    [str(self.other_project.pk), str(self.project.pk)],
+                )
+                for item in response.data:
+                    self.assertEqual(set(item), expected_fields)
+                    self.assertEqual(item['star_count'], 1)
+                    expected_starred = (
+                        (user == self.reader and item['id'] == str(self.project.pk))
+                        or (
+                            user == self.other_reader
+                            and item['id'] == str(self.other_project.pk)
+                        )
+                    )
+                    self.assertEqual(item['is_starred'], expected_starred)
+
+    def test_title_search_is_trimmed_case_insensitive_and_can_be_empty(self):
+        for title, expected_ids in (
+            ('  PORT  ', [str(self.project.pk)]),
+            ('not-found', []),
+        ):
+            with self.subTest(title=title):
+                response = self.client.get(self.list_url, {'title': title})
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    [item['id'] for item in response.data], expected_ids,
+                )
+
+    def test_personal_filter_is_isolated_and_combines_with_search(self):
+        for user, title, expected_ids in (
+            (None, '', []),
+            (self.reader, '', [str(self.project.pk)]),
+            (self.other_reader, '', [str(self.other_project.pk)]),
+            (self.reader, 'PORT', [str(self.project.pk)]),
+            (self.reader, 'Another', []),
+        ):
+            with self.subTest(user=str(user), title=title):
+                self.client.force_authenticate(user=user)
+                response = self.client.get(self.list_url, {
+                    'starred': 'mine',
+                    'title': title,
+                })
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    [item['id'] for item in response.data], expected_ids,
+                )
+
+    def test_owner_can_create_a_project_with_cleaned_text(self):
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.post(self.list_url, {
+            **self.payload,
+            'title': '<b>New portfolio</b>',
+        }, format='json')
+
+        self.assertEqual(response.status_code, 201)
+        project = Project.objects.get(pk=response.data['id'])
+        self.assertEqual(project.title, 'New portfolio')
+        self.assertEqual(project.technologies, self.payload['technologies'])
+        self.assertEqual(project.starred_by.count(), 0)
+        self.assertEqual(Project.objects.count(), 3)
+
+    def test_invalid_create_returns_field_errors_without_saving(self):
+        self.client.force_authenticate(user=self.owner)
+
+        for changes, field in (
+            ({'title': '   '}, 'title'),
+            ({'title': '<img src="x" onerror="alert(1)">'}, 'title'),
+            ({'live_url': 'javascript:alert(1)'}, 'live_url'),
+            ({'display_order': -1}, 'display_order'),
+        ):
+            with self.subTest(field=field, changes=changes):
+                response = self.client.post(self.list_url, {
+                    **self.payload,
+                    **changes,
+                }, format='json')
+
+                self.assertEqual(response.status_code, 400)
+                self.assertIsInstance(response.data[field], list)
+                self.assertEqual(Project.objects.count(), 2)
+
+    def test_nonowners_cannot_create_or_change_existing_data(self):
+        projects_before = list(Project.objects.values())
+        stars_before = list(Project.starred_by.through.objects.values())
+
+        for user in (None, self.reader, self.editor, self.staff):
+            with self.subTest(user=str(user)):
+                self.client.force_authenticate(user=user)
+                response = self.client.post(
+                    self.list_url, self.payload, format='json',
+                )
+
+                self.assertEqual(response.status_code, 403)
+                self.assertIn('detail', response.data)
+                self.assertEqual(list(Project.objects.values()), projects_before)
+                self.assertEqual(
+                    list(Project.starred_by.through.objects.values()), stars_before,
+                )
+
+    def test_create_ignores_forged_id_and_star_fields(self):
+        self.client.force_authenticate(user=self.owner)
+        forged_id = uuid4()
+        response = self.client.post(self.list_url, {
+            **self.payload,
+            'id': str(forged_id),
+            'star_count': 99,
+            'is_starred': True,
+            'starred_by': [self.reader.pk],
+        }, format='json')
+
+        self.assertEqual(response.status_code, 201)
+        self.assertNotEqual(response.data['id'], str(forged_id))
+        self.assertEqual(response.data['star_count'], 0)
+        self.assertFalse(response.data['is_starred'])
+        self.assertFalse(Project.objects.filter(pk=forged_id).exists())
+        self.assertFalse(
+            Project.objects.get(pk=response.data['id']).starred_by.exists(),
+        )
+
+    def test_unsupported_list_methods_are_rejected_without_mutation(self):
+        self.client.force_authenticate(user=self.owner)
+
+        for method in ('put', 'patch', 'delete'):
+            with self.subTest(method=method):
+                response = getattr(self.client, method)(self.list_url)
+
+                self.assertEqual(response.status_code, 405)
+                self.assertEqual(Project.objects.count(), 2)
+                self.project.refresh_from_db()
+                self.assertEqual(self.project.title, self.payload['title'])
+
+    def test_malformed_json_is_rejected_without_saving(self):
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.post(
+            self.list_url,
+            data='{"title":',
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Project.objects.count(), 2)
+
+    def test_head_and_options_are_read_only(self):
+        head = self.client.head(self.list_url)
+        options = self.client.options(self.list_url)
+
+        self.assertEqual(head.status_code, 200)
+        self.assertEqual(head.content, b'')
+        self.assertEqual(options.status_code, 200)
+        self.assertEqual(Project.objects.count(), 2)
+        self.assertEqual(self.project.starred_by.count(), 1)
+
+    def test_browsable_api_is_available(self):
+        response = self.client.get(self.list_url, HTTP_ACCEPT='text/html')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.accepted_renderer.format, 'api')
+        self.assertContains(response, reverse('rest_framework:login'))
+
+    def test_session_create_without_csrf_is_rejected(self):
+        client = APIClient(enforce_csrf_checks=True)
+        self.assertTrue(client.login(
+            username='list-owner', password='test-password',
+        ))
+        response = client.post(self.list_url, self.payload, format='json')
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn('CSRF', str(response.data['detail']))
+        self.assertEqual(Project.objects.count(), 2)
+
+    def test_session_create_with_csrf_succeeds(self):
+        client = APIClient(enforce_csrf_checks=True)
+        self.assertTrue(client.login(
+            username='list-owner', password='test-password',
+        ))
+        page = client.get(self.list_url, HTTP_ACCEPT='text/html')
+        self.assertEqual(page.status_code, 200)
+        token = client.cookies['csrftoken'].value
+
+        response = client.post(
+            self.list_url,
+            self.payload,
+            format='json',
+            HTTP_X_CSRFTOKEN=token,
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(Project.objects.filter(pk=response.data['id']).exists())
+        self.assertEqual(Project.objects.count(), 3)
