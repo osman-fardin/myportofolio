@@ -1,10 +1,11 @@
 from uuid import uuid4
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import AnonymousUser
+from django.contrib.auth.models import AnonymousUser, Group, Permission
 from rest_framework.test import APIRequestFactory, APITestCase
 
 from .models import Project
+from .permissions import IsPortfolioOwnerOrReadOnly
 from .serializers import ProjectSerializer
 
 
@@ -204,3 +205,58 @@ class ProjectSerializerTests(APITestCase):
 
         self.project.refresh_from_db()
         self.assertEqual(self.project.title, self.payload['title'])
+
+
+class ProjectPermissionTests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        user_model = get_user_model()
+        cls.reader = user_model.objects.create_user(username='api-reader')
+        cls.editor = user_model.objects.create_user(username='api-editor')
+        cls.staff = user_model.objects.create_user(
+            username='api-staff',
+            is_staff=True,
+        )
+        cls.owner = user_model.objects.create_superuser(username='api-owner')
+
+        editor_group = Group.objects.create(name='Editor')
+        editor_group.permissions.add(Permission.objects.get(
+            content_type__app_label='main',
+            codename='change_project',
+        ))
+        cls.editor.groups.add(editor_group)
+
+    def is_allowed(self, user, method):
+        request = APIRequestFactory().generic(method, '/api/v1/projects/')
+        request.user = user
+
+        return IsPortfolioOwnerOrReadOnly().has_permission(request, view=None)
+
+    def test_every_role_can_use_safe_methods(self):
+        for user in (
+            AnonymousUser(), self.reader, self.editor, self.staff, self.owner,
+        ):
+            for method in ('GET', 'HEAD', 'OPTIONS'):
+                with self.subTest(user=str(user), method=method):
+                    self.assertTrue(self.is_allowed(user, method))
+
+    def test_guest_and_regular_user_cannot_write(self):
+        for user in (AnonymousUser(), self.reader):
+            for method in ('POST', 'PUT', 'PATCH', 'DELETE'):
+                with self.subTest(user=str(user), method=method):
+                    self.assertFalse(self.is_allowed(user, method))
+
+    def test_staff_and_editor_permission_do_not_grant_api_write_access(self):
+        self.assertTrue(self.editor.has_perm('main.change_project'))
+        self.assertTrue(self.staff.is_staff)
+
+        for user in (self.editor, self.staff):
+            self.assertFalse(user.is_superuser)
+            for method in ('POST', 'PUT', 'PATCH', 'DELETE'):
+                with self.subTest(user=str(user), method=method):
+                    self.assertFalse(self.is_allowed(user, method))
+
+    def test_superuser_can_write(self):
+        for method in ('POST', 'PUT', 'PATCH', 'DELETE'):
+            with self.subTest(method=method):
+                self.assertTrue(self.is_allowed(self.owner, method))

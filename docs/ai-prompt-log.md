@@ -363,6 +363,31 @@ jalur API perlu validasinya sendiri. Test juga mencakup URL yang tidak valid,
 batas field model, default field opsional, dan perbedaan update penuh dengan
 parsial. Pembersihan input tetap perlu disertai escaping saat ditampilkan.
 
+## 24. Membedakan permission API Projects dan form lama
+
+**Prompt (ringkasan):**
+
+> Aku masih bingung permission API ini bedanya apa sama pengecekan izin di view
+> lama. Di tutorial yang boleh ubah Projects cuma superuser, tapi Editor di
+> punyaku sudah bisa edit. Ini enaknya disesuaikan gimana supaya fitur lama tetap
+> jalan? Jelasin juga SAFE_METHODS, kenapa is_staff saja belum cukup, dan test
+> apa yang perlu buat memastikan tiap role dapat akses yang benar.
+
+**Hasil penggunaan:**
+
+Saya menyiapkan permission API Projects dengan bantuan AI untuk penjelasan,
+implementasi, dan pengujian. Saya memahami perbedaan aturan tutorial dengan
+proyek saya: API Projects hanya boleh diubah superuser, sementara Editor tetap
+bisa mengedit lewat form HTML lama menggunakan `main.change_project`. Karena itu,
+permission lama tidak diganti. Aturan Experience akan tetap mengikuti empat role
+Tugas 6, termasuk hak Editor untuk PUT/PATCH.
+
+Test class permission mencakup method baca untuk semua role dan method tulis
+untuk superuser, serta penolakan bagi guest, user biasa, staff, dan Editor yang
+benar-benar mempunyai permission edit Project. Pada checkpoint ini kelasnya
+belum dipasang ke endpoint; status HTTP dan perubahan database akan diperiksa
+lagi saat API view dibuat.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa
