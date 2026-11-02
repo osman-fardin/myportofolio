@@ -1,6 +1,20 @@
+from django.utils.html import strip_tags
 from rest_framework import serializers
 
 from .models import Project
+
+
+def _clean_required_text(value):
+    """API input bypasses ModelForm cleaning; output still needs escaping."""
+    value = strip_tags(value).strip()
+
+    if not value:
+        raise serializers.ValidationError(
+            'This field cannot be empty after removing HTML tags.',
+            code='blank',
+        )
+
+    return value
 
 
 class ProjectSerializer(serializers.ModelSerializer):
@@ -24,6 +38,24 @@ class ProjectSerializer(serializers.ModelSerializer):
             'is_starred',
         ]
         read_only_fields = ['id']
+
+    def validate_title(self, value):
+        return _clean_required_text(value)
+
+    def validate_project_type(self, value):
+        return _clean_required_text(value)
+
+    def validate_role(self, value):
+        return _clean_required_text(value)
+
+    def validate_description(self, value):
+        return _clean_required_text(value)
+
+    def validate_technologies(self, value):
+        return _clean_required_text(value)
+
+    def validate_thumbnail_path(self, value):
+        return strip_tags(value).strip()
 
     def get_star_count(self, obj):
         return obj.starred_by.count()

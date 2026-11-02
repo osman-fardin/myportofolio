@@ -345,6 +345,24 @@ untuk output publik, status star tiap pengguna, dan perlindungan ID serta relasi
 star, dengan bantuan review dari AI. Dari sini saya memahami bahwa check
 konfigurasi saja belum cukup untuk memastikan perilaku serializer benar.
 
+## 23. Memahami validasi input API Project
+
+**Prompt (ringkasan):**
+
+> Lanjut ke checkpoint berikutnya. Bantu implementasikan validasi serializer
+> beserta test, jelaskan perubahannya, dan biarkan aku yang commit.
+
+**Hasil penggunaan:**
+
+Saya mengembangkan validasi serializer Project dengan bantuan AI untuk
+penjelasan, implementasi, dan pengujian. Aturannya mengikuti field Project saya:
+tag HTML dibuang, teks wajib yang menjadi
+kosong ditolak, dan thumbnail tetap berupa path static opsional. Saya mendapat
+penjelasan bahwa serializer tidak menjalankan `ProjectForm.clean()`, sehingga
+jalur API perlu validasinya sendiri. Test juga mencakup URL yang tidak valid,
+batas field model, default field opsional, dan perbedaan update penuh dengan
+parsial. Pembersihan input tetap perlu disertai escaping saat ditampilkan.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa
