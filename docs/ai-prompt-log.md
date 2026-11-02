@@ -1,7 +1,7 @@
 # AI Prompt Log
 
 Dokumen ini berisi beberapa contoh prompt yang mewakili penggunaan OpenAI Codex
-selama pengerjaan Tutorial, Tugas 1, Tugas 2, Tugas 3, Tugas 4, dan Tugas 5. Prompt di
+selama pengerjaan Tutorial, Tugas 1 sampai Tugas 5, serta awal Tutorial 07. Prompt di
 bawah diringkas dari percakapan asli agar lebih mudah dibaca. Informasi sensitif
 dan percakapan yang tidak berkaitan dengan tugas tidak disertakan.
 
@@ -322,6 +322,28 @@ Experience. Response dibatasi ke `is_starred` dan `star_count`, sedangkan tombol
 memperbarui label, angka, dan `aria-pressed`. Interaksi star dan unstar diperiksa
 melalui browser, lalu ditambahkan test isolasi antar-user, GET rejection, CSRF,
 dan UUID 404.
+
+## 22. Memulai Tutorial 07 dan serializer Project
+
+**Prompt (ringkasan):**
+
+> Baca handoff, Tutorial 07, dan Tugas 6 dulu, lalu audit repo dan baseline.
+> Bikin roadmap pribadi dan arahkan satu langkah kecil setiap kali. Aku yang
+> ngetik, dan setelah bilang done tolong cek kode aktualnya.
+
+**Hasil penggunaan:**
+
+Saya mengerjakan setup DRF, serializer Project, dan test awalnya secara bertahap.
+AI membantu menjelaskan `ModelSerializer`, daftar field eksplisit, field read-only,
+dan penggunaan context untuk membaca status star pengguna, serta memberi contoh
+penerapan dan saran test yang sesuai dengan model saya.
+
+Saat method penghitung star masih berada di dalam `Meta`, Django check tetap
+lulus, tetapi pemeriksaan `.data` menemukan `AttributeError`. Setelah mendapat
+penjelasan dari AI, saya memperbaiki indentasinya. Saya juga menambahkan test
+untuk output publik, status star tiap pengguna, dan perlindungan ID serta relasi
+star, dengan bantuan review dari AI. Dari sini saya memahami bahwa check
+konfigurasi saja belum cukup untuk memastikan perilaku serializer benar.
 
 ## Verifikasi manual
 
