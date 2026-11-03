@@ -500,6 +500,39 @@ lama. Migrasi ketiga mutation tersebut ke DRF menjadi checkpoint berikutnya.
 Verifikasi checkpoint menghasilkan 127 test `main` lulus; fallback tanpa
 JavaScript juga diperiksa melalui browser. Data lokal dan PWS tidak diubah.
 
+## 29. Mengirim modal create Project ke DRF
+
+**Prompt (ringkasan):**
+
+> List dan detail sudah memakai DRF, terus modal add Project perlu diubah di
+> bagian mana? Jelasin bedanya mengirim FormData dengan JSON dan cara memilih
+> field yang dikirim. Error serializer sekarang bentuknya berbeda; gimana cara
+> menampilkan validasi 400 dan penolakan 403 tanpa menghilangkan input modal?
+> Aku juga mau submit tidak terkirim dua kali dan filter aktif tetap dipakai.
+
+**Hasil penggunaan:**
+
+Saya memindahkan create Project ke DRF dengan bantuan AI untuk penjelasan,
+implementasi, dan pengujian. Form lama tetap mempunyai action HTML sebagai
+fallback, sementara JavaScript membaca named URL API dari atribut data.
+`FormData` masih dipakai untuk membaca input, tetapi payload yang dikirim adalah
+JSON berisi sembilan field Project yang dapat diisi, tanpa token form atau
+field hasil perhitungan. Token CSRF dikirim melalui header.
+
+Saya memahami bahwa error DRF berupa daftar pesan per field atau pesan `detail`,
+bukan struktur error ModelForm lama. Saat validasi atau izin ditolak, modal dan
+input dipertahankan. Saat create berhasil, form di-reset, modal ditutup, toast
+ditampilkan, dan daftar diambil ulang menggunakan filter aktif. Tombol submit
+dinonaktifkan selama request dan handler menolak submit tambahan yang masih
+berlangsung.
+
+Test mencakup target API dari modal, fallback HTML, input tidak valid, dan session
+yang berakhir. Browser dengan database uji terpisah juga memeriksa header JSON
+dan CSRF, create pertama saat daftar kosong, pencegahan submit ganda, filter
+aktif, error HTML, serta gangguan jaringan. Verifikasi checkpoint menghasilkan
+130 test `main` lulus. Star dan delete dari halaman masih memakai route lama;
+data lokal dan PWS tidak diubah.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa

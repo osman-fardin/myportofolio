@@ -1,3 +1,4 @@
+from html.parser import HTMLParser
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -5,6 +6,7 @@ from django.contrib.auth.models import Group, Permission
 from django.test import TestCase
 from django.urls import reverse
 from django.utils.html import escape
+from rest_framework.test import APIClient
 
 from .models import Project
 
@@ -116,3 +118,95 @@ class ProjectReadPageTests(TestCase):
 
         self.assertContains(response, escape(self.project.title))
         self.assertNotContains(response, self.project.title)
+
+
+class _ProjectCreateFormParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.form_attributes = {}
+
+    def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        if tag == 'form' and attributes.get('id') == 'project-create-form':
+            self.form_attributes = attributes
+
+
+class ProjectCreatePageTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.owner = get_user_model().objects.create_superuser(
+            username='create-page-owner',
+            password='test-password',
+        )
+        cls.payload = {
+            'title': 'Portfolio create test',
+            'project_type': 'Personal Website',
+            'role': 'Developer',
+            'description': 'Created from the portfolio modal.',
+            'technologies': 'Django\nJavaScript',
+            'thumbnail_path': '',
+            'live_url': 'https://example.com/',
+            'source_url': '',
+            'display_order': '0',
+        }
+
+    def _client_and_form(self):
+        client = APIClient(enforce_csrf_checks=True)
+        self.assertTrue(client.login(
+            username='create-page-owner', password='test-password',
+        ))
+        page = client.get(reverse('main:show_projects'))
+        self.assertEqual(page.status_code, 200)
+        parser = _ProjectCreateFormParser()
+        parser.feed(page.content.decode())
+        self.assertTrue(parser.form_attributes)
+
+        return client, parser.form_attributes, client.cookies['csrftoken'].value
+
+    def test_modal_targets_support_json_create_and_html_fallback(self):
+        client, form, token = self._client_and_form()
+        self.assertEqual(form['data-api-url'], reverse('api:project-list'))
+        self.assertEqual(form['action'], reverse('main:create_project'))
+
+        api = client.post(
+            form['data-api-url'], self.payload, format='json',
+            HTTP_X_CSRFTOKEN=token,
+        )
+        self.assertEqual(api.status_code, 201)
+        project = Project.objects.get(pk=api.data['id'])
+        self.assertEqual(project.title, self.payload['title'])
+        self.assertEqual(project.technologies, self.payload['technologies'])
+        self.assertEqual(project.display_order, 0)
+
+        fallback = client.post(form['action'], {
+            **self.payload,
+            'title': 'HTML fallback project',
+        }, HTTP_X_CSRFTOKEN=token)
+        self.assertRedirects(
+            fallback, reverse('main:show_projects'), fetch_redirect_response=False,
+        )
+        self.assertTrue(Project.objects.filter(title='HTML fallback project').exists())
+        self.assertEqual(Project.objects.count(), 2)
+
+    def test_invalid_json_create_from_the_page_does_not_save(self):
+        client, form, token = self._client_and_form()
+        response = client.post(form['data-api-url'], {
+            **self.payload,
+            'title': '<img src="x" onerror="alert(1)">',
+        }, format='json', HTTP_X_CSRFTOKEN=token)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('title', response.data)
+        self.assertEqual(Project.objects.count(), 0)
+
+    def test_session_expiry_rejects_create_without_saving(self):
+        client, form, token = self._client_and_form()
+        client.logout()
+        response = client.post(
+            form['data-api-url'], self.payload, format='json',
+            HTTP_X_CSRFTOKEN=token,
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn('detail', response.data)
+        self.assertEqual(Project.objects.count(), 0)

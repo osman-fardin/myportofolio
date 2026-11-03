@@ -312,11 +312,12 @@ async function selectProject(id, { pushHistory = false } = {}) {
     }
 }
 
-function getFirstFormError(errors) {
-    const errorGroups = Object.values(errors);
-    const firstError = errorGroups.flat()[0];
+function projectApiErrorMessage(data, status) {
+    const messages = data && typeof data === 'object'
+        ? Object.values(data).flat().filter(value => typeof value === 'string')
+        : [];
 
-    return firstError?.message ?? 'Please check the project form.';
+    return messages.join(' ') || `Request failed (HTTP ${status}).`;
 }
 
 async function submitProject(event) {
@@ -325,6 +326,8 @@ async function submitProject(event) {
     const submitButton = projectCreateForm.querySelector(
         'button[type="submit"]',
     );
+    if (submitButton.disabled) return;
+
     const csrfToken = projectCreateForm.querySelector(
         '[name="csrfmiddlewaretoken"]',
     ).value;
@@ -332,23 +335,25 @@ async function submitProject(event) {
     submitButton.disabled = true;
 
     try {
-        const response = await fetch(projectCreateForm.action, {
+        const fields = new FormData(projectCreateForm);
+        const payload = Object.fromEntries([
+            'title', 'project_type', 'role', 'description', 'technologies',
+            'thumbnail_path', 'live_url', 'source_url', 'display_order',
+        ].map(name => [name, fields.get(name)]));
+
+        const response = await fetch(projectCreateForm.dataset.apiUrl, {
             method: 'POST',
-            body: new FormData(projectCreateForm),
+            body: JSON.stringify(payload),
             headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
                 'X-CSRFToken': csrfToken,
-                'X-Requested-With': 'XMLHttpRequest',
             },
         });
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            showToast(
-                'Could not add project',
-                getFirstFormError(data.errors),
-                'error',
-            );
-            return;
+            throw new Error(projectApiErrorMessage(data, response.status));
         }
 
         projectCreateForm.reset();
@@ -356,21 +361,19 @@ async function submitProject(event) {
 
         showToast(
             'Project added',
-            data.message,
+            'Project added successfully.',
             'success',
         );
 
-        if (projectIndex) {
-            refreshProjects();
-        } else {
-            window.location.reload();
-        }
+        await refreshProjects();
     } catch (error) {
         console.error(error);
 
         showToast(
             'Could not add project',
-            'Please try again in a moment.',
+            error instanceof TypeError
+                ? 'Please try again in a moment.'
+                : error.message,
             'error',
         );
     } finally {
