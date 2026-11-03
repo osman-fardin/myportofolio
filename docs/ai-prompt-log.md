@@ -1,7 +1,7 @@
 # AI Prompt Log
 
 Dokumen ini berisi beberapa contoh prompt yang mewakili penggunaan OpenAI Codex
-selama pengerjaan Tutorial, Tugas 1 sampai Tugas 5, serta awal Tutorial 07. Prompt di
+selama pengerjaan Tutorial, Tugas 1 sampai Tugas 5, serta Tutorial 07. Prompt di
 bawah diringkas dari percakapan asli agar lebih mudah dibaca. Informasi sensitif
 dan percakapan yang tidak berkaitan dengan tugas tidak disertakan.
 
@@ -663,6 +663,52 @@ Audit ini belum berarti seluruh proses pengumpulan selesai. Finalisasi README,
 pencatatan hash akhir, push/PR, pemeriksaan deployment, dan submit masih perlu
 dituntaskan. Commit, push, merge, serta deployment tetap saya jalankan sendiri.
 
+## 33. Menyiapkan dokumentasi checkpoint Tutorial 07
+
+**Prompt (ringkasan):**
+
+> Loading sudah selesai, sekarang README perlu mencatat apa saja untuk Tutorial
+> 07? Bantu cocokkan API dan test dengan implementasi, jelasin lagi perbedaan
+> Editor pada API Projects dengan form lama, dan pisahkan progres lokal dari
+> push, deploy, serta pengumpulan. Roadmap pribadi juga perlu diperbarui supaya
+> saat lanjut Experience tidak menganggap semua modul sudah selesai.
+
+**Hasil penggunaan:**
+
+Saya memperbarui dokumentasi dengan bantuan AI untuk penjelasan, penyusunan,
+review, dan verifikasi. README root mencatat dependency DRF, route/method,
+matriks role, field contoh yang disesuaikan, payload, filter, status HTTP,
+session/CSRF, struktur kode, fallback, hasil test/browser, dan progres Tutorial
+07. Refleksi historis tetap disimpan; implementasi serta refleksi Tugas 6 belum
+diklaim selesai. AI disclosure mencatat bantuan edit per checkpoint dan temuan
+yang benar-benar terjadi selama review.
+
+Saya memahami bahwa Editor Projects masih bisa memakai form HTML dengan
+`main.change_project`, tetapi API Projects owner-only. Aturan ini tidak dibawa
+ke rencana API Experience: Editor di sana tetap perlu PUT/PATCH sesuai Tugas 6.
+Playbook dan roadmap pribadi di folder materi diperbarui dengan commit aktual,
+matriks bukti T01-T12, serta Tugas 6 yang masih rencana. Keduanya tetap di luar
+repo dan tidak menggantikan README proyek.
+
+Contoh JSON README lolos validasi ProjectSerializer tanpa disimpan. Tautan
+Markdown lokal dan jumlah method test diperiksa: 73 test lama, 48 API, dan 19
+halaman, total 140 sesuai full suite yang lulus pada checkpoint `0653a49`.
+Checkpoint ini tidak mengubah kode aplikasi dan tidak mengulang seluruh suite;
+check, pemeriksaan migrasi, pip check, sintaks ketiga script, serta whitespace
+diperiksa lagi untuk memastikan dokumentasinya sesuai environment proyek.
+
+Eksperimen permission sementara di memori test juga membuktikan bahwa test
+penolakan menangkap regresi: user biasa, Editor, dan staff sempat mendapat 201
+ketika kebijakan sengaja dilonggarkan, sehingga assertion 403 gagal sesuai
+harapan. Setelah patch memori dilepas, test yang sama lulus. Source permission
+dan data lokal tidak diubah. Data tetap satu Project dan dua Experience.
+
+Commit implementasi terakhir yang diperiksa adalah `0653a49`; commit dokumentasi
+dan hash akhir pengumpulan baru dicatat setelah saya membuat dan memeriksanya.
+Push, PR/merge, deployment/PWS, akses commit publik, dan submit SCELE masih perlu
+bukti. Instalasi ulang dari environment kosong juga belum diverifikasi. Tutorial
+07 harus dikumpulkan terpisah sebelum melanjutkan pengumpulan Tugas 6.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa
@@ -670,7 +716,7 @@ langkah yang saya gunakan untuk melakukan verifikasi adalah:
 
 ```bash
 python manage.py check
-python manage.py test
+python manage.py test main
 git diff --check
 git status
 git diff
@@ -680,3 +726,8 @@ Saya juga mencoba navigasi, filter AJAX, loading dan empty state, modal create,
 toast, confirmation delete, star dan unstar, serta layout desktop dan mobile
 melalui browser. Pada akhir Tugas 5, seluruh 73 automated test dipastikan lulus
 sebelum dokumentasi diselesaikan.
+
+Pada checkpoint lokal Tutorial 07, full suite terakhir mencatat 140 test lulus.
+Rincian bantuan, eksperimen permission, hasil browser, dan batas verifikasinya
+ada pada entri 22-33. Status push, deployment, serta pengumpulan tetap dicatat
+terpisah dari keberhasilan test lokal.
