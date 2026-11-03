@@ -11,7 +11,7 @@
             aria-pressed="{% if user in project.starred_by.all %}true{% else %}false{% endif %}"
         >
             <span aria-hidden="true">&#9733;</span>
-            {% if user in project.starred_by.all %}Starred{% else %}Star{% endif %}
+            <span class="project-star-label">{% if user in project.starred_by.all %}Starred{% else %}Star{% endif %}</span>
             <span class="project-star-count">{{ project.starred_by.count }}</span>
         </button>
     </form>

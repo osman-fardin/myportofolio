@@ -1,0 +1,60 @@
+{% load static %}
+<article class="selected-project" data-project-id="{{ selected_project.id }}">
+    <header class="project-header">
+        <p class="project-type">{{ selected_project.project_type }}</p>
+        <h2>{{ selected_project.title }}</h2>
+        <p class="project-role">{{ selected_project.role }}</p>
+    </header>
+
+    {% if selected_project.thumbnail_path %}
+        <img
+            class="project-preview"
+            src="{% static selected_project.thumbnail_path %}"
+            alt="Preview of {{ selected_project.title }}"
+        >
+    {% endif %}
+
+    <p class="project-summary">{{ selected_project.description }}</p>
+
+    <div class="project-technologies">
+        <p>Technologies</p>
+        <ul>
+            {% for technology in selected_project.technology_list %}
+                <li>{{ technology }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="project-actions">
+        {% if perms.main.change_project %}
+            <a
+                class="project-edit-link"
+                href="{% url 'main:update_project' selected_project.id %}"
+            >
+                Edit project
+            </a>
+        {% endif %}
+        <a
+            class="project-live-link"
+            href="{{ selected_project.live_url }}"
+            target="_blank"
+            rel="noopener noreferrer"
+        >
+            View project
+        </a>
+        {% if selected_project.source_url %}
+            <a
+                class="project-source-link"
+                href="{{ selected_project.source_url }}"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                Source
+            </a>
+        {% endif %}
+        {% include 'components/project_star.html' with project=selected_project %}
+        {% if user.is_superuser %}
+            {% include 'components/project_delete_modal.html' with project=selected_project %}
+        {% endif %}
+    </div>
+</article>

@@ -5,9 +5,8 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth.views import redirect_to_login
-from django.core import serializers
 from django.core.exceptions import PermissionDenied
-from django.http import HttpResponse, JsonResponse
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
@@ -373,40 +372,12 @@ def delete_experience(request, experience_id):
     return redirect('main:show_experience')
 
 
-def show_projects(request):
-    json_response = get_projects_json(request)
-
-    projects = serializers.deserialize(
-        'json',
-        json_response.content.decode('utf-8'),
+def _get_filtered_projects(request):
+    projects = Project.objects.prefetch_related('starred_by').order_by(
+        'display_order', 'title', 'id',
     )
-    projects = [project.object for project in projects]
-
     title_query = request.GET.get('title', '').strip()
     starred_filter = request.GET.get('starred', '').strip()
-
-    context = {
-        'name': 'Muhammad Osman Fardin',
-        'display_name': 'Muhammad Osman Fardin',
-        'project_list': projects,
-        'selected_project': None,
-        'title_query': title_query,
-        'starred_filter': starred_filter,
-        'project_form': (
-            ProjectForm()
-            if request.user.is_superuser
-            else None
-        ),
-    }
-
-    return render(request, 'projects.html', context)
-
-
-def get_projects_json(request):
-    title_query = request.GET.get('title', '').strip()
-    starred_filter = request.GET.get('starred', '').strip()
-
-    projects = Project.objects.prefetch_related('starred_by').all()
 
     if starred_filter == 'mine':
         if request.user.is_authenticated:
@@ -416,6 +387,38 @@ def get_projects_json(request):
 
     if title_query:
         projects = projects.filter(title__icontains=title_query)
+
+    return projects
+
+
+def _project_page_context(request, selected_project=None):
+    """Keep the HTML fallback independent of the legacy JSON representation."""
+    title_query = request.GET.get('title', '').strip()
+    starred_filter = request.GET.get('starred', '').strip()
+
+    return {
+        'name': 'Muhammad Osman Fardin',
+        'display_name': 'Muhammad Osman Fardin',
+        'project_list': list(_get_filtered_projects(request)),
+        'selected_project': selected_project,
+        'project_placeholder': {'id': '00000000-0000-0000-0000-000000000000'},
+        'title_query': title_query,
+        'starred_filter': starred_filter,
+        'project_form': (
+            ProjectForm()
+            if request.user.is_superuser
+            else None
+        ),
+    }
+
+
+def show_projects(request):
+    context = _project_page_context(request)
+    return render(request, 'projects.html', context)
+
+
+def get_projects_json(request):
+    projects = _get_filtered_projects(request)
 
     project_data = []
 
@@ -560,17 +563,11 @@ def delete_project(request, project_id):
 
 
 def show_project_detail(request, project_id):
-    context = {
-        'name': 'Muhammad Osman Fardin',
-        'display_name': 'Muhammad Osman Fardin',
-        'project_list': Project.objects.all(),
-        'selected_project': get_object_or_404(Project, id=project_id),
-        'project_form': (
-            ProjectForm()
-            if request.user.is_superuser
-            else None
-        ),
-    }
+    project = get_object_or_404(
+        Project.objects.prefetch_related('starred_by'),
+        pk=project_id,
+    )
+    context = _project_page_context(request, selected_project=project)
 
     return render(request, 'projects.html', context)
 

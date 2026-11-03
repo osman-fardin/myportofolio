@@ -1030,6 +1030,10 @@ body:has(.site-menu[open]) {
     text-underline-offset: 0.25rem;
 }
 
+.project-filter-clear[hidden] {
+    display: none;
+}
+
 .project-search button:focus-visible,
 .project-starred-filter input:focus-visible {
     outline: 2px solid var(--surface);

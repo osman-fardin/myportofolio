@@ -60,138 +60,77 @@
                     </label>
                 {% endif %}
                 <button type="submit">Search</button>
-                {% if title_query or starred_filter %}
-                    <a
-                        href="{% url 'main:show_projects' %}"
-                        class="project-filter-clear"
-                    >
-                        Clear
-                    </a>
-                {% endif %}
+                <a
+                    id="project-filter-clear"
+                    href="{% url 'main:show_projects' %}"
+                    class="project-filter-clear"
+                    {% if not title_query and not starred_filter %}hidden{% endif %}
+                >
+                    Clear
+                </a>
             </form>
 
-            {% if project_list %}
-                <div class="project-browser">
-                    <nav
-                        id="project-index"
-                        class="project-index"
-                        aria-label="Project list"
-                        aria-live="polite"
-                        data-projects-url="{% url 'main:get_projects_json' %}"
-                    >
-                        {% for project in project_list %}
-                            <a
-                                class="project-index-item{% if selected_project.id == project.id %} is-selected{% endif %}"
-                                href="{{ project.get_absolute_url }}"
-                                {% if selected_project.id == project.id %}
-                                    aria-current="page"
-                                {% endif %}
-                            >
-                                <span class="project-number">
-                                    {{ forloop.counter|stringformat:"02d" }}
-                                </span>
-                                <span>
-                                    <span class="project-index-title">
-                                        {{ project.title }}
-                                    </span>
-                                    <span class="project-index-type">
-                                        {{ project.project_type }}
-                                    </span>
-                                </span>
-                            </a>
-                        {% endfor %}
-                    </nav>
+            <div
+                id="project-browser"
+                class="project-browser"
+                data-project-page-url="{% url 'main:show_project_detail' project_placeholder.id %}"
+                data-project-detail-url="{% url 'api:project-detail' project_placeholder.id %}"
+                data-selected-project-id="{{ selected_project.id|default:'' }}"
+                data-starred-filter="{{ starred_filter }}"
+                data-static-url="{% get_static_prefix %}"
+            >
+                <nav
+                    id="project-index"
+                    class="project-index"
+                    aria-label="Project list"
+                    aria-live="polite"
+                    data-projects-url="{% url 'api:project-list' %}"
+                >
+                    {% for project in project_list %}
+                        <a
+                            class="project-index-item{% if selected_project.id == project.id %} is-selected{% endif %}"
+                            href="{{ project.get_absolute_url }}"
+                            data-project-id="{{ project.id }}"
+                            {% if selected_project.id == project.id %}aria-current="page"{% endif %}
+                        >
+                            <span class="project-number">{{ forloop.counter|stringformat:"02d" }}</span>
+                            <span>
+                                <span class="project-index-title">{{ project.title }}</span>
+                                <span class="project-index-type">{{ project.project_type }}</span>
+                            </span>
+                        </a>
+                    {% empty %}
+                        <p class="project-empty">
+                            {% if starred_filter == 'mine' and title_query %}
+                                No starred projects match “{{ title_query }}”.
+                            {% elif starred_filter == 'mine' %}
+                                You have not starred any projects yet.
+                            {% elif title_query %}
+                                No projects match “{{ title_query }}”.
+                            {% else %}
+                                No projects have been added yet.
+                            {% endif %}
+                        </p>
+                    {% endfor %}
+                </nav>
 
-                    <div class="project-detail" aria-live="polite">
-                        {% if selected_project %}
-                            <article class="selected-project">
-                                <header class="project-header">
-                                    <p class="project-type">
-                                        {{ selected_project.project_type }}
-                                    </p>
-                                    <h2>{{ selected_project.title }}</h2>
-                                    <p class="project-role">
-                                        {{ selected_project.role }}
-                                    </p>
-                                </header>
-
-                                {% if selected_project.thumbnail_path %}
-                                    <img
-                                        class="project-preview"
-                                        src="{% static selected_project.thumbnail_path %}"
-                                        alt="Preview of {{ selected_project.title }}"
-                                    >
-                                {% endif %}
-
-                                <p class="project-summary">
-                                    {{ selected_project.description }}
-                                </p>
-
-                                <div class="project-technologies">
-                                    <p>Technologies</p>
-                                    <ul>
-                                        {% for technology in selected_project.technology_list %}
-                                            <li>{{ technology }}</li>
-                                        {% endfor %}
-                                    </ul>
-                                </div>
-
-                                <div class="project-actions">
-                                    {% if perms.main.change_project %}
-                                        <a
-                                            href="{% url 'main:update_project' selected_project.id %}"
-                                        >
-                                            Edit project
-                                        </a>
-                                    {% endif %}
-                                    <a
-                                        href="{{ selected_project.live_url }}"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                    >
-                                        View project
-                                    </a>
-
-                                    {% if selected_project.source_url %}
-                                        <a
-                                            href="{{ selected_project.source_url }}"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                        >
-                                            Source
-                                        </a>
-                                    {% endif %}
-                                    {% include 'components/project_star.html' with project=selected_project %}
-                                    {% if user.is_superuser %}
-                                        {% include 'components/project_delete_modal.html' with project=selected_project %}
-                                    {% endif %}
-                                </div>
-                            </article>
-                        {% else %}
-                            <div class="project-prompt">
-                                <p class="section-kicker">Project viewer</p>
-                                <h2>Select a project</h2>
-                                <p>
-                                    Choose a project from the list to see its
-                                    story, tools, and live result.
-                                </p>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-            {% else %}
-                <p class="project-empty">
-                    {% if starred_filter == 'mine' and title_query %}
-                        No starred projects match “{{ title_query }}”.
-                    {% elif starred_filter == 'mine' %}
-                        You have not starred any projects yet.
-                    {% elif title_query %}
-                        No projects match “{{ title_query }}”.
+                <div id="project-detail" class="project-detail" aria-live="polite">
+                    {% if selected_project %}
+                        {% include 'components/project_detail.html' %}
                     {% else %}
-                        No projects have been added yet.
+                        <div class="project-prompt">
+                            <p class="section-kicker">Project viewer</p>
+                            <h2>Select a project</h2>
+                            <p>Choose a project from the list to see its story, tools, and live result.</p>
+                        </div>
                     {% endif %}
-                </p>
-            {% endif %}
+                </div>
+            </div>
+
+            {% csrf_token %}
+            <template id="project-detail-template">
+                {% include 'components/project_detail.html' with selected_project=project_placeholder %}
+            </template>
         </div>
     </section>
 {% endblock %}

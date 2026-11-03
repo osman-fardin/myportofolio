@@ -463,6 +463,43 @@ dibantu penambahan kode. Susunannya dibetulkan dengan memastikan seluruh test
 detail lama tetap utuh, lalu kedua kelompok test dijalankan ulang. Ini menjadi
 contoh kenapa bantuan implementasi tetap perlu diperiksa melalui test dan diff.
 
+## 28. Memindahkan pembacaan halaman Projects ke DRF
+
+**Prompt (ringkasan):**
+
+> API Project sudah lengkap, terus gimana cara menghubungkannya ke halaman yang
+> sekarang? JSON baru sudah tidak punya pk dan fields, tapi desain list, panel
+> detail, preview, dan tombol lamaku harus tetap jalan. Jelasin cara mengambil
+> detail tanpa reload, menjaga Back/Forward dan filter, serta menampilkan teks
+> dari API dengan aman.
+
+**Hasil penggunaan:**
+
+Saya menghubungkan list dan detail Projects ke DRF dengan bantuan AI untuk
+penjelasan, implementasi, dan pengujian. JavaScript membaca field datar dari
+`/api/v1/projects/` dan endpoint detailnya. Tampilan awal dari server tetap
+tersedia sebagai fallback, tetapi tidak lagi bergantung pada deserialize JSON
+manual. Komponen detail yang sama dipakai sebagai template DOM, sehingga desain
+dan kontrol berdasarkan permission tetap konsisten saat memilih Project lain.
+
+Saya memahami peran `textContent`, template DOM yang belum aktif, named URL dari
+template Django, serta `pushState` dan `popstate` untuk navigasi. Request list
+dan detail mempunyai AbortController terpisah agar hasil lama tidak menimpa
+pilihan terbaru. Container AJAX tetap tersedia ketika database kosong, dan
+cookie CSRF tetap dibuat bagi user biasa meskipun modal create tidak ditampilkan.
+
+Test Django memeriksa fallback, filter, permission, CSRF cookie, dan escaping.
+Pemeriksaan browser memakai database uji terpisah dan mencakup preview statis,
+Back/Forward, filter personal, setiap role, simulasi request lambat/error, serta
+layout 390/768/1440 px. Browser menemukan Clear masih terlihat karena style
+inline-flex menimpa atribut hidden; rule khusus ditambahkan untuk memperbaikinya.
+Ini memperlihatkan bahwa test backend saja belum cukup untuk memeriksa UI.
+
+Pada checkpoint ini create, star, dan delete dari halaman masih memakai route
+lama. Migrasi ketiga mutation tersebut ke DRF menjadi checkpoint berikutnya.
+Verifikasi checkpoint menghasilkan 127 test `main` lulus; fallback tanpa
+JavaScript juga diperiksa melalui browser. Data lokal dan PWS tidak diubah.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa
