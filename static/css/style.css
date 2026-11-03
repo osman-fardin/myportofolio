@@ -1040,6 +1040,12 @@ body:has(.site-menu[open]) {
     outline-offset: 3px;
 }
 
+.project-loading-status {
+    margin-bottom: 1rem;
+    color: var(--cloud-soft);
+    font-size: 0.88rem;
+}
+
 .project-browser {
     display: grid;
     grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.8fr);

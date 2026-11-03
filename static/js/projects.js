@@ -2,6 +2,7 @@ const projectIndex = document.getElementById('project-index');
 const projectBrowser = document.getElementById('project-browser');
 const projectDetail = document.getElementById('project-detail');
 const projectDetailTemplate = document.getElementById('project-detail-template');
+const projectLoadingStatus = document.getElementById('project-loading-status');
 const projectFilterClear = document.getElementById('project-filter-clear');
 const projectSearchForm = document.getElementById('project-search-form');
 const projectSearchInput = document.getElementById('project-search-input');
@@ -21,6 +22,16 @@ let projectListController;
 let projectDetailController;
 const pendingProjectStars = new Set();
 const pendingProjectDeletes = new Set();
+
+function setProjectBusy(container, busy) {
+    container.setAttribute('aria-busy', String(busy));
+    const listBusy = projectIndex.getAttribute('aria-busy') === 'true';
+    const detailBusy = projectDetail.getAttribute('aria-busy') === 'true';
+    projectLoadingStatus.textContent = listBusy && detailBusy
+        ? 'Loading projects and project details...'
+        : detailBusy ? 'Loading project details...' : 'Loading projects...';
+    projectLoadingStatus.hidden = !listBusy && !detailBusy;
+}
 
 function debounce(callback, delay) {
     let timeoutId;
@@ -138,7 +149,7 @@ async function loadProjects() {
     projectListController?.abort();
     const controller = new AbortController();
     projectListController = controller;
-    projectIndex.setAttribute('aria-busy', 'true');
+    setProjectBusy(projectIndex, true);
     const endpoint = new URL(
         projectIndex.dataset.projectsUrl,
         window.location.origin,
@@ -189,7 +200,7 @@ function refreshProjects() {
         if (projectListController === controller) handleProjectLoadError(error);
     }).finally(() => {
         if (projectListController === controller) {
-            projectIndex.setAttribute('aria-busy', 'false');
+            setProjectBusy(projectIndex, false);
         }
     });
 }
@@ -300,11 +311,11 @@ async function selectProject(id, { pushHistory = false } = {}) {
 
     if (!id) {
         showProjectPrompt();
-        projectDetail.setAttribute('aria-busy', 'false');
+        setProjectBusy(projectDetail, false);
         return;
     }
 
-    projectDetail.setAttribute('aria-busy', 'true');
+    setProjectBusy(projectDetail, true);
     try {
         const endpoint = projectBrowser.dataset.projectDetailUrl.replace(projectPlaceholderId, id);
         const response = await fetch(endpoint, {
@@ -323,7 +334,7 @@ async function selectProject(id, { pushHistory = false } = {}) {
         showToast('Unable to load project', 'Please try again in a moment.', 'error');
     } finally {
         if (projectDetailController === controller) {
-            projectDetail.setAttribute('aria-busy', 'false');
+            setProjectBusy(projectDetail, false);
         }
     }
 }
@@ -361,7 +372,7 @@ async function toggleProjectStar(form) {
         if (selectedProjectId === id) {
             projectDetailController?.abort();
             projectDetail.replaceChildren(buildProjectDetail(project));
-            projectDetail.setAttribute('aria-busy', 'false');
+            setProjectBusy(projectDetail, false);
         }
         showToast(
             project.is_starred ? 'Project starred' : 'Star removed',

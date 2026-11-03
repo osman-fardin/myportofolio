@@ -623,6 +623,46 @@ dan whitespace juga lolos. Data lokal tetap satu Project dan dua Experience;
 PWS tidak diubah. Commit tetap dijalankan sendiri oleh saya. Finalisasi
 dokumentasi dan pemeriksaan checklist Tutorial 07 menjadi checkpoint berikutnya.
 
+## 32. Menutup celah loading pada audit Tutorial 07
+
+**Prompt (ringkasan):**
+
+> Setelah delete selesai, bantu cocokkan hasilnya dengan checklist Tutorial 07.
+> Loading daftar dan detail sudah cukup jelas belum kalau koneksi lambat?
+> Kalau keduanya berjalan bersamaan atau request pencarian lama dibatalkan,
+> gimana supaya indikatornya tidak hilang sebelum request terbaru selesai?
+
+**Hasil penggunaan:**
+
+Saya meninjau ulang materi dan implementasi dengan bantuan AI. Audit menemukan
+bahwa daftar dan detail sudah memakai `aria-busy`, tetapi belum mempunyai pesan
+loading yang terlihat. Saya menutup celah ini sebagai checkpoint terpisah dengan
+bantuan AI untuk penjelasan, implementasi, dan pengujian sebelum finalisasi README.
+
+Pesan loading memakai `role="status"` dan `aria-atomic="true"`, ditempatkan di
+luar container yang sedang busy agar statusnya terpisah dari hasil yang dimuat.
+Helper `setProjectBusy` menyelaraskan `aria-busy`, teks, dan visibilitas pesan
+berdasarkan request daftar serta detail. Pesan tidak disembunyikan hanya karena
+salah satunya sudah selesai. Pengecekan controller yang sudah ada tetap menjaga
+agar request lama yang dibatalkan tidak mengubah status request terbaru.
+
+Saya mempertahankan isi sebelumnya selama pemuatan dan memakai warna cloud-soft
+dari tema Projects. Tanpa JavaScript, indikator tetap tersembunyi dan fallback
+HTML masih menampilkan data. Error dan empty state lama tetap dipakai; checkpoint
+ini tidak menambahkan model atau mengubah kontrak API.
+
+Test halaman memeriksa status yang tersedia tetapi tersembunyi pada fallback
+daftar dan detail. Browser dengan database sementara memeriksa loading daftar,
+detail, dan keduanya sekaligus; request lama yang dibatalkan; error 503/404 dan
+pemulihan; serta fallback tanpa JavaScript. Tampilan 390 dan 1440 px diperiksa
+melalui screenshot tanpa horizontal overflow. Seluruh 140 test `main` lulus,
+check dan pemeriksaan migrasi bersih, dependency tidak bentrok, serta sintaks
+JavaScript dan whitespace lolos. Data lokal dan PWS tidak diubah.
+
+Audit ini belum berarti seluruh proses pengumpulan selesai. Finalisasi README,
+pencatatan hash akhir, push/PR, pemeriksaan deployment, dan submit masih perlu
+dituntaskan. Commit, push, merge, serta deployment tetap saya jalankan sendiri.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa

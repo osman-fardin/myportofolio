@@ -119,6 +119,15 @@ class ProjectReadPageTests(TestCase):
         self.assertContains(response, escape(self.project.title))
         self.assertNotContains(response, self.project.title)
 
+    def test_loading_status_is_hidden_in_the_html_fallback(self):
+        for url in (reverse('main:show_projects'), self.project.get_absolute_url()):
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertContains(response, '''
+                    <p id="project-loading-status" class="project-loading-status"
+                       role="status" aria-atomic="true" hidden>Loading projects...</p>
+                ''', html=True)
+
 
 class _ProjectCreateFormParser(HTMLParser):
     def __init__(self):
