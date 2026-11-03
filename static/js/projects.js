@@ -20,6 +20,7 @@ let selectedProjectId = projectBrowser?.dataset.selectedProjectId || '';
 let projectListController;
 let projectDetailController;
 const pendingProjectStars = new Set();
+const pendingProjectDeletes = new Set();
 
 function debounce(callback, delay) {
     let timeoutId;
@@ -208,6 +209,19 @@ function showProjectPrompt(title = 'Select a project', message = '') {
     projectDetail.replaceChildren(prompt);
 }
 
+function projectMutationPending(id) {
+    return pendingProjectStars.has(id) || pendingProjectDeletes.has(id);
+}
+
+function syncProjectMutationControls(article) {
+    const pending = projectMutationPending(article.dataset.projectId);
+    for (const button of article.querySelectorAll(
+        '.project-star-button, .project-delete-trigger, .project-delete-form button[type="submit"]',
+    )) {
+        button.disabled = pending;
+    }
+}
+
 function buildProjectDetail(project) {
     const article = projectDetailTemplate.content.firstElementChild.cloneNode(true);
     article.dataset.projectId = project.id;
@@ -259,7 +273,6 @@ function buildProjectDetail(project) {
 
     const starButton = article.querySelector('.project-star-button');
     if (starButton) {
-        starButton.disabled = pendingProjectStars.has(project.id);
         starButton.setAttribute('aria-pressed', String(project.is_starred));
         starButton.querySelector('.project-star-label').textContent = project.is_starred ? 'Starred' : 'Star';
         starButton.querySelector('.project-star-count').textContent = String(project.star_count);
@@ -269,6 +282,7 @@ function buildProjectDetail(project) {
         deleteButton.setAttribute('aria-label', `Delete ${project.title}`);
         article.querySelector('.project-delete-modal-content strong').textContent = project.title;
     }
+    syncProjectMutationControls(article);
 
     return article;
 }
@@ -323,12 +337,12 @@ function projectApiErrorMessage(data, status) {
 }
 
 async function toggleProjectStar(form) {
-    const id = form.closest('[data-project-id]').dataset.projectId;
-    if (pendingProjectStars.has(id)) return;
+    const article = form.closest('[data-project-id]');
+    const id = article.dataset.projectId;
+    if (projectMutationPending(id)) return;
 
-    const button = form.querySelector('.project-star-button');
     pendingProjectStars.add(id);
-    button.disabled = true;
+    syncProjectMutationControls(article);
 
     try {
         const response = await fetch(form.dataset.apiUrl, {
@@ -364,10 +378,54 @@ async function toggleProjectStar(form) {
         );
     } finally {
         pendingProjectStars.delete(id);
-        button.disabled = false;
+        syncProjectMutationControls(article);
         const currentArticle = projectDetail.querySelector('[data-project-id]');
         if (currentArticle?.dataset.projectId === id) {
-            currentArticle.querySelector('.project-star-button').disabled = false;
+            syncProjectMutationControls(currentArticle);
+        }
+    }
+}
+
+async function deleteProject(form) {
+    const article = form.closest('[data-project-id]');
+    const id = article.dataset.projectId;
+    if (projectMutationPending(id)) return;
+
+    pendingProjectDeletes.add(id);
+    syncProjectMutationControls(article);
+
+    try {
+        const response = await fetch(form.dataset.apiUrl, {
+            method: 'DELETE',
+            headers: {
+                Accept: 'application/json',
+                'X-CSRFToken': form.querySelector('[name="csrfmiddlewaretoken"]').value,
+            },
+        });
+        // Successful DELETE has no response body; only errors need JSON parsing.
+        if (response.status !== 204) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(projectApiErrorMessage(data, response.status));
+        }
+
+        const modal = form.closest('.project-delete-modal');
+        if (modal.matches(':popover-open')) modal.hidePopover();
+        if (selectedProjectId === id) await selectProject('');
+        showToast('Project deleted', 'Project deleted successfully.', 'success');
+        await refreshProjects();
+    } catch (error) {
+        console.error(error);
+        showToast(
+            'Could not delete project',
+            error instanceof TypeError ? 'Please try again in a moment.' : error.message,
+            'error',
+        );
+    } finally {
+        pendingProjectDeletes.delete(id);
+        syncProjectMutationControls(article);
+        const currentArticle = projectDetail.querySelector('[data-project-id]');
+        if (currentArticle?.dataset.projectId === id) {
+            syncProjectMutationControls(currentArticle);
         }
     }
 }
@@ -437,9 +495,14 @@ const debouncedRefreshProjects = debounce(refreshProjects, 400);
 
 if (projectBrowser && projectIndex && projectDetail && projectSearchForm && projectSearchInput) {
     projectDetail.addEventListener('submit', event => {
-        if (!event.target.matches('.project-star-form')) return;
-        event.preventDefault();
-        toggleProjectStar(event.target);
+        const form = event.target;
+        if (form.matches('.project-star-form')) {
+            event.preventDefault();
+            toggleProjectStar(form);
+        } else if (form.matches('.project-delete-form')) {
+            event.preventDefault();
+            deleteProject(form);
+        }
     });
 
     projectIndex.addEventListener('click', event => {

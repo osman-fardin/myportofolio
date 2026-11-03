@@ -576,6 +576,53 @@ dan whitespace juga lolos. Data lokal tetap satu Project dan dua Experience.
 Delete UI masih memakai route lama; PWS tidak diubah dan commit dijalankan
 sendiri oleh saya.
 
+## 31. Menghapus Project melalui DRF tanpa reload
+
+**Prompt (ringkasan):**
+
+> Tombol star sudah lewat DRF, sekarang confirmation delete perlu disambungkan
+> ke endpoint mana? Jelasin cara mengirim DELETE dengan CSRF dan kenapa respons
+> 204 tidak boleh dibaca sebagai JSON. Kalau request gagal, diklik dua kali,
+> atau aku sudah pindah detail, gimana supaya modal dan daftar tetap sesuai?
+
+**Hasil penggunaan:**
+
+Saya memindahkan delete Project ke DRF dengan bantuan AI untuk penjelasan,
+implementasi, dan pengujian. Form konfirmasi mempunyai `data-api-url` menuju
+detail API, sementara action POST lama tetap tersedia sebagai fallback HTML.
+Handler submit memakai event delegation seperti star dan mengirim DELETE
+dengan token CSRF. Dialog konfirmasi serta tampilan lama dipertahankan.
+
+Saya memahami bahwa keberhasilan delete ditandai status 204 tanpa body,
+sehingga JSON hanya dibaca pada respons error. Setelah berhasil, konfirmasi
+ditutup, pilihan detail dibersihkan bila masih menunjuk project yang dihapus,
+dan daftar dimuat ulang memakai filter aktif. URL kembali ke halaman daftar
+untuk pilihan yang dihapus. Jika sudah memilih project lain, detail dan URL
+pilihan baru dipertahankan. Penghapusan record terakhir menampilkan empty state
+dan tombol Add project tetap tersedia.
+
+Request delete dicatat per ID agar submit ganda ditolak, termasuk ketika form
+detail dibuat ulang. Star dan delete untuk project yang sama saling mengunci
+selama request masih berjalan agar responsnya tidak saling menimpa. Kontrol
+project lain tetap bisa digunakan. Pada error, toast ditampilkan, detail dan
+daftar dipertahankan, serta tombol dibuka kembali; modal yang masih terbuka
+tidak ditutup otomatis. Tidak ada retry mutation otomatis.
+
+Lima test halaman baru mencakup URL konfirmasi dan template, delete 204 dengan
+body kosong, record lain yang harus tetap ada, fallback HTML, CSRF dan sesi
+berakhir, target yang sudah dihapus, serta kontrol khusus superuser. Pemeriksaan
+browser memakai database sementara: Cancel sebelum submit tidak mengirim
+DELETE, submit ganda hanya mengirim satu DELETE, star/delete saling terkunci,
+filter tetap aktif, dan respons lambat tidak membersihkan detail project lain.
+Error JSON 403/404, HTML 503, gangguan jaringan, CSRF, serta sesi berakhir juga
+diperiksa. Browser memastikan tidak ada pemanggilan JSON pada 204; body kosong
+diverifikasi lewat test Django.
+
+Seluruh 139 test `main` lulus. Check, pemeriksaan migrasi, sintaks JavaScript,
+dan whitespace juga lolos. Data lokal tetap satu Project dan dua Experience;
+PWS tidak diubah. Commit tetap dijalankan sendiri oleh saya. Finalisasi
+dokumentasi dan pemeriksaan checklist Tutorial 07 menjadi checkpoint berikutnya.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa

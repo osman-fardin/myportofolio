@@ -307,3 +307,121 @@ class ProjectStarPageTests(TestCase):
         parser = _ProjectStarFormParser()
         parser.feed(response.content.decode())
         self.assertEqual(parser.forms, [])
+
+
+class _ProjectDeleteFormParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.forms = []
+
+    def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        if tag == 'form' and 'project-delete-form' in attributes.get('class', '').split():
+            self.forms.append(attributes)
+
+
+class ProjectDeletePageTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.project = Project.objects.create(
+            title='Delete from the project viewer',
+            project_type='Web App',
+            role='Developer',
+            description='A project with a delete confirmation.',
+            technologies='Django',
+            live_url='https://example.com/',
+        )
+        cls.other_project = Project.objects.create(
+            title='Keep this project',
+            project_type='Web App',
+            role='Developer',
+            description='An unrelated project.',
+            technologies='Python',
+            live_url='https://example.com/keep/',
+        )
+        user_model = get_user_model()
+        cls.owner = user_model.objects.create_superuser(
+            username='delete-page-owner', password='test-password',
+        )
+        cls.reader = user_model.objects.create_user(username='delete-page-reader')
+        cls.editor = user_model.objects.create_user(username='delete-page-editor')
+        cls.editor.user_permissions.add(Permission.objects.get(
+            content_type__app_label='main', codename='change_project',
+        ))
+        cls.other_project.starred_by.add(cls.reader)
+
+    def _client_and_form(self):
+        client = APIClient(enforce_csrf_checks=True)
+        self.assertTrue(client.login(
+            username=self.owner.username, password='test-password',
+        ))
+        page = client.get(self.project.get_absolute_url())
+        parser = _ProjectDeleteFormParser()
+        parser.feed(page.content.decode())
+        self.assertEqual(len(parser.forms), 2)  # Selected detail and inert template.
+        self.assertEqual(
+            parser.forms[0]['data-api-url'],
+            reverse('api:project-detail', args=[self.project.pk]),
+        )
+        self.assertIn(
+            '00000000-0000-0000-0000-000000000000',
+            parser.forms[1]['data-api-url'],
+        )
+        self.assertContains(page, 'Delete project?')
+        self.assertContains(page, 'Cancel')
+        return client, parser.forms[0], client.cookies['csrftoken'].value
+
+    def test_confirmation_api_url_deletes_only_its_target_with_empty_204(self):
+        client, form, token = self._client_and_form()
+        response = client.delete(form['data-api-url'], HTTP_X_CSRFTOKEN=token)
+
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response.content, b'')
+        self.assertFalse(Project.objects.filter(pk=self.project.pk).exists())
+        self.assertTrue(Project.objects.filter(pk=self.other_project.pk).exists())
+        self.assertEqual(list(self.other_project.starred_by.all()), [self.reader])
+
+    def test_confirmation_keeps_the_html_fallback(self):
+        client, form, token = self._client_and_form()
+        self.assertEqual(
+            form['action'], reverse('main:delete_project', args=[self.project.pk]),
+        )
+        response = client.post(form['action'], HTTP_X_CSRFTOKEN=token)
+        self.assertRedirects(
+            response, reverse('main:show_projects'), fetch_redirect_response=False,
+        )
+        self.assertFalse(Project.objects.filter(pk=self.project.pk).exists())
+        self.assertTrue(Project.objects.filter(pk=self.other_project.pk).exists())
+
+    def test_missing_csrf_and_expired_session_do_not_delete(self):
+        client, form, token = self._client_and_form()
+        missing_csrf = client.delete(form['data-api-url'])
+        self.assertEqual(missing_csrf.status_code, 403)
+        self.assertEqual(Project.objects.count(), 2)
+
+        client.logout()
+        expired = client.delete(form['data-api-url'], HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(expired.status_code, 403)
+        self.assertTrue(Project.objects.filter(pk=self.project.pk).exists())
+        self.assertTrue(Project.objects.filter(pk=self.other_project.pk).exists())
+
+    def test_deleted_target_returns_404_from_the_rendered_api_url(self):
+        client, form, token = self._client_and_form()
+        self.project.delete()
+        response = client.delete(form['data-api-url'], HTTP_X_CSRFTOKEN=token)
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(Project.objects.count(), 1)
+        self.assertTrue(Project.objects.filter(pk=self.other_project.pk).exists())
+
+    def test_only_superuser_gets_delete_controls(self):
+        for user in (None, self.reader, self.editor):
+            with self.subTest(user=str(user)):
+                self.client.logout()
+                if user:
+                    self.client.force_login(user)
+                response = self.client.get(self.project.get_absolute_url())
+                parser = _ProjectDeleteFormParser()
+                parser.feed(response.content.decode())
+                self.assertEqual(parser.forms, [])
+                self.assertNotContains(response, 'class="project-delete-trigger"')
