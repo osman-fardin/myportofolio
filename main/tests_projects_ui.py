@@ -210,3 +210,100 @@ class ProjectCreatePageTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertIn('detail', response.data)
         self.assertEqual(Project.objects.count(), 0)
+
+
+class _ProjectStarFormParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.forms = []
+
+    def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        if tag == 'form' and 'project-star-form' in attributes.get('class', '').split():
+            self.forms.append(attributes)
+
+
+class ProjectStarPageTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.project = Project.objects.create(
+            title='Star from the project viewer',
+            project_type='Web App',
+            role='Developer',
+            description='A project with a star form.',
+            technologies='Django',
+            live_url='https://example.com/',
+        )
+        user_model = get_user_model()
+        cls.reader = user_model.objects.create_user(
+            username='star-page-reader', password='test-password',
+        )
+        cls.editor = user_model.objects.create_user(
+            username='star-page-editor', password='test-password',
+        )
+        cls.editor.user_permissions.add(Permission.objects.get(
+            content_type__app_label='main', codename='change_project',
+        ))
+        cls.owner = user_model.objects.create_superuser(
+            username='star-page-owner', password='test-password',
+        )
+
+    def _client_and_form(self, user):
+        client = APIClient(enforce_csrf_checks=True)
+        self.assertTrue(client.login(username=user.username, password='test-password'))
+        page = client.get(self.project.get_absolute_url())
+        parser = _ProjectStarFormParser()
+        parser.feed(page.content.decode())
+        self.assertEqual(len(parser.forms), 2)  # Selected detail and the inert template.
+        self.assertEqual(
+            parser.forms[0]['data-api-url'],
+            reverse('api:project-star', args=[self.project.pk]),
+        )
+        self.assertIn(
+            '00000000-0000-0000-0000-000000000000',
+            parser.forms[1]['data-api-url'],
+        )
+        return client, parser.forms[0], client.cookies['csrftoken'].value
+
+    def test_each_authenticated_role_can_toggle_using_the_page_api_url(self):
+        for user in (self.reader, self.editor, self.owner):
+            with self.subTest(user=user.username):
+                client, form, token = self._client_and_form(user)
+                for expected in (True, False):
+                    response = client.post(form['data-api-url'], HTTP_X_CSRFTOKEN=token)
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(response.data['is_starred'], expected)
+                    self.assertEqual(response.data['star_count'], int(expected))
+                    self.assertEqual(self.project.starred_by.filter(pk=user.pk).exists(), expected)
+                    self.assertNotIn('starred_by', response.data)
+
+    def test_html_fallback_still_toggles_the_same_relation(self):
+        client, form, token = self._client_and_form(self.reader)
+        self.assertEqual(
+            form['action'], reverse('main:toggle_project_star', args=[self.project.pk]),
+        )
+        response = client.post(form['action'], HTTP_X_CSRFTOKEN=token)
+        self.assertRedirects(
+            response, self.project.get_absolute_url(), fetch_redirect_response=False,
+        )
+        self.assertTrue(self.project.starred_by.filter(pk=self.reader.pk).exists())
+
+    def test_missing_csrf_and_expired_session_do_not_change_star(self):
+        client, form, token = self._client_and_form(self.reader)
+        self.project.starred_by.add(self.reader)
+
+        missing_csrf = client.post(form['data-api-url'])
+        self.assertEqual(missing_csrf.status_code, 403)
+        self.assertTrue(self.project.starred_by.filter(pk=self.reader.pk).exists())
+
+        client.logout()
+        expired = client.post(form['data-api-url'], HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(expired.status_code, 403)
+        self.assertEqual(list(self.project.starred_by.all()), [self.reader])
+
+    def test_guest_sees_login_link_without_a_star_form(self):
+        response = self.client.get(self.project.get_absolute_url())
+        self.assertContains(response, 'Log in to star')
+        parser = _ProjectStarFormParser()
+        parser.feed(response.content.decode())
+        self.assertEqual(parser.forms, [])

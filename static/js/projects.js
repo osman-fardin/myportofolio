@@ -19,6 +19,7 @@ const projectPlaceholderId = '00000000-0000-0000-0000-000000000000';
 let selectedProjectId = projectBrowser?.dataset.selectedProjectId || '';
 let projectListController;
 let projectDetailController;
+const pendingProjectStars = new Set();
 
 function debounce(callback, delay) {
     let timeoutId;
@@ -213,7 +214,7 @@ function buildProjectDetail(project) {
 
     // Django renders named routes and role-aware controls in the inert template.
     for (const node of article.querySelectorAll('*')) {
-        for (const attribute of ['id', 'href', 'action', 'aria-labelledby', 'popovertarget']) {
+        for (const attribute of ['id', 'href', 'action', 'data-api-url', 'aria-labelledby', 'popovertarget']) {
             const value = node.getAttribute(attribute);
             if (value?.includes(projectPlaceholderId)) {
                 node.setAttribute(attribute, value.replaceAll(projectPlaceholderId, project.id));
@@ -258,6 +259,7 @@ function buildProjectDetail(project) {
 
     const starButton = article.querySelector('.project-star-button');
     if (starButton) {
+        starButton.disabled = pendingProjectStars.has(project.id);
         starButton.setAttribute('aria-pressed', String(project.is_starred));
         starButton.querySelector('.project-star-label').textContent = project.is_starred ? 'Starred' : 'Star';
         starButton.querySelector('.project-star-count').textContent = String(project.star_count);
@@ -318,6 +320,56 @@ function projectApiErrorMessage(data, status) {
         : [];
 
     return messages.join(' ') || `Request failed (HTTP ${status}).`;
+}
+
+async function toggleProjectStar(form) {
+    const id = form.closest('[data-project-id]').dataset.projectId;
+    if (pendingProjectStars.has(id)) return;
+
+    const button = form.querySelector('.project-star-button');
+    pendingProjectStars.add(id);
+    button.disabled = true;
+
+    try {
+        const response = await fetch(form.dataset.apiUrl, {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'X-CSRFToken': form.querySelector('[name="csrfmiddlewaretoken"]').value,
+            },
+        });
+        const project = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(projectApiErrorMessage(project, response.status));
+        }
+
+        // A detail request started before this mutation may contain an older star state.
+        if (selectedProjectId === id) {
+            projectDetailController?.abort();
+            projectDetail.replaceChildren(buildProjectDetail(project));
+            projectDetail.setAttribute('aria-busy', 'false');
+        }
+        showToast(
+            project.is_starred ? 'Project starred' : 'Star removed',
+            project.is_starred ? 'Added to your starred projects.' : 'Removed from your starred projects.',
+            'success',
+        );
+        await refreshProjects();
+    } catch (error) {
+        console.error(error);
+        showToast(
+            'Could not update star',
+            error instanceof TypeError ? 'Please try again in a moment.' : error.message,
+            'error',
+        );
+    } finally {
+        pendingProjectStars.delete(id);
+        button.disabled = false;
+        const currentArticle = projectDetail.querySelector('[data-project-id]');
+        if (currentArticle?.dataset.projectId === id) {
+            currentArticle.querySelector('.project-star-button').disabled = false;
+        }
+    }
 }
 
 async function submitProject(event) {
@@ -384,6 +436,12 @@ async function submitProject(event) {
 const debouncedRefreshProjects = debounce(refreshProjects, 400);
 
 if (projectBrowser && projectIndex && projectDetail && projectSearchForm && projectSearchInput) {
+    projectDetail.addEventListener('submit', event => {
+        if (!event.target.matches('.project-star-form')) return;
+        event.preventDefault();
+        toggleProjectStar(event.target);
+    });
+
     projectIndex.addEventListener('click', event => {
         const link = event.target.closest('a[data-project-id]');
         if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;

@@ -533,6 +533,49 @@ aktif, error HTML, serta gangguan jaringan. Verifikasi checkpoint menghasilkan
 130 test `main` lulus. Star dan delete dari halaman masih memakai route lama;
 data lokal dan PWS tidak diubah.
 
+## 30. Menghubungkan tombol star Project ke DRF
+
+**Prompt (ringkasan):**
+
+> Create sudah lewat DRF, sekarang tombol star dan unstar disambungkan gimana
+> supaya tidak reload? Tombol detailnya dibuat ulang oleh JavaScript; jelasin
+> event delegation, token CSRF, dan cara mencegah klik ganda. Kalau aku unstar
+> saat filter starred aktif atau pindah project sebelum respons selesai,
+> gimana supaya daftar dan detail tetap sesuai?
+
+**Hasil penggunaan:**
+
+Saya mengintegrasikan star Project dengan bantuan AI untuk penjelasan,
+implementasi, dan pengujian. Form menyimpan named URL API di `data-api-url`,
+sedangkan action HTML lama tetap tersedia sebagai fallback. Handler submit
+dipasang pada container detail melalui event delegation, sehingga tetap
+berfungsi untuk form hasil clone. Placeholder UUID pada URL API juga diganti
+dengan ID project yang dipilih.
+
+Saya memakai POST dengan header CSRF dan mengambil label, jumlah star, serta
+`aria-pressed` dari respons DRF. Request yang sedang berjalan dicatat per ID
+project agar submit ganda tetap ditolak walaupun detail dibuat ulang. Tidak ada
+retry otomatis pada toggle. Sesudah berhasil, daftar dimuat ulang dengan filter
+aktif; project yang di-unstar hilang dari daftar personal, tetapi detailnya
+tetap bisa dipakai untuk star kembali.
+
+Respons star tidak mengganti detail project lain yang baru dipilih. Jika masih
+di project yang sama, pembacaan detail lama dibatalkan agar status sebelum
+mutation tidak menimpa hasil terbaru. Penolakan API dan gangguan jaringan
+menampilkan toast, mempertahankan status yang terlihat, dan membuka kembali
+tombol. Status server setelah gangguan jaringan perlu diperiksa lagi karena
+respons yang gagal diterima belum memastikan mutation gagal tersimpan.
+
+Empat test halaman baru memeriksa URL API dan template, tiga role login,
+fallback HTML, guest, serta penolakan CSRF dan sesi berakhir beserta kondisi
+database. Pemeriksaan browser memakai database sementara dan mencakup toggle
+tanpa reload, klik ganda, filter personal, pindah detail, respons detail lama,
+error JSON/HTML, gangguan jaringan, serta penolakan CSRF dan sesi sebenarnya.
+Seluruh 134 test `main` lulus; check, pemeriksaan migrasi, sintaks JavaScript,
+dan whitespace juga lolos. Data lokal tetap satu Project dan dua Experience.
+Delete UI masih memakai route lama; PWS tidak diubah dan commit dijalankan
+sendiri oleh saya.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa
