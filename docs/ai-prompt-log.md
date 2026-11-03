@@ -1,7 +1,7 @@
 # AI Prompt Log
 
 Dokumen ini berisi beberapa contoh prompt yang mewakili penggunaan OpenAI Codex
-selama pengerjaan Tutorial, Tugas 1, Tugas 2, Tugas 3, Tugas 4, dan Tugas 5. Prompt di
+selama pengerjaan Tutorial, Tugas 1 sampai Tugas 5, serta Tutorial 07. Prompt di
 bawah diringkas dari percakapan asli agar lebih mudah dibaca. Informasi sensitif
 dan percakapan yang tidak berkaitan dengan tugas tidak disertakan.
 
@@ -323,6 +323,392 @@ memperbarui label, angka, dan `aria-pressed`. Interaksi star dan unstar diperiks
 melalui browser, lalu ditambahkan test isolasi antar-user, GET rejection, CSRF,
 dan UUID 404.
 
+## 22. Memulai Tutorial 07 dan serializer Project
+
+**Prompt (ringkasan):**
+
+> Baca handoff, Tutorial 07, dan Tugas 6 dulu, lalu audit repo dan baseline.
+> Bikin roadmap pribadi dan arahkan satu langkah kecil setiap kali. Aku yang
+> ngetik, dan setelah bilang done tolong cek kode aktualnya.
+
+**Hasil penggunaan:**
+
+Saya mengerjakan setup DRF, serializer Project, dan test awalnya secara bertahap.
+AI membantu menjelaskan `ModelSerializer`, daftar field eksplisit, field read-only,
+dan penggunaan context untuk membaca status star pengguna, serta memberi contoh
+penerapan dan saran test yang sesuai dengan model saya.
+
+Saat method penghitung star masih berada di dalam `Meta`, Django check tetap
+lulus, tetapi pemeriksaan `.data` menemukan `AttributeError`. Setelah mendapat
+penjelasan dari AI, saya memperbaiki indentasinya. Saya juga menambahkan test
+untuk output publik, status star tiap pengguna, dan perlindungan ID serta relasi
+star, dengan bantuan review dari AI. Dari sini saya memahami bahwa check
+konfigurasi saja belum cukup untuk memastikan perilaku serializer benar.
+
+## 23. Memahami validasi input API Project
+
+**Prompt (ringkasan):**
+
+> Lanjut ke checkpoint berikutnya. Bantu implementasikan validasi serializer
+> beserta test, jelaskan perubahannya, dan biarkan aku yang commit.
+
+**Hasil penggunaan:**
+
+Saya mengembangkan validasi serializer Project dengan bantuan AI untuk
+penjelasan, implementasi, dan pengujian. Aturannya mengikuti field Project saya:
+tag HTML dibuang, teks wajib yang menjadi
+kosong ditolak, dan thumbnail tetap berupa path static opsional. Saya mendapat
+penjelasan bahwa serializer tidak menjalankan `ProjectForm.clean()`, sehingga
+jalur API perlu validasinya sendiri. Test juga mencakup URL yang tidak valid,
+batas field model, default field opsional, dan perbedaan update penuh dengan
+parsial. Pembersihan input tetap perlu disertai escaping saat ditampilkan.
+
+## 24. Membedakan permission API Projects dan form lama
+
+**Prompt (ringkasan):**
+
+> Aku masih bingung permission API ini bedanya apa sama pengecekan izin di view
+> lama. Di tutorial yang boleh ubah Projects cuma superuser, tapi Editor di
+> punyaku sudah bisa edit. Ini enaknya disesuaikan gimana supaya fitur lama tetap
+> jalan? Jelasin juga SAFE_METHODS, kenapa is_staff saja belum cukup, dan test
+> apa yang perlu buat memastikan tiap role dapat akses yang benar.
+
+**Hasil penggunaan:**
+
+Saya menyiapkan permission API Projects dengan bantuan AI untuk penjelasan,
+implementasi, dan pengujian. Saya memahami perbedaan aturan tutorial dengan
+proyek saya: API Projects hanya boleh diubah superuser, sementara Editor tetap
+bisa mengedit lewat form HTML lama menggunakan `main.change_project`. Karena itu,
+permission lama tidak diganti. Aturan Experience akan tetap mengikuti empat role
+Tugas 6, termasuk hak Editor untuk PUT/PATCH.
+
+Test class permission mencakup method baca untuk semua role dan method tulis
+untuk superuser, serta penolakan bagi guest, user biasa, staff, dan Editor yang
+benar-benar mempunyai permission edit Project. Pada checkpoint ini kelasnya
+belum dipasang ke endpoint; status HTTP dan perubahan database akan diperiksa
+lagi saat API view dibuat.
+
+## 25. Menghubungkan serializer dan permission ke API daftar Project
+
+**Prompt (ringkasan):**
+
+> Serializer sama permission sudah ada, terus gimana cara menghubungkannya jadi
+> endpoint daftar dan tambah Project? Jelasin alur request.data, query parameter,
+> dan Response. Search judul sama filter Starred by me yang lama harus tetap bisa
+> dipakai. Gimana juga cara memastikan session login tetap terlindungi CSRF?
+
+**Hasil penggunaan:**
+
+Saya melanjutkan endpoint daftar dan tambah Project dengan bantuan AI untuk
+penjelasan, implementasi, dan pengujian. API baru memakai URL `/api/v1/projects/`
+dan namespace `api`, sementara route lama tetap tersedia. GET menghasilkan daftar
+objek datar, dan POST yang valid menghasilkan 201 setelah melewati permission
+serta validasi serializer. Urutan `display_order`, pencarian judul, dan filter
+personal tetap mengikuti kebutuhan portofolio saya.
+
+Saya memahami bahwa test permission dengan `force_authenticate` berbeda dari
+test session dan CSRF. Karena itu ada test dengan login sungguhan memakai akun
+database uji dan `APIClient(enforce_csrf_checks=True)`, dengan dan tanpa token.
+Test penolakan juga memeriksa database. Integrasi JavaScript halaman belum
+dipindahkan ke API baru pada checkpoint ini.
+
+## 26. Memahami API detail, PUT, PATCH, dan DELETE
+
+**Prompt (ringkasan):**
+
+> Kalau API daftar dan tambah sudah ada, gimana cara membuat detail, update,
+> dan delete untuk UUID Project yang sama? Aku masih bingung bedanya PUT sama
+> PATCH dan kenapa setelah DELETE tidak boleh langsung membaca JSON. Jelasin
+> juga cara memastikan Editor tetap ditolak di API dan data tidak berubah saat
+> validasi atau CSRF gagal.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan API detail Project dengan bantuan AI untuk penjelasan,
+implementasi, dan pengujian. GET menghasilkan satu objek, PUT membutuhkan semua
+field wajib, sedangkan PATCH memakai `partial=True` supaya field yang tidak
+dikirim tetap dipertahankan. DELETE menghasilkan 204 dengan body kosong.
+
+Test memeriksa database setelah update, delete, dan penolakan akses, termasuk
+star yang harus tetap ada saat update serta Project lain yang tidak boleh ikut
+berubah. Ada pemeriksaan UUID yang tidak ditemukan, field read-only, dan CSRF
+melalui login session untuk PUT, PATCH, dan DELETE. Form Editor lama tetap
+tersedia; halaman Projects belum dihubungkan ke endpoint baru pada checkpoint ini.
+
+## 27. Memahami toggle star lewat API
+
+**Prompt (ringkasan):**
+
+> Kalau CRUD Project sudah ada, gimana mengubah star lama menjadi endpoint API?
+> User biasa harus tetap bisa star walaupun tidak boleh mengedit Project. Gimana
+> memastikan akun pemberi star selalu dari user yang login, bukan ID di payload,
+> dan star user A tidak mengubah punya user B? Jelasin juga test CSRF yang perlu.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan API star dengan bantuan AI untuk penjelasan, implementasi,
+dan pengujian. Endpoint POST memakai `IsAuthenticated`, bukan permission
+owner-only CRUD. Akun pemberi star berasal dari `request.user`, dan response
+menggunakan serializer publik yang sama tanpa daftar akun pemberi star.
+
+Test mencakup toggle untuk seluruh role yang login, isolasi antar-user, payload
+yang mencoba memilih akun lain, method yang ditolak, UUID yang tidak ditemukan,
+serta login session dengan token CSRF yang tidak ada, salah, dan valid. Hasil
+star juga diperiksa melalui list, detail, dan filter personal. Toggle tidak boleh
+di-retry otomatis karena POST kedua justru membatalkan hasil pertama; tombol UI
+nanti dinonaktifkan selama request. Integrasi halaman masih menjadi tahap berikutnya.
+
+Pemeriksaan awal menemukan class test star tersisip di tengah class detail saat
+dibantu penambahan kode. Susunannya dibetulkan dengan memastikan seluruh test
+detail lama tetap utuh, lalu kedua kelompok test dijalankan ulang. Ini menjadi
+contoh kenapa bantuan implementasi tetap perlu diperiksa melalui test dan diff.
+
+## 28. Memindahkan pembacaan halaman Projects ke DRF
+
+**Prompt (ringkasan):**
+
+> API Project sudah lengkap, terus gimana cara menghubungkannya ke halaman yang
+> sekarang? JSON baru sudah tidak punya pk dan fields, tapi desain list, panel
+> detail, preview, dan tombol lamaku harus tetap jalan. Jelasin cara mengambil
+> detail tanpa reload, menjaga Back/Forward dan filter, serta menampilkan teks
+> dari API dengan aman.
+
+**Hasil penggunaan:**
+
+Saya menghubungkan list dan detail Projects ke DRF dengan bantuan AI untuk
+penjelasan, implementasi, dan pengujian. JavaScript membaca field datar dari
+`/api/v1/projects/` dan endpoint detailnya. Tampilan awal dari server tetap
+tersedia sebagai fallback, tetapi tidak lagi bergantung pada deserialize JSON
+manual. Komponen detail yang sama dipakai sebagai template DOM, sehingga desain
+dan kontrol berdasarkan permission tetap konsisten saat memilih Project lain.
+
+Saya memahami peran `textContent`, template DOM yang belum aktif, named URL dari
+template Django, serta `pushState` dan `popstate` untuk navigasi. Request list
+dan detail mempunyai AbortController terpisah agar hasil lama tidak menimpa
+pilihan terbaru. Container AJAX tetap tersedia ketika database kosong, dan
+cookie CSRF tetap dibuat bagi user biasa meskipun modal create tidak ditampilkan.
+
+Test Django memeriksa fallback, filter, permission, CSRF cookie, dan escaping.
+Pemeriksaan browser memakai database uji terpisah dan mencakup preview statis,
+Back/Forward, filter personal, setiap role, simulasi request lambat/error, serta
+layout 390/768/1440 px. Browser menemukan Clear masih terlihat karena style
+inline-flex menimpa atribut hidden; rule khusus ditambahkan untuk memperbaikinya.
+Ini memperlihatkan bahwa test backend saja belum cukup untuk memeriksa UI.
+
+Pada checkpoint ini create, star, dan delete dari halaman masih memakai route
+lama. Migrasi ketiga mutation tersebut ke DRF menjadi checkpoint berikutnya.
+Verifikasi checkpoint menghasilkan 127 test `main` lulus; fallback tanpa
+JavaScript juga diperiksa melalui browser. Data lokal dan PWS tidak diubah.
+
+## 29. Mengirim modal create Project ke DRF
+
+**Prompt (ringkasan):**
+
+> List dan detail sudah memakai DRF, terus modal add Project perlu diubah di
+> bagian mana? Jelasin bedanya mengirim FormData dengan JSON dan cara memilih
+> field yang dikirim. Error serializer sekarang bentuknya berbeda; gimana cara
+> menampilkan validasi 400 dan penolakan 403 tanpa menghilangkan input modal?
+> Aku juga mau submit tidak terkirim dua kali dan filter aktif tetap dipakai.
+
+**Hasil penggunaan:**
+
+Saya memindahkan create Project ke DRF dengan bantuan AI untuk penjelasan,
+implementasi, dan pengujian. Form lama tetap mempunyai action HTML sebagai
+fallback, sementara JavaScript membaca named URL API dari atribut data.
+`FormData` masih dipakai untuk membaca input, tetapi payload yang dikirim adalah
+JSON berisi sembilan field Project yang dapat diisi, tanpa token form atau
+field hasil perhitungan. Token CSRF dikirim melalui header.
+
+Saya memahami bahwa error DRF berupa daftar pesan per field atau pesan `detail`,
+bukan struktur error ModelForm lama. Saat validasi atau izin ditolak, modal dan
+input dipertahankan. Saat create berhasil, form di-reset, modal ditutup, toast
+ditampilkan, dan daftar diambil ulang menggunakan filter aktif. Tombol submit
+dinonaktifkan selama request dan handler menolak submit tambahan yang masih
+berlangsung.
+
+Test mencakup target API dari modal, fallback HTML, input tidak valid, dan session
+yang berakhir. Browser dengan database uji terpisah juga memeriksa header JSON
+dan CSRF, create pertama saat daftar kosong, pencegahan submit ganda, filter
+aktif, error HTML, serta gangguan jaringan. Verifikasi checkpoint menghasilkan
+130 test `main` lulus. Star dan delete dari halaman masih memakai route lama;
+data lokal dan PWS tidak diubah.
+
+## 30. Menghubungkan tombol star Project ke DRF
+
+**Prompt (ringkasan):**
+
+> Create sudah lewat DRF, sekarang tombol star dan unstar disambungkan gimana
+> supaya tidak reload? Tombol detailnya dibuat ulang oleh JavaScript; jelasin
+> event delegation, token CSRF, dan cara mencegah klik ganda. Kalau aku unstar
+> saat filter starred aktif atau pindah project sebelum respons selesai,
+> gimana supaya daftar dan detail tetap sesuai?
+
+**Hasil penggunaan:**
+
+Saya mengintegrasikan star Project dengan bantuan AI untuk penjelasan,
+implementasi, dan pengujian. Form menyimpan named URL API di `data-api-url`,
+sedangkan action HTML lama tetap tersedia sebagai fallback. Handler submit
+dipasang pada container detail melalui event delegation, sehingga tetap
+berfungsi untuk form hasil clone. Placeholder UUID pada URL API juga diganti
+dengan ID project yang dipilih.
+
+Saya memakai POST dengan header CSRF dan mengambil label, jumlah star, serta
+`aria-pressed` dari respons DRF. Request yang sedang berjalan dicatat per ID
+project agar submit ganda tetap ditolak walaupun detail dibuat ulang. Tidak ada
+retry otomatis pada toggle. Sesudah berhasil, daftar dimuat ulang dengan filter
+aktif; project yang di-unstar hilang dari daftar personal, tetapi detailnya
+tetap bisa dipakai untuk star kembali.
+
+Respons star tidak mengganti detail project lain yang baru dipilih. Jika masih
+di project yang sama, pembacaan detail lama dibatalkan agar status sebelum
+mutation tidak menimpa hasil terbaru. Penolakan API dan gangguan jaringan
+menampilkan toast, mempertahankan status yang terlihat, dan membuka kembali
+tombol. Status server setelah gangguan jaringan perlu diperiksa lagi karena
+respons yang gagal diterima belum memastikan mutation gagal tersimpan.
+
+Empat test halaman baru memeriksa URL API dan template, tiga role login,
+fallback HTML, guest, serta penolakan CSRF dan sesi berakhir beserta kondisi
+database. Pemeriksaan browser memakai database sementara dan mencakup toggle
+tanpa reload, klik ganda, filter personal, pindah detail, respons detail lama,
+error JSON/HTML, gangguan jaringan, serta penolakan CSRF dan sesi sebenarnya.
+Seluruh 134 test `main` lulus; check, pemeriksaan migrasi, sintaks JavaScript,
+dan whitespace juga lolos. Data lokal tetap satu Project dan dua Experience.
+Delete UI masih memakai route lama; PWS tidak diubah dan commit dijalankan
+sendiri oleh saya.
+
+## 31. Menghapus Project melalui DRF tanpa reload
+
+**Prompt (ringkasan):**
+
+> Tombol star sudah lewat DRF, sekarang confirmation delete perlu disambungkan
+> ke endpoint mana? Jelasin cara mengirim DELETE dengan CSRF dan kenapa respons
+> 204 tidak boleh dibaca sebagai JSON. Kalau request gagal, diklik dua kali,
+> atau aku sudah pindah detail, gimana supaya modal dan daftar tetap sesuai?
+
+**Hasil penggunaan:**
+
+Saya memindahkan delete Project ke DRF dengan bantuan AI untuk penjelasan,
+implementasi, dan pengujian. Form konfirmasi mempunyai `data-api-url` menuju
+detail API, sementara action POST lama tetap tersedia sebagai fallback HTML.
+Handler submit memakai event delegation seperti star dan mengirim DELETE
+dengan token CSRF. Dialog konfirmasi serta tampilan lama dipertahankan.
+
+Saya memahami bahwa keberhasilan delete ditandai status 204 tanpa body,
+sehingga JSON hanya dibaca pada respons error. Setelah berhasil, konfirmasi
+ditutup, pilihan detail dibersihkan bila masih menunjuk project yang dihapus,
+dan daftar dimuat ulang memakai filter aktif. URL kembali ke halaman daftar
+untuk pilihan yang dihapus. Jika sudah memilih project lain, detail dan URL
+pilihan baru dipertahankan. Penghapusan record terakhir menampilkan empty state
+dan tombol Add project tetap tersedia.
+
+Request delete dicatat per ID agar submit ganda ditolak, termasuk ketika form
+detail dibuat ulang. Star dan delete untuk project yang sama saling mengunci
+selama request masih berjalan agar responsnya tidak saling menimpa. Kontrol
+project lain tetap bisa digunakan. Pada error, toast ditampilkan, detail dan
+daftar dipertahankan, serta tombol dibuka kembali; modal yang masih terbuka
+tidak ditutup otomatis. Tidak ada retry mutation otomatis.
+
+Lima test halaman baru mencakup URL konfirmasi dan template, delete 204 dengan
+body kosong, record lain yang harus tetap ada, fallback HTML, CSRF dan sesi
+berakhir, target yang sudah dihapus, serta kontrol khusus superuser. Pemeriksaan
+browser memakai database sementara: Cancel sebelum submit tidak mengirim
+DELETE, submit ganda hanya mengirim satu DELETE, star/delete saling terkunci,
+filter tetap aktif, dan respons lambat tidak membersihkan detail project lain.
+Error JSON 403/404, HTML 503, gangguan jaringan, CSRF, serta sesi berakhir juga
+diperiksa. Browser memastikan tidak ada pemanggilan JSON pada 204; body kosong
+diverifikasi lewat test Django.
+
+Seluruh 139 test `main` lulus. Check, pemeriksaan migrasi, sintaks JavaScript,
+dan whitespace juga lolos. Data lokal tetap satu Project dan dua Experience;
+PWS tidak diubah. Commit tetap dijalankan sendiri oleh saya. Finalisasi
+dokumentasi dan pemeriksaan checklist Tutorial 07 menjadi checkpoint berikutnya.
+
+## 32. Menutup celah loading pada audit Tutorial 07
+
+**Prompt (ringkasan):**
+
+> Setelah delete selesai, bantu cocokkan hasilnya dengan checklist Tutorial 07.
+> Loading daftar dan detail sudah cukup jelas belum kalau koneksi lambat?
+> Kalau keduanya berjalan bersamaan atau request pencarian lama dibatalkan,
+> gimana supaya indikatornya tidak hilang sebelum request terbaru selesai?
+
+**Hasil penggunaan:**
+
+Saya meninjau ulang materi dan implementasi dengan bantuan AI. Audit menemukan
+bahwa daftar dan detail sudah memakai `aria-busy`, tetapi belum mempunyai pesan
+loading yang terlihat. Saya menutup celah ini sebagai checkpoint terpisah dengan
+bantuan AI untuk penjelasan, implementasi, dan pengujian sebelum finalisasi README.
+
+Pesan loading memakai `role="status"` dan `aria-atomic="true"`, ditempatkan di
+luar container yang sedang busy agar statusnya terpisah dari hasil yang dimuat.
+Helper `setProjectBusy` menyelaraskan `aria-busy`, teks, dan visibilitas pesan
+berdasarkan request daftar serta detail. Pesan tidak disembunyikan hanya karena
+salah satunya sudah selesai. Pengecekan controller yang sudah ada tetap menjaga
+agar request lama yang dibatalkan tidak mengubah status request terbaru.
+
+Saya mempertahankan isi sebelumnya selama pemuatan dan memakai warna cloud-soft
+dari tema Projects. Tanpa JavaScript, indikator tetap tersembunyi dan fallback
+HTML masih menampilkan data. Error dan empty state lama tetap dipakai; checkpoint
+ini tidak menambahkan model atau mengubah kontrak API.
+
+Test halaman memeriksa status yang tersedia tetapi tersembunyi pada fallback
+daftar dan detail. Browser dengan database sementara memeriksa loading daftar,
+detail, dan keduanya sekaligus; request lama yang dibatalkan; error 503/404 dan
+pemulihan; serta fallback tanpa JavaScript. Tampilan 390 dan 1440 px diperiksa
+melalui screenshot tanpa horizontal overflow. Seluruh 140 test `main` lulus,
+check dan pemeriksaan migrasi bersih, dependency tidak bentrok, serta sintaks
+JavaScript dan whitespace lolos. Data lokal dan PWS tidak diubah.
+
+Audit ini belum berarti seluruh proses pengumpulan selesai. Finalisasi README,
+pencatatan hash akhir, push/PR, pemeriksaan deployment, dan submit masih perlu
+dituntaskan. Commit, push, merge, serta deployment tetap saya jalankan sendiri.
+
+## 33. Menyiapkan dokumentasi checkpoint Tutorial 07
+
+**Prompt (ringkasan):**
+
+> Loading sudah selesai, sekarang README perlu mencatat apa saja untuk Tutorial
+> 07? Bantu cocokkan API dan test dengan implementasi, jelasin lagi perbedaan
+> Editor pada API Projects dengan form lama, dan pisahkan progres lokal dari
+> push, deploy, serta pengumpulan. Roadmap pribadi juga perlu diperbarui supaya
+> saat lanjut Experience tidak menganggap semua modul sudah selesai.
+
+**Hasil penggunaan:**
+
+Saya memperbarui dokumentasi dengan bantuan AI untuk penjelasan, penyusunan,
+review, dan verifikasi. README root mencatat dependency DRF, route/method,
+matriks role, field contoh yang disesuaikan, payload, filter, status HTTP,
+session/CSRF, struktur kode, fallback, hasil test/browser, dan progres Tutorial
+07. Refleksi historis tetap disimpan; implementasi serta refleksi Tugas 6 belum
+diklaim selesai. AI disclosure mencatat bantuan edit per checkpoint dan temuan
+yang benar-benar terjadi selama review.
+
+Saya memahami bahwa Editor Projects masih bisa memakai form HTML dengan
+`main.change_project`, tetapi API Projects owner-only. Aturan ini tidak dibawa
+ke rencana API Experience: Editor di sana tetap perlu PUT/PATCH sesuai Tugas 6.
+Playbook dan roadmap pribadi di folder materi diperbarui dengan commit aktual,
+matriks bukti T01-T12, serta Tugas 6 yang masih rencana. Keduanya tetap di luar
+repo dan tidak menggantikan README proyek.
+
+Contoh JSON README lolos validasi ProjectSerializer tanpa disimpan. Tautan
+Markdown lokal dan jumlah method test diperiksa: 73 test lama, 48 API, dan 19
+halaman, total 140 sesuai full suite yang lulus pada checkpoint `0653a49`.
+Checkpoint ini tidak mengubah kode aplikasi dan tidak mengulang seluruh suite;
+check, pemeriksaan migrasi, pip check, sintaks ketiga script, serta whitespace
+diperiksa lagi untuk memastikan dokumentasinya sesuai environment proyek.
+
+Eksperimen permission sementara di memori test juga membuktikan bahwa test
+penolakan menangkap regresi: user biasa, Editor, dan staff sempat mendapat 201
+ketika kebijakan sengaja dilonggarkan, sehingga assertion 403 gagal sesuai
+harapan. Setelah patch memori dilepas, test yang sama lulus. Source permission
+dan data lokal tidak diubah. Data tetap satu Project dan dua Experience.
+
+Commit implementasi terakhir yang diperiksa adalah `0653a49`; commit dokumentasi
+dan hash akhir pengumpulan baru dicatat setelah saya membuat dan memeriksanya.
+Push, PR/merge, deployment/PWS, akses commit publik, dan submit SCELE masih perlu
+bukti. Instalasi ulang dari environment kosong juga belum diverifikasi. Tutorial
+07 harus dikumpulkan terpisah sebelum melanjutkan pengumpulan Tugas 6.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa
@@ -330,7 +716,7 @@ langkah yang saya gunakan untuk melakukan verifikasi adalah:
 
 ```bash
 python manage.py check
-python manage.py test
+python manage.py test main
 git diff --check
 git status
 git diff
@@ -340,3 +726,8 @@ Saya juga mencoba navigasi, filter AJAX, loading dan empty state, modal create,
 toast, confirmation delete, star dan unstar, serta layout desktop dan mobile
 melalui browser. Pada akhir Tugas 5, seluruh 73 automated test dipastikan lulus
 sebelum dokumentasi diselesaikan.
+
+Pada checkpoint lokal Tutorial 07, full suite terakhir mencatat 140 test lulus.
+Rincian bantuan, eksperimen permission, hasil browser, dan batas verifikasinya
+ada pada entri 22-33. Status push, deployment, serta pengumpulan tetap dicatat
+terpisah dari keberhasilan test lokal.

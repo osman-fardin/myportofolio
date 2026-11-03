@@ -55,6 +55,8 @@
             <form
                 method="post"
                 action="{% url 'main:delete_project' project.id %}"
+                data-api-url="{% url 'api:project-detail' project.id %}"
+                class="project-delete-form"
             >
                 {% csrf_token %}
                 <button type="submit">Yes, delete</button>

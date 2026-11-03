@@ -28,6 +28,7 @@
             id="project-create-form"
             method="post"
             action="{% url 'main:create_project' %}"
+            data-api-url="{% url 'api:project-list' %}"
             class="project-form"
         >
             {% csrf_token %}

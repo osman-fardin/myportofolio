@@ -1030,10 +1030,20 @@ body:has(.site-menu[open]) {
     text-underline-offset: 0.25rem;
 }
 
+.project-filter-clear[hidden] {
+    display: none;
+}
+
 .project-search button:focus-visible,
 .project-starred-filter input:focus-visible {
     outline: 2px solid var(--surface);
     outline-offset: 3px;
+}
+
+.project-loading-status {
+    margin-bottom: 1rem;
+    color: var(--cloud-soft);
+    font-size: 0.88rem;
 }
 
 .project-browser {

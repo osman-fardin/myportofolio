@@ -31,18 +31,22 @@ minimal multi-page interface with a warm visual theme.
 - Registrasi, login, dan logout menggunakan sistem autentikasi bawaan Django
 - Session login dan cookie `last_login` untuk mencatat waktu login terakhir
 - Authorization Project untuk guest, user biasa, Editor, dan superuser
-- Update Project melalui permission `main.change_project`, sedangkan create dan
-  delete tetap dibatasi untuk superuser
+- Form HTML update Project memakai permission `main.change_project`; API DRF
+  Projects membatasi create, update, dan delete untuk superuser
 - Sistem star per user melalui relasi ManyToMany, request POST, dan CSRF token
 - Filter personal **Starred by me** yang dapat digabungkan dengan pencarian judul
-- Endpoint JSON Project dengan allowlist field publik agar identitas akun yang
-  memberi star tidak ikut dikirim
-- 73 automated test untuk AJAX, CSRF, XSS, autentikasi, permission, API privacy,
-  serta isolasi data personal antar-user
+- API DRF Projects di `/api/v1/projects/` dengan serializer, validasi, dan permission
+- Daftar, detail, pencarian, create, star, dan delete Projects melalui Fetch API
+  tanpa reload, dengan preview statis dan fallback HTML tetap tersedia
+- Loading daftar/detail, empty state, toast error API, dan pencegahan submit ganda
+- Payload publik Project hanya memuat count dan status star, tanpa identitas akun
+- 140 automated test untuk fitur lama, serializer, API, integrasi halaman, CSRF,
+  XSS, permission, privacy, serta isolasi data personal antar-user
 
 ## Technology
 
 - Django 5.2
+- Django REST Framework 3.18
 - Python
 - HTML5
 - CSS3
@@ -76,9 +80,14 @@ env\Scripts\activate
 Install the dependencies and prepare the local database:
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 python manage.py migrate
 ```
+
+Environment yang dipakai untuk checkpoint Tutorial 07: Python 3.14.6, Django
+5.2.17, dan DRF 3.18.3. Requirement tetap `django~=5.2` dan menambahkan
+`djangorestframework~=3.18.3`; versi patch hasil install bisa berbeda.
+Tutorial ini memakai model dan data lama, tanpa migration baru.
 
 Perintah `migrate` juga menerapkan migration `0005_experience_starred_by` yang
 menambahkan relasi star per user pada Experience. Migration perlu dijalankan pada
@@ -115,10 +124,154 @@ akun superuser. Setelah itu:
 5. Buka user yang ingin dijadikan Editor.
 6. Masukkan user tersebut ke grup `Editor`, lalu simpan.
 
-Editor dapat memperbarui Project dan Experience, tetapi tetap tidak dapat membuat
-atau menghapus keduanya. Create dan delete hanya tersedia untuk superuser. Guest
-diarahkan ke halaman login, sedangkan user yang sudah login tetapi tidak mempunyai
-permission akan mendapat response `403 Forbidden`.
+Pada route HTML lama, Editor dapat memperbarui Project dan Experience melalui
+permission masing-masing, tetapi tidak dapat membuat atau menghapus keduanya.
+Guest yang membuka tindakan yang memerlukan login diarahkan ke halaman login;
+akun login tanpa izin mendapat `403 Forbidden`.
+
+**API Projects mengikuti aturan Tutorial 07:** hanya superuser yang dapat
+create, PUT/PATCH, atau delete. Jadi Editor tetap bisa memakai form HTML
+`/projects/<uuid>/edit/`, tetapi mendapat 403 saat menulis ke API Projects.
+`is_staff` dan nama grup saja tidak memberikan izin API tersebut. Perbedaan ini
+disengaja untuk menjaga fitur lama dan diuji pada API serta halaman.
+
+Experience masih memakai route Tugas 5 di bawah. Implementasi DRF Experience
+untuk Tugas 6 belum dibuat pada checkpoint ini; empat role lamanya dipertahankan.
+
+## Projects API: Tutorial 07
+
+### Route dan akses
+
+| Endpoint | Method | Hasil sukses | Akses |
+| --- | --- | --- | --- |
+| `/api/v1/projects/` | GET/HEAD | Array datar, 200 | Publik |
+| `/api/v1/projects/` | POST | Object baru, 201 | Superuser |
+| `/api/v1/projects/<uuid>/` | GET/HEAD | Satu object, 200 | Publik |
+| `/api/v1/projects/<uuid>/` | PUT/PATCH | Object terbaru, 200 | Superuser |
+| `/api/v1/projects/<uuid>/` | DELETE | Body kosong, 204 | Superuser |
+| `/api/v1/projects/<uuid>/star/` | POST | Object dengan state star terbaru, 200 | User login |
+
+Ganti `<uuid>` dengan ID dari daftar dan pertahankan slash terakhir. Namespace
+URL adalah `api`, dengan nama `project-list`, `project-detail`, dan `project-star`.
+GET, HEAD, dan OPTIONS tidak mengubah data pada endpoint baca. Endpoint star
+hanya menerima POST; akun login yang mengirim GET mendapat 405.
+
+| Aksi API Projects | Guest | User biasa | Editor | Superuser |
+| --- | --- | --- | --- | --- |
+| Baca daftar/detail dan pencarian | Ya | Ya | Ya | Ya |
+| Star/unstar | 403 | Ya | Ya | Ya |
+| Create, PUT/PATCH, delete | 403 | 403 | 403 | Ya |
+
+`?title=...` mencari judul tanpa membedakan huruf besar/kecil dan mengabaikan
+spasi di tepi. `?starred=mine` membatasi hasil ke star akun yang sedang login;
+untuk guest hasilnya `[]`. Kedua filter bisa digabung. Urutan hasil tetap
+`display_order`, `title`, lalu `id`. Daftar kosong atau pencarian tanpa hasil
+mengembalikan `[]` dengan 200, bukan 404.
+
+### Field, validasi, dan penyesuaian contoh
+
+Response berupa object langsung dengan 12 field: `id`, sembilan field input di
+bawah, `star_count`, dan `is_starred`. Tidak ada wrapper `pk/fields`. `id` dan
+kedua field star read-only; input klien tidak bisa menentukan akun pemberi star.
+`starred_by`, username, email, dan data akun lainnya tidak ikut dikirim.
+
+| Contoh tutorial | Field di proyek ini |
+| --- | --- |
+| `tech_stack` | `technologies`, satu teknologi per baris |
+| `project_url` | `live_url` wajib; `source_url` opsional |
+| `project_image_url` | `thumbnail_path`, path static opsional, bukan upload atau URL gambar |
+| `starred_by_names` | Tidak ditambahkan; kontrak privacy lama hanya count dan status |
+| Template `project.html` | `templates/projects.html` dan komponen detail/modal lama |
+
+Contoh payload create untuk dicoba pada database pengujian sendiri:
+
+```json
+{
+  "title": "Portfolio percobaan",
+  "project_type": "Personal Website",
+  "role": "Developer",
+  "description": "Data percobaan integrasi API.",
+  "technologies": "Django\nJavaScript",
+  "thumbnail_path": "",
+  "live_url": "https://example.com/",
+  "source_url": "",
+  "display_order": 0
+}
+```
+
+Field teks wajib adalah `title`, `project_type`, `role`, `description`, dan
+`technologies`. Serializer membuang tag HTML dan spasi tepi, lalu menolak teks
+yang kosong setelah dibersihkan. `live_url` wajib berupa URL valid;
+`source_url` boleh kosong. `thumbnail_path` boleh kosong dan `display_order`
+memakai default 0 jika tidak dikirim. Batas panjang dan rentang mengikuti model.
+Serializer tidak menjalankan `ProjectForm.clean()`; jalur API mempunyai validasi
+sendiri. Output tetap memakai auto-escaping Django atau DOM `textContent`.
+
+PUT membutuhkan seluruh field wajib. PATCH cukup field yang berubah, misalnya
+`{"title": "Judul baru"}`, dan mempertahankan field lainnya. Field opsional yang
+tidak dikirim pada PUT tidak otomatis dianggap harus dikosongkan.
+
+### Session, CSRF, dan respons error
+
+Semua view API memakai `SessionAuthentication`. Login portofolio dan login
+Browsable API di `/api-auth/login/` memakai session Django yang sama. Buka
+`/api/v1/projects/` langsung untuk Browsable API, atau tambahkan `?format=json`
+untuk JSON. Fetch mengirim `Accept: application/json`; create mengirim JSON dengan
+`Content-Type: application/json`. Function view menampilkan form input JSON
+mentah pada Browsable API, bukan form otomatis untuk setiap field serializer.
+
+Setiap POST/PUT/PATCH/DELETE lewat session harus menyertakan `X-CSRFToken`.
+Halaman Projects merender token juga untuk user biasa dan Editor yang tidak
+mempunyai modal create. Cookie session dikirim browser pada origin yang sama;
+izin tetap diperiksa server, bukan hanya melalui tombol yang terlihat.
+
+| Status | Makna |
+| --- | --- |
+| 200 | Baca/update/star berhasil, termasuk hasil pencarian kosong |
+| 201 | Project dibuat |
+| 204 | Project dihapus, tanpa body; jangan panggil `.json()` |
+| 400 | Input tidak valid atau JSON rusak; error per field |
+| 403 | Izin ditolak, belum login untuk tindakan tertentu, atau CSRF gagal |
+| 404 | UUID tidak ditemukan setelah permission lolos |
+| 405 | Method tidak didukung setelah autentikasi/permission lolos |
+
+Error validasi berbentuk `{"title": ["pesan"]}`; error umum memakai
+`{"detail": "pesan"}`. UI menampilkannya lewat toast dan mempertahankan input
+modal saat gagal. Respons HTML tak terduga memakai pesan status HTTP. Guest yang
+mencoba mutation mendapat 403, termasuk pada UUID yang tidak ada, karena
+permission diperiksa sebelum pencarian object.
+
+Star memakai akun dari `request.user`. Dua POST berarti star lalu unstar, jadi
+tidak ada retry otomatis. Tombol star/delete untuk project yang sama dikunci
+selama mutation. Setelah berhasil, daftar dimuat ulang memakai filter aktif.
+Delete membersihkan detail jika masih menunjuk project yang dihapus; respons
+terlambat tidak mengganti pilihan project lain. Jika jaringan putus setelah
+request dikirim, baca ulang state sebelum memutuskan mengulang mutation.
+
+### Struktur dan route lama
+
+`main/serializers.py` menangani representasi/validasi, `main/permissions.py`
+menangani izin, dan `main/api_views.py` memakai `@api_view` serta `Response`.
+`main/api_urls.py` didaftarkan pada prefix `/api/v1/` di `portofolio/urls.py`.
+Queryset daftar/detail memakai prefetch relasi star; belum memakai optimasi
+Count/Exists. Model serta migration tidak berubah.
+
+`main/views.py` tetap menyediakan halaman dan fallback ORM tanpa deserialize
+JSON lama. Named URL disalurkan melalui atribut `data-*` ke
+`static/js/projects.js`. Script memakai event delegation, debounce 400 ms,
+AbortController, dan loading untuk daftar/detail yang berjalan bersamaan.
+
+| Route lama yang tetap tersedia | Fungsi |
+| --- | --- |
+| `/projects/`, `/projects/<uuid>/` | Halaman dan fallback HTML |
+| `/api/projects/` | JSON lama; tidak lagi dipakai Fetch Projects |
+| `/projects/add/` | Form create superuser dan jalur AJAX lama |
+| `/projects/<uuid>/edit/` | Form update Editor/superuser, belum berupa modal PATCH |
+| `/projects/<uuid>/star/` | POST fallback star untuk akun login |
+| `/projects/<uuid>/delete/` | POST fallback delete superuser |
+
+Modal edit AJAX Projects bukan bagian inti yang ditambahkan pada checkpoint
+ini. API PUT/PATCH sudah berfungsi; form update lama tetap dapat dipakai.
 
 ## Experience Routes
 
@@ -130,6 +283,74 @@ permission akan mendapat response `403 Forbidden`.
 | `/experience/<uuid>/edit/` | GET/POST | Memperbarui Experience | Editor dan superuser |
 | `/experience/<uuid>/delete/` | POST | Menghapus Experience | Superuser |
 | `/experience/<uuid>/star/` | POST | Toggle star dan mengembalikan state terbaru | User login |
+
+## Verifikasi Tutorial 07
+
+Dari folder yang berisi `manage.py`, aktifkan environment proyek lalu jalankan:
+
+```bash
+python manage.py check
+python manage.py test main.tests_api
+python manage.py test main
+python manage.py makemigrations --check --dry-run
+python -m pip check
+node --check static/js/projects.js
+node --check static/js/experiences.js
+node --check static/js/toast.js
+git diff --check
+```
+
+Hasil lokal terakhir pada 3 November 2026: **140 test main lulus**, terdiri dari
+73 test lama, 48 test serializer/permission/API, dan 19 test halaman Projects.
+Ketigabelas kelompok pengujian tutorial tercakup dengan field aktual, jadi
+jumlah method tidak harus sama dengan 13 pada contoh. Test penolakan memeriksa
+database; test CSRF memakai `APIClient(enforce_csrf_checks=True)` dan `.login()`.
+`force_authenticate` hanya dipakai untuk memilih role pada test yang sesuai.
+Check, pemeriksaan migrasi, dependency, sintaks JavaScript, dan whitespace lolos.
+
+Eksperimen regresi permission juga dijalankan di memori test: ketika semua akun
+login sementara diizinkan menulis, test penolakan mendeteksi POST user biasa,
+Editor, dan staff mendapat 201 alih-alih 403. Setelah patch sementara dilepas,
+test yang sama lulus lagi. File permission dan data lokal tidak berubah.
+
+Browser diuji dengan server serta database sementara: guest, user biasa, Editor,
+dan superuser; list/detail/search, preview, Back/Forward, filter personal,
+create/star/delete tanpa reload, CSRF, sesi berakhir, validasi, submit ganda,
+request lambat, error/pemulihan, escaping, dan fallback tanpa JavaScript.
+Layout diperiksa pada 390/768/1440 px; indikator loading tambahan diperiksa pada
+390/1440 px. Data lokal tetap satu Project dan dua Experience.
+
+Warning WhiteNoise tentang folder `staticfiles/` yang belum ada masih muncul
+saat test lokal, tanpa menggagalkan test. Checkpoint ini tidak menjalankan
+`collectstatic`, mengubah PWS, atau membuktikan deployment sudah memakai versi
+terbaru. Verifikasi lokal memakai environment proyek yang sudah terpasang;
+instalasi dari environment kosong belum diuji ulang pada checkpoint ini.
+
+### Status checkpoint dan pengumpulan
+
+Implementasi Tutorial 07 berada pada branch `feat/tutorial-7-drf-projects`.
+Commit implementasi terakhir sebelum dokumentasi ini adalah `0653a49`.
+Commit dokumentasi berikutnya perlu direview dan dibuat sendiri, kemudian
+dipush. Hash final pengumpulan dicatat sesudah commit/integrasi selesai, sehingga
+hash implementasi di atas belum dinyatakan sebagai hash pengumpulan akhir.
+
+Push, PR/merge, smoke PWS, akses commit publik, dan submit SCELE belum
+diverifikasi pada checkpoint dokumentasi ini. Sebelum menyatakan selesai:
+
+1. Review diff dan stage path spesifik; jangan ikutkan `.playwright-cli/`,
+   database, environment, atau credential.
+2. Commit dokumentasi, push branch, lalu review dan merge melalui PR sesuai alur
+   kerja. Ambil hash final Tutorial 07 setelah integrasi dan simpan terpisah.
+3. Deploy sendiri memakai alur PWS yang sudah ada. Periksa baca halaman/API,
+   login, dan satu operasi tulis pada record percobaan saja, termasuk CSRF dari
+   origin HTTPS yang benar. Jika gagal, baca error sebelum mengubah konfigurasi.
+4. Buka tautan commit GitHub sebagai pengunjung dan pastikan dapat diakses publik,
+   lalu submit link commit itu di slot Tutorial 07 SCELE sebelum **4 November
+   2026 pukul 23.59 WIB**.
+
+Tugas 6 baru melanjutkan DRF pada Experience setelah checkpoint tutorial.
+Tenggatnya **9 November 2026 pukul 23.59 WIB**, dengan hash pengumpulan terpisah.
+Fitur dan empat refleksi Tugas 6 belum diklaim selesai dalam dokumen ini.
 
 ## Progres Mingguan
 
@@ -239,6 +460,25 @@ permission akan mendapat response `403 Forbidden`.
 - Menambah cakupan menjadi 73 automated test dan memastikan Django check,
   migration check, syntax JavaScript, serta browser smoke test berhasil.
 
+### Implementasi Tutorial 07 (2 - 3 November 2026)
+
+- Menambahkan DRF 3.18.3 tanpa mengganti versi mayor Django atau model lama.
+- Membuat ProjectSerializer dengan field eksplisit, sanitasi, validasi URL,
+  UUID/count/state read-only, dan privacy akun pemberi star.
+- Memisahkan permission owner-only API Projects dari permission form HTML Editor.
+- Menambahkan API list/create, detail/PUT/PATCH/delete, serta toggle star dengan
+  session dan CSRF, lalu mengintegrasikan list/detail/create/star/delete ke Fetch.
+- Mempertahankan preview statis, filter judul/personal, form fallback, desain,
+  dan fitur Experience dari Tugas 5.
+- Memeriksa respons lambat agar tidak menimpa detail baru; mencegah submit ganda
+  dan mutation star/delete yang bersamaan untuk project yang sama.
+- Menambahkan loading yang terlihat setelah audit menemukan bahwa `aria-busy`
+  saja belum memberi feedback visual.
+- Mencapai 140 test main lulus, disertai pemeriksaan browser pada database
+  sementara. Test lama tidak dihapus untuk mengejar hasil hijau.
+- Membagi implementasi menjadi conventional commit per behavior pada feature
+  branch. Push, integrasi PR, deployment, dan submit dicatat setelah dilakukan.
+
 ## Refleksi Tugas 1
 
 ### 1. Pada Tutorial dan Tugas 1, Anda diberi kebebasan untuk menentukan tampilan dari website portofolio Anda. Saat Anda merancang struktur HTML yang digunakan, apakah Anda menggunakan elemen semantik HTML5 seperti `section`, `article`, atau `aside`? Jika iya, bagaimana elemen tersebut membantu Anda dalam membuat static web? Jika tidak, mengapa tanpa elemen tersebut sudah memenuhi kebutuhan desain Anda?
@@ -311,13 +551,19 @@ XSS terjadi ketika input berbahaya berhasil dijalankan sebagai script di browser
 
 ## AI Disclosure
 
-Selama mengerjakan Tutorial sampai Tugas 5, saya memakai OpenAI Codex sebagai tutor dan coding assistant. AI membantu menjelaskan konsep yang baru saya pakai, merencanakan workflow Git, membagi pengerjaan menjadi beberapa module dan commit, membaca error, serta memeriksa hasil test. Pada Tugas 5, AI juga membantu mengedit beberapa bagian view, JavaScript, CSS, dan automated test untuk alur AJAX Experience. Saya tetap menentukan bagian Experience yang dikembangkan, fitur ekstra star, pembagian akses tiap role, dan bentuk akhir interaksinya.
+Selama mengerjakan Tutorial sampai Tugas 5 dan Tutorial 07, saya memakai OpenAI Codex sebagai tutor dan coding assistant. AI membantu menjelaskan konsep yang baru saya pakai, merencanakan workflow Git, membagi pengerjaan menjadi beberapa module dan commit, membaca error, serta memeriksa hasil test. Pada Tugas 5, AI juga membantu mengedit beberapa bagian view, JavaScript, CSS, dan automated test untuk alur AJAX Experience. Saya tetap menentukan bagian Experience yang dikembangkan, fitur ekstra star, pembagian akses tiap role, dan bentuk akhir interaksinya.
+
+Pada Tutorial 07, bantuan juga mencakup membaca materi serta kode aktual, menyusun roadmap/playbook pribadi, dan mengedit serializer, permission, view/URL API, integrasi Projects, test, serta dokumentasi per checkpoint yang saya minta. Codex membantu menjalankan verifikasi dan browser pada database sementara. Commit tetap saya jalankan sendiri; push, merge, dan deployment tidak dianggap otomatis selesai oleh bantuan tersebut.
 
 Saat memberi prompt, saya biasanya menyertakan rubrik, source code terbaru, error yang muncul, atau hasil command Git. Saya meminta pekerjaan dibagi per module, setiap konsep baru dijelaskan, dan perubahan diperiksa sebelum commit. Cara ini membantu saya mengikuti alasan di balik `fetch()`, `await`, debounce, `AbortController`, `FormData`, CSRF, serta penggunaan `textContent`, bukan hanya melihat hasil akhirnya.
 
+Untuk Tutorial 07, saya juga meminta penyesuaian field contoh dengan `technologies`, URL live/source, dan thumbnail static milik saya. Keputusan privacy serta akses Editor dibahas sebelum implementasi permission. Prompt log berikutnya memakai label **Prompt (ringkasan)**, jadi pertanyaannya merupakan ringkasan topik percakapan dan bukan transkrip literal.
+
 Saya tidak langsung menganggap output AI pasti benar karena AI tetap bisa salah menempatkan kode atau melewatkan behavior lama. Contohnya, saat menambahkan test star Experience, class test sempat tersisip sebelum seluruh test JSON selesai. Masalah tersebut ditemukan saat review struktur file dan diperbaiki sebelum test dijalankan. Saya juga memastikan response star hanya berisi state dan jumlah, sanitizer tidak menggantikan output escaping, elemen modal dicek sebelum event listener dipasang, serta request pencarian lama dibatalkan agar hasilnya tidak tertukar.
 
-Karena itu, saya tetap membaca diff, mencoba alur lewat browser, dan memeriksa hasilnya menggunakan `python manage.py check`, `python manage.py makemigrations --check --dry-run`, `python manage.py test`, `node --check`, dan `git diff --check`. Pada akhir implementasi Tugas 5, seluruh 73 automated test berhasil dijalankan. Menurut saya AI paling membantu untuk memberi arah dan mempercepat pemeriksaan, tetapi keputusan desain, kesesuaian rubrik, dan verifikasi akhir tetap tidak bisa diserahkan begitu saja ke AI.
+Keterbatasan itu muncul lagi saat bantuan menambahkan test star Project: posisi class sempat memotong test detail, lalu diperbaiki setelah struktur file diperiksa. Pemeriksaan browser juga menemukan tombol Clear masih terlihat karena CSS menimpa atribut hidden; audit berikutnya menemukan loading baru memakai `aria-busy` tanpa pesan visual. Temuan ini diperbaiki melalui review dan pengujian terarah. Bantuan AI untuk koreksi tersebut dicatat di prompt log agar asal perubahan dan proses pemeriksaannya jelas.
+
+Karena itu, workflow saya tetap mencakup review diff, pemeriksaan alur browser dengan bantuan AI, serta `python manage.py check`, `python manage.py makemigrations --check --dry-run`, `python manage.py test main`, `node --check`, dan `git diff --check`. Pada akhir Tugas 5, 73 test lulus; pada checkpoint lokal Tutorial 07 jumlahnya menjadi 140. Hasil ini belum membuktikan deployment atau pengumpulan sudah selesai. Menurut saya AI paling membantu untuk memberi arah dan mempercepat pemeriksaan, tetapi keputusan desain, kesesuaian rubrik, dan verifikasi akhir tetap perlu saya pertanggungjawabkan.
 
 Contoh prompt dan cara saya memakai hasilnya dapat dilihat pada
 [AI Prompt Log](docs/ai-prompt-log.md).
