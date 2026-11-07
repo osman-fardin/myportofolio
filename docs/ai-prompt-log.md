@@ -894,6 +894,52 @@ dua Experience; model, tampilan, serta PWS tidak diubah. README dan panduan
 pribadi diperbarui. Commit tetap saya jalankan sendiri; endpoint star menjadi
 checkpoint berikutnya sebelum integrasi UI.
 
+## 38. Mengaktifkan endpoint star Experience
+
+**Prompt (ringkasan):**
+
+> Detail, update, dan delete sudah di-commit, lanjut endpoint star Experience.
+> Bantu pakai relasi lama dengan IsAuthenticated supaya user biasa, Editor,
+> dan owner bisa star akun sendiri. Jelasin kenapa akun harus dari request.user,
+> bagaimana responsnya dipakai daftar/detail, dan kenapa toggle tidak boleh
+> otomatis di-retry. Sertakan test isolasi, input palsu, serta CSRF session.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan dengan bantuan AI untuk penjelasan, implementasi, pengujian,
+dan dokumentasi. Commit detail/update/delete `a309f96` diperiksa sebelum
+experience_star ditambahkan pada `main/api_views.py`. Route `api:experience-star`
+memakai `/api/v1/experiences/<uuid>/star/`, method POST, SessionAuthentication,
+dan IsAuthenticated. Akun login tidak membutuhkan permission Editor untuk star.
+
+Saya memahami bahwa view mengambil akun dari request.user dan mengubah relasi
+star milik akun tersebut saja. Body tidak diperlukan dan tidak dipakai untuk
+memilih user atau mengubah data Experience. Respons 200 memakai serializer
+dengan request context, sehingga count dan is_starred terbaru bisa dibaca
+kembali pada daftar maupun detail. Field computed tetap read-only pada input
+CRUD; perubahan melalui action star diatur oleh view yang memeriksa akun.
+
+Endpoint ini toggle: dua POST berarti star lalu unstar. UI nanti tetap harus
+mengunci tombol selama request dan tidak melakukan retry otomatis. Guest ditolak
+403 sebelum method atau pencarian target; akun login yang mengirim method salah
+mendapat 405, sementara POST ke target UUID yang tidak ada mendapat 404.
+
+Sebelas test baru pada ExperienceStarAPITests mencakup semua role login,
+isolasi antar-user, konsistensi count/state pada list/detail, forged user dan
+field, missing target, wrong method, serta session yang berakhir. Test CSRF
+memakai APIClient dengan enforcement dan .login() untuk user biasa, Editor,
+serta owner: token kosong/salah ditolak, token benar memungkinkan toggle.
+Test kompatibilitas membuktikan route star lama dan API baru memakai relasi
+yang sama, tanpa model atau migration baru.
+
+Seluruh 217 test main lulus; check, pemeriksaan migrasi, dan whitespace bersih.
+Runserver diperiksa melalui GET saja: guest mendapat 403 JSON pada endpoint
+star, termasuk UUID yang hilang, dan Browsable API list/detail tetap 200 HTML.
+Mutation diuji pada database test. Data lokal tetap satu Project dan dua
+Experience; tampilan dan PWS tidak diubah. README serta panduan pribadi
+diperbarui. Sesudah commit ini, branch API siap direview dan diintegrasikan
+sebelum memulai branch UI. Commit, push, dan merge tetap saya jalankan sendiri.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa

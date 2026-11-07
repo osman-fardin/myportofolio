@@ -40,7 +40,7 @@ minimal multi-page interface with a warm visual theme.
   tanpa reload, dengan preview statis dan fallback HTML tetap tersedia
 - Loading daftar/detail, empty state, toast error API, dan pencegahan submit ganda
 - Payload publik Project hanya memuat count dan status star, tanpa identitas akun
-- 206 automated test untuk fitur lama, serializer, API, integrasi halaman, CSRF,
+- 217 automated test untuk fitur lama, serializer, API, integrasi halaman, CSRF,
   XSS, permission, privacy, serta isolasi data personal antar-user
 
 ## Technology
@@ -137,7 +137,7 @@ disengaja untuk menjaga fitur lama dan diuji pada API serta halaman.
 
 Halaman Experience masih memakai route Tugas 5 di bawah. Pada progres Tugas 6,
 serializer, permission empat role, serta API daftar/create/detail/update/delete
-sudah tersedia.
+dan star sudah tersedia.
 Integrasi halaman ke DRF dilanjutkan pada checkpoint berikutnya.
 
 ## Projects API: Tutorial 07
@@ -283,6 +283,7 @@ ini. API PUT/PATCH sudah berfungsi; form update lama tetap dapat dipakai.
 | `/api/v1/experiences/<uuid>/` | GET/HEAD | Detail DRF satu Experience | Publik |
 | `/api/v1/experiences/<uuid>/` | PUT/PATCH | Update melalui serializer | Editor dan superuser |
 | `/api/v1/experiences/<uuid>/` | DELETE | Hapus, 204 tanpa body | Superuser |
+| `/api/v1/experiences/<uuid>/star/` | POST | Toggle star DRF, object terbaru 200 | User login |
 | `/experience/` | GET | Menampilkan kerangka halaman dan interaksi Experience | Publik |
 | `/api/experiences/` | GET | Mengirim data Experience publik beserta state star | Publik |
 | `/experience/add/` | GET/POST | Fallback form dan AJAX create | Superuser |
@@ -321,18 +322,32 @@ body; jangan panggil `.json()` pada respons tersebut.
 | Aksi API Experience | Guest | User biasa | Editor dengan change_experience | Superuser |
 | --- | --- | --- | --- | --- |
 | Baca daftar/detail | Ya | Ya | Ya | Ya |
+| Star/unstar | 403 | 200 | 200 | 200 |
 | Create | 403 | 403 | 403 | 201 bila valid |
 | PUT/PATCH | 403 | 403 | 200 bila valid | 200 bila valid |
 | Delete | 403 | 403 | 403 | 204 |
 
-Star DRF dan migrasi UI masih menyusul; route lama tetap dipakai halaman.
-Test endpoint list/create berjumlah 19 dan detail/update/delete 20; total test
-main mencapai 206. Test penolakan memeriksa record serta relasi star, termasuk
+Endpoint `api:experience-star` memakai IsAuthenticated dan akun dari
+`request.user`, termasuk untuk user biasa tanpa permission Editor. POST tidak
+memerlukan body; input tidak dapat memilih akun atau mengubah field Experience.
+Relasi ManyToMany lama dipakai, dan respons adalah object terbaru dengan count
+serta state star. Dua POST mengembalikan state awal, jadi klien tidak melakukan
+retry otomatis pada toggle. Akun login dengan UUID target yang hilang mendapat
+404. GET dari akun login mendapat 405; guest mendapat 403 karena permission
+diperiksa lebih dahulu. POST berbasis session tetap membutuhkan CSRF.
+
+API Experience pada branch backend sudah mencakup CRUD dan star. Migrasi UI
+menjadi tahap berikutnya; halaman masih memakai route lama. Test endpoint
+list/create berjumlah 19, detail/update/delete 20, dan star 11; total test
+main mencapai 217. Test penolakan memeriksa record serta relasi star, termasuk
 keutuhan record lain setelah delete. Test CSRF memakai `.login()` serta APIClient
 dengan CSRF enforcement: Editor dengan token valid bisa update tetapi ditolak
 delete, sedangkan user biasa tetap ditolak menulis. Cek HTTP lokal membuktikan
 JSON dan Browsable API bisa dibuka, HEAD kosong, serta missing UUID mendapat
-404 JSON. PWS belum diverifikasi ulang untuk perubahan ini.
+404 JSON. Test star juga memeriksa isolasi antar-user, payload palsu, sesi yang
+berakhir, dan kesesuaian relasi antara route lama dan API baru. Cek HTTP lokal
+memastikan GET star oleh guest mendapat 403 sesuai kontrak, tanpa menjalankan
+mutation pada database lokal. PWS belum diverifikasi ulang untuk perubahan ini.
 
 ## Verifikasi Tutorial 07
 
@@ -606,7 +621,7 @@ Selama mengerjakan Tutorial sampai Tugas 5 dan Tutorial 07, saya memakai OpenAI 
 Pada Tutorial 07, bantuan juga mencakup membaca materi serta kode aktual, menyusun roadmap/playbook pribadi, dan mengedit serializer, permission, view/URL API, integrasi Projects, test, serta dokumentasi per checkpoint yang saya minta. Codex membantu menjalankan verifikasi dan browser pada database sementara. Commit tetap saya jalankan sendiri; push, merge, dan deployment tidak dianggap otomatis selesai oleh bantuan tersebut.
 
 Pada awal Tugas 6, bantuan edit per checkpoint berlanjut ke serializer Experience,
-permission empat role, API daftar/create/detail/update/delete, test, serta
+permission empat role, API daftar/create/detail/update/delete/star, test, serta
 dokumentasi terkait. Rincian
 hasil dan batas verifikasinya dicatat pada prompt log mulai entri 34.
 

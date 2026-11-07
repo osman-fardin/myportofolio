@@ -1134,3 +1134,219 @@ class ExperienceDetailAPITests(APITestCase):
                 self.assertEqual(Experience.objects.values().get(pk=self.experience.pk), {
                     **original, 'title': 'Minimal replacement', 'description': 'Updated description.',
                 })
+
+
+class ExperienceStarAPITests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        user_model = get_user_model()
+        cls.reader = user_model.objects.create_user(
+            username='experience-star-reader', password='test-password',
+        )
+        cls.other_reader = user_model.objects.create_user(username='experience-star-other')
+        cls.editor = user_model.objects.create_user(
+            username='experience-star-editor', password='test-password',
+        )
+        cls.staff = user_model.objects.create_user(
+            username='experience-star-staff', is_staff=True,
+        )
+        cls.owner = user_model.objects.create_superuser(
+            username='experience-star-owner', password='test-password',
+        )
+        group = Group.objects.create(name='Editor')
+        group.permissions.add(Permission.objects.get(
+            content_type__app_label='main', codename='change_experience',
+        ))
+        cls.editor.groups.add(group)
+        cls.experience = Experience.objects.create(
+            title='Star this role', description='Build tools.\nMentor students.',
+            category='part-time', started_at=datetime(2026, 11, 1, 2, tzinfo=UTC),
+        )
+        cls.other = Experience.objects.create(
+            title='Keep this role', description='Another ongoing role.',
+            category='research', started_at=datetime(2026, 11, 2, 2, tzinfo=UTC),
+        )
+        cls.other.starred_by.add(cls.other_reader)
+
+    def setUp(self):
+        self.star_url = reverse('api:experience-star', args=[self.experience.pk])
+        self.detail_url = reverse('api:experience-detail', args=[self.experience.pk])
+
+    def database_snapshot(self):
+        return (
+            list(Experience.objects.order_by('id').values()),
+            list(Experience.starred_by.through.objects.order_by('id').values()),
+        )
+
+    def session_client_and_token(self, user):
+        client = APIClient(enforce_csrf_checks=True)
+        self.assertTrue(client.login(username=user.username, password='test-password'))
+        page = client.get(reverse('main:show_experience'))
+        self.assertEqual(page.status_code, 200)
+        return client, client.cookies['csrftoken'].value
+
+    def test_guest_is_denied_before_method_checks_without_changing_data(self):
+        before = self.database_snapshot()
+        for method in ('get', 'post'):
+            with self.subTest(method=method):
+                response = getattr(self.client, method)(self.star_url)
+                self.assertEqual(response.status_code, 403)
+                self.assertIn('detail', response.data)
+                self.assertEqual(self.database_snapshot(), before)
+
+    def test_every_authenticated_role_can_toggle_only_its_own_star(self):
+        fields = {
+            'id', 'title', 'description', 'description_points', 'category',
+            'category_label', 'thumbnail', 'started_at', 'ended_at',
+            'is_ongoing', 'star_count', 'is_starred',
+        }
+        records_before = self.database_snapshot()[0]
+        for user in (self.reader, self.editor, self.staff, self.owner):
+            self.client.force_authenticate(user=user)
+            for expected in (True, False):
+                with self.subTest(user=user.username, starred=expected):
+                    response = self.client.post(self.star_url)
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(set(response.data), fields)
+                    self.assertEqual(response.data['id'], str(self.experience.pk))
+                    self.assertEqual(response.data['is_starred'], expected)
+                    self.assertEqual(response.data['star_count'], int(expected))
+                    self.assertEqual(self.experience.starred_by.filter(pk=user.pk).exists(), expected)
+                    self.assertEqual(self.experience.starred_by.count(), int(expected))
+                    self.assertEqual(list(self.other.starred_by.all()), [self.other_reader])
+                    self.assertEqual(self.database_snapshot()[0], records_before)
+                    self.assertNotIn(user.username, str(response.data))
+
+    def test_star_is_isolated_and_visible_to_list_and_detail(self):
+        for user, count in ((self.reader, 1), (self.other_reader, 2)):
+            self.client.force_authenticate(user=user)
+            response = self.client.post(self.star_url)
+            self.assertEqual(response.status_code, 200)
+            self.assertTrue(response.data['is_starred'])
+            self.assertEqual(response.data['star_count'], count)
+
+        self.client.force_authenticate(user=self.reader)
+        unstarred = self.client.post(self.star_url)
+        self.assertEqual(unstarred.status_code, 200)
+        self.assertFalse(unstarred.data['is_starred'])
+        self.assertEqual(unstarred.data['star_count'], 1)
+        self.assertEqual(list(self.experience.starred_by.all()), [self.other_reader])
+
+        for user, expected in ((self.reader, False), (self.other_reader, True), (None, False)):
+            with self.subTest(user=str(user)):
+                self.client.force_authenticate(user=user)
+                detail = self.client.get(self.detail_url)
+                listed = self.client.get(reverse('api:experience-list'))
+                self.assertEqual(detail.status_code, 200)
+                self.assertEqual(listed.status_code, 200)
+                item = next(item for item in listed.data if item['id'] == str(self.experience.pk))
+                for data in (detail.data, item):
+                    self.assertEqual(data['star_count'], 1)
+                    self.assertEqual(data['is_starred'], expected)
+                    self.assertNotIn('starred_by', data)
+                    self.assertNotIn(self.other_reader.username, str(data))
+
+    def test_payload_cannot_choose_another_user_or_edit_the_record(self):
+        self.experience.starred_by.add(self.other_reader)
+        self.client.force_authenticate(user=self.reader)
+        records_before = self.database_snapshot()[0]
+        forged = {
+            'user_id': self.other_reader.pk, 'id': str(uuid4()),
+            'starred_by': [], 'star_count': 99, 'is_starred': False,
+            'title': 'Forged title', 'description_points': ['Forged'],
+        }
+        for expected, count in ((True, 2), (False, 1)):
+            with self.subTest(starred=expected):
+                response = self.client.post(self.star_url, forged, format='json')
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.data['id'], str(self.experience.pk))
+                self.assertEqual(response.data['is_starred'], expected)
+                self.assertEqual(response.data['star_count'], count)
+                self.assertTrue(self.experience.starred_by.filter(pk=self.other_reader.pk).exists())
+                self.assertEqual(self.experience.starred_by.filter(pk=self.reader.pk).exists(), expected)
+                self.assertEqual(self.database_snapshot()[0], records_before)
+                self.assertEqual(list(self.other.starred_by.all()), [self.other_reader])
+
+    def test_missing_target_is_404_after_authentication_and_preserves_data(self):
+        missing = reverse('api:experience-star', args=[uuid4()])
+        before = self.database_snapshot()
+        for user, status_code in ((None, 403), (self.reader, 404)):
+            with self.subTest(user=str(user)):
+                self.client.force_authenticate(user=user)
+                response = self.client.post(missing)
+                self.assertEqual(response.status_code, status_code)
+                self.assertIn('detail', response.data)
+                self.assertEqual(self.database_snapshot(), before)
+
+    def test_authenticated_wrong_methods_and_options_do_not_toggle(self):
+        self.client.force_authenticate(user=self.reader)
+        before = self.database_snapshot()
+        for method in ('get', 'head', 'put', 'patch', 'delete'):
+            with self.subTest(method=method):
+                response = getattr(self.client, method)(self.star_url)
+                self.assertEqual(response.status_code, 405)
+                self.assertEqual(self.database_snapshot(), before)
+
+        options = self.client.options(self.star_url)
+        self.assertEqual(options.status_code, 200)
+        self.assertEqual(set(options['Allow'].replace(' ', '').split(',')), {'POST', 'OPTIONS'})
+        self.assertEqual(self.database_snapshot(), before)
+
+    def test_session_toggle_without_csrf_is_rejected_without_changes(self):
+        before = self.database_snapshot()
+        for user in (self.reader, self.editor, self.owner):
+            with self.subTest(user=user.username):
+                client, _ = self.session_client_and_token(user)
+                response = client.post(self.star_url)
+                self.assertEqual(response.status_code, 403)
+                self.assertIn('CSRF', str(response.data['detail']))
+                self.assertEqual(self.database_snapshot(), before)
+
+    def test_session_toggle_with_wrong_csrf_is_rejected_without_changes(self):
+        before = self.database_snapshot()
+        for user in (self.reader, self.editor, self.owner):
+            with self.subTest(user=user.username):
+                client, _ = self.session_client_and_token(user)
+                response = client.post(self.star_url, HTTP_X_CSRFTOKEN='invalid')
+                self.assertEqual(response.status_code, 403)
+                self.assertIn('CSRF', str(response.data['detail']))
+                self.assertEqual(self.database_snapshot(), before)
+
+    def test_reader_editor_and_owner_sessions_can_toggle_with_valid_csrf(self):
+        for user in (self.reader, self.editor, self.owner):
+            client, token = self.session_client_and_token(user)
+            for expected in (True, False):
+                with self.subTest(user=user.username, starred=expected):
+                    response = client.post(self.star_url, HTTP_X_CSRFTOKEN=token)
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(response.data['is_starred'], expected)
+                    self.assertEqual(response.data['star_count'], int(expected))
+                    self.assertEqual(self.experience.starred_by.filter(pk=user.pk).exists(), expected)
+                    self.assertEqual(list(self.other.starred_by.all()), [self.other_reader])
+
+    def test_new_api_and_legacy_route_share_the_existing_star_relation(self):
+        client, token = self.session_client_and_token(self.reader)
+        starred = client.post(self.star_url, HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(starred.status_code, 200)
+        self.assertTrue(starred.data['is_starred'])
+        legacy = client.post(
+            reverse('main:toggle_experience_star', args=[self.experience.pk]),
+            HTTP_X_CSRFTOKEN=token,
+        )
+        self.assertEqual(legacy.status_code, 200)
+        self.assertFalse(legacy.json()['is_starred'])
+        self.assertEqual(legacy.json()['star_count'], 0)
+        self.assertFalse(self.experience.starred_by.exists())
+        detail = client.get(self.detail_url)
+        self.assertFalse(detail.data['is_starred'])
+        self.assertEqual(detail.data['star_count'], 0)
+        self.assertEqual(Experience.objects.count(), 2)
+
+    def test_expired_session_cannot_toggle_even_with_the_old_csrf_token(self):
+        client, token = self.session_client_and_token(self.reader)
+        before = self.database_snapshot()
+        client.logout()
+        response = client.post(self.star_url, HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(response.status_code, 403)
+        self.assertNotIn('CSRF', str(response.data['detail']))
+        self.assertEqual(self.database_snapshot(), before)
