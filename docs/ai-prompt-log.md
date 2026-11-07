@@ -845,6 +845,55 @@ README dan panduan pribadi diperbarui sesuai progres. Halaman masih memakai
 API lama; detail/update/delete/star DRF menyusul per checkpoint. PWS tidak
 diubah dan commit tetap saya jalankan sendiri.
 
+## 37. Menambahkan API detail, update, dan delete Experience
+
+**Prompt (ringkasan):**
+
+> Daftar dan create sudah di-commit, lanjut detail Experience. Bantu terapkan
+> GET, PUT/PATCH, dan DELETE pada URL UUID, dengan Editor tetap bisa update.
+> Jelasin bedanya PUT dan PATCH untuk field serta tanggal lama, respons 404,
+> dan delete 204 kosong. Sertakan test role, database, read-only field, serta
+> CSRF melalui session yang benar-benar login.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan dengan bantuan AI untuk penjelasan, implementasi, pengujian,
+dan dokumentasi. Commit list/create `5caa74e` diperiksa sebelum experience_detail
+ditambahkan pada `main/api_views.py`. Route `api:experience-detail` memakai
+`/api/v1/experiences/<uuid>/`, SessionAuthentication, dan permission empat role.
+GET/HEAD membaca satu Experience dengan metadata star sesuai request, sedangkan
+PUT/PATCH memperbarui instance melalui serializer yang sudah ada.
+
+Saya memahami bahwa PUT membutuhkan field wajib, sementara PATCH hanya
+mengirim perubahan. Tanggal yang tidak dikirim memakai nilai instance; rentang
+tanggal tetap diperiksa, termasuk saat hanya start atau end yang diubah.
+`ended_at: null` mengembalikan status ongoing. UUID dan metadata hasil
+perhitungan tetap read-only. Editor dengan `main.change_experience` dan
+superuser dapat update; guest, user biasa, staff tanpa permission, atau akun
+yang hanya memiliki permission Project tidak mendapat hak update Experience.
+
+DELETE khusus superuser menghapus target beserta relasi starnya lalu mengirim
+204 tanpa body. Record serta star Experience lain tetap dipertahankan. UUID
+valid yang hilang menghasilkan 404 jika permission lolos. Penolakan mutation
+dapat menghasilkan 403 lebih dahulu karena permission diperiksa sebelum
+pencarian object. POST ke detail juga mengikuti urutan permission lalu method.
+
+Dua puluh test baru pada ExperienceDetailAPITests mencakup pembacaan publik,
+privacy, HEAD/OPTIONS/Browsable API, missing UUID, update Editor dan owner,
+validasi 400 beserta database yang tetap utuh, tanggal, forged metadata,
+delete 204 kosong, wrong method, dan malformed JSON. Test session memakai
+APIClient dengan CSRF enforcement dan .login(). Token kosong/salah ditolak;
+token valid memungkinkan update Editor dan mutation owner, tetapi tidak
+memperbolehkan Editor delete atau user biasa menulis.
+
+Seluruh 206 test main lulus. Check, pemeriksaan migrasi, dan whitespace bersih.
+Runserver lokal diperiksa melalui GET/HEAD saja: JSON detail sesuai object pada
+daftar, HTML Browsable API 200, HEAD kosong, dan missing UUID 404 JSON. Pengujian
+mutation hanya berjalan pada database test. Data lokal tetap satu Project dan
+dua Experience; model, tampilan, serta PWS tidak diubah. README dan panduan
+pribadi diperbarui. Commit tetap saya jalankan sendiri; endpoint star menjadi
+checkpoint berikutnya sebelum integrasi UI.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa

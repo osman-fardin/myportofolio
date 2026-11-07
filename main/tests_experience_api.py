@@ -742,3 +742,395 @@ class ExperienceListAPITests(APITestCase):
                 self.assertIn('Only the portfolio owner', str(response.data['detail']))
                 self.assertNotIn('CSRF', str(response.data['detail']))
                 self.assertEqual(self.database_snapshot(), before)
+
+
+class ExperienceDetailAPITests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        user_model = get_user_model()
+        cls.owner = user_model.objects.create_superuser(
+            username='experience-detail-owner', password='test-password',
+        )
+        cls.editor = user_model.objects.create_user(
+            username='experience-detail-editor', password='test-password',
+        )
+        cls.reader = user_model.objects.create_user(
+            username='experience-detail-reader', password='test-password',
+        )
+        cls.staff = user_model.objects.create_user(
+            username='experience-detail-staff', is_staff=True,
+        )
+        cls.project_editor = user_model.objects.create_user(username='detail-project-editor')
+        cls.project_editor.user_permissions.add(Permission.objects.get(
+            content_type__app_label='main', codename='change_project',
+        ))
+        group = Group.objects.create(name='Editor')
+        group.permissions.add(Permission.objects.get(
+            content_type__app_label='main', codename='change_experience',
+        ))
+        cls.editor.groups.add(group)
+        cls.payload = {
+            'title': 'Teaching role',
+            'description': 'Support students.\nBuild tools.',
+            'category': 'part-time',
+            'thumbnail': 'https://example.com/teaching.png',
+            'started_at': '2026-11-01T02:00:00Z',
+            'ended_at': '2026-11-06T02:00:00Z',
+        }
+        cls.experience = Experience.objects.create(**{
+            **cls.payload,
+            'started_at': datetime(2026, 11, 1, 2, tzinfo=UTC),
+            'ended_at': datetime(2026, 11, 6, 2, tzinfo=UTC),
+        })
+        cls.other = Experience.objects.create(
+            title='Keep this role', description='An unrelated ongoing role.',
+            category='research', started_at=datetime(2026, 11, 2, 2, tzinfo=UTC),
+        )
+        cls.experience.starred_by.add(cls.reader, cls.editor)
+        cls.other.starred_by.add(cls.reader)
+
+    def setUp(self):
+        self.detail_url = reverse('api:experience-detail', args=[self.experience.pk])
+
+    def database_snapshot(self):
+        return (
+            list(Experience.objects.order_by('id').values()),
+            list(Experience.starred_by.through.objects.order_by('id').values()),
+        )
+
+    def session_client_and_token(self, user):
+        client = APIClient(enforce_csrf_checks=True)
+        self.assertTrue(client.login(username=user.username, password='test-password'))
+        page = client.get(reverse('main:show_experience'))
+        self.assertEqual(page.status_code, 200)
+        return client, client.cookies['csrftoken'].value
+
+    def test_detail_is_public_private_and_personal_for_every_role(self):
+        expected_fields = set(self.payload) | {
+            'id', 'description_points', 'category_label', 'is_ongoing',
+            'star_count', 'is_starred',
+        }
+        before = self.database_snapshot()
+        for user in (None, self.reader, self.editor, self.staff, self.project_editor, self.owner):
+            with self.subTest(user=str(user)):
+                self.client.force_authenticate(user=user)
+                response = self.client.get(self.detail_url)
+                self.assertEqual(response.status_code, 200)
+                self.assertIsInstance(response.data, dict)
+                self.assertEqual(set(response.data), expected_fields)
+                self.assertEqual(response.data['id'], str(self.experience.pk))
+                self.assertEqual(response.data['description'], self.payload['description'])
+                self.assertEqual(response.data['description_points'], ['Support students.', 'Build tools.'])
+                self.assertEqual(response.data['category_label'], 'Part-Time')
+                self.assertEqual(response.data['star_count'], 2)
+                self.assertEqual(response.data['is_starred'], user in (self.reader, self.editor))
+                self.assertNotIn(self.reader.username, str(response.data))
+                self.assertNotIn(self.owner.password, str(response.data))
+        self.assertEqual(self.database_snapshot(), before)
+
+    def test_public_head_options_and_browsable_api_are_read_only(self):
+        before = self.database_snapshot()
+        head = self.client.head(self.detail_url)
+        options = self.client.options(self.detail_url)
+        page = self.client.get(self.detail_url, HTTP_ACCEPT='text/html')
+        self.assertEqual(head.status_code, 200)
+        self.assertEqual(head.content, b'')
+        self.assertEqual(options.status_code, 200)
+        self.assertEqual(set(options['Allow'].replace(' ', '').split(',')), {
+            'GET', 'HEAD', 'PUT', 'PATCH', 'DELETE', 'OPTIONS',
+        })
+        self.assertEqual(page.status_code, 200)
+        self.assertEqual(page.accepted_renderer.format, 'api')
+        self.assertEqual(self.database_snapshot(), before)
+
+    def test_missing_uuid_returns_404_for_requests_allowed_by_permission(self):
+        missing = reverse('api:experience-detail', args=[uuid4()])
+        before = self.database_snapshot()
+        for user, methods in (
+            (None, ('get',)),
+            (self.editor, ('get', 'put', 'patch')),
+            (self.owner, ('get', 'put', 'patch', 'delete')),
+        ):
+            self.client.force_authenticate(user=user)
+            for method in methods:
+                with self.subTest(user=str(user), method=method):
+                    response = getattr(self.client, method)(
+                        missing, self.payload if method in ('put', 'patch') else None,
+                        format='json',
+                    )
+                    self.assertEqual(response.status_code, 404)
+                    self.assertIn('detail', response.data)
+                    self.assertEqual(self.database_snapshot(), before)
+        self.assertEqual(self.client.get('/api/v1/experiences/not-a-uuid/').status_code, 404)
+
+    def test_editor_and_owner_patch_only_the_submitted_field(self):
+        before = self.database_snapshot()
+        original = Experience.objects.values().get(pk=self.experience.pk)
+        for index, user in enumerate((self.editor, self.owner)):
+            with self.subTest(user=user.username):
+                self.client.force_authenticate(user=user)
+                title = f'Updated role {index}'
+                response = self.client.patch(
+                    self.detail_url, {'title': f' <b>{title}</b> '}, format='json',
+                )
+                self.assertEqual(response.status_code, 200)
+                current = Experience.objects.values().get(pk=self.experience.pk)
+                self.assertEqual(current, {**original, 'title': title})
+                self.assertEqual(self.database_snapshot()[1], before[1])
+                self.assertEqual(response.data['star_count'], 2)
+                self.assertEqual(Experience.objects.count(), 2)
+                self.other.refresh_from_db()
+                self.assertEqual(self.other.title, 'Keep this role')
+
+    def test_editor_and_owner_put_update_the_existing_record(self):
+        stars_before = self.database_snapshot()[1]
+        for index, user in enumerate((self.editor, self.owner)):
+            with self.subTest(user=user.username):
+                self.client.force_authenticate(user=user)
+                response = self.client.put(self.detail_url, {
+                    **self.payload, 'title': f'Replacement {index}',
+                    'description': '<p>A replacement responsibility.</p>',
+                    'category': 'research', 'thumbnail': None,
+                    'started_at': '2026-11-08T02:00:00Z',
+                    'ended_at': '2026-11-09T02:00:00Z',
+                }, format='json')
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.data['id'], str(self.experience.pk))
+                self.experience.refresh_from_db()
+                self.assertEqual(self.experience.title, f'Replacement {index}')
+                self.assertEqual(self.experience.description, 'A replacement responsibility.')
+                self.assertEqual(self.experience.category, 'research')
+                self.assertIsNone(self.experience.thumbnail)
+                self.assertEqual(self.experience.started_at, datetime(2026, 11, 8, 2, tzinfo=UTC))
+                self.assertEqual(self.experience.ended_at, datetime(2026, 11, 9, 2, tzinfo=UTC))
+                self.assertEqual(self.database_snapshot()[1], stars_before)
+                self.assertEqual(Experience.objects.count(), 2)
+
+    def test_invalid_put_and_patch_preserve_records_and_star_relations(self):
+        before = self.database_snapshot()
+        for user in (self.editor, self.owner):
+            self.client.force_authenticate(user=user)
+            for method, payload, field in (
+                ('put', {'title': 'Incomplete'}, 'description'),
+                ('put', {**self.payload, 'ended_at': '2026-10-31T02:00:00Z'}, 'ended_at'),
+                ('patch', {'title': '<img src="x" onerror="alert(1)">'}, 'title'),
+                ('patch', {'description': '<b></b>'}, 'description'),
+                ('patch', {'category': 'unknown'}, 'category'),
+                ('patch', {'thumbnail': 'javascript:alert(1)'}, 'thumbnail'),
+                ('patch', {'started_at': None}, 'started_at'),
+                ('patch', {'started_at': '2026-11-08T02:00:00Z'}, 'ended_at'),
+                ('patch', {'ended_at': '2026-10-31T02:00:00Z'}, 'ended_at'),
+                ('patch', {'ended_at': ''}, 'ended_at'),
+            ):
+                with self.subTest(user=user.username, method=method, payload=payload):
+                    response = getattr(self.client, method)(self.detail_url, payload, format='json')
+                    self.assertEqual(response.status_code, 400)
+                    self.assertIsInstance(response.data[field], list)
+                    self.assertEqual(self.database_snapshot(), before)
+
+    def test_patch_can_move_both_dates_and_clear_end_for_ongoing(self):
+        for user in (self.editor, self.owner):
+            with self.subTest(user=user.username):
+                self.client.force_authenticate(user=user)
+                moved = self.client.patch(self.detail_url, {
+                    'started_at': '2026-11-08T02:00:00Z',
+                    'ended_at': '2026-11-09T02:00:00Z',
+                }, format='json')
+                self.assertEqual(moved.status_code, 200)
+                self.assertEqual(moved.data['started_at'], '2026-11-08T02:00:00Z')
+                self.assertFalse(moved.data['is_ongoing'])
+                ongoing = self.client.patch(self.detail_url, {'ended_at': None}, format='json')
+                self.assertEqual(ongoing.status_code, 200)
+                self.assertTrue(ongoing.data['is_ongoing'])
+                self.experience.refresh_from_db()
+                self.assertIsNone(self.experience.ended_at)
+                self.assertEqual(self.experience.started_at, datetime(2026, 11, 8, 2, tzinfo=UTC))
+                self.assertEqual(self.experience.starred_by.count(), 2)
+
+    def test_guest_reader_staff_and_project_editor_cannot_update_or_delete(self):
+        before = self.database_snapshot()
+        for user in (None, self.reader, self.staff, self.project_editor):
+            self.client.force_authenticate(user=user)
+            for method in ('put', 'patch', 'delete'):
+                with self.subTest(user=str(user), method=method):
+                    response = getattr(self.client, method)(
+                        self.detail_url, {**self.payload, 'title': 'Forbidden'}, format='json',
+                    )
+                    self.assertEqual(response.status_code, 403)
+                    self.assertIn('detail', response.data)
+                    self.assertEqual(self.database_snapshot(), before)
+
+    def test_editor_cannot_delete_even_with_the_change_permission(self):
+        self.assertTrue(self.editor.has_perm('main.change_experience'))
+        self.client.force_authenticate(user=self.editor)
+        before = self.database_snapshot()
+        response = self.client.delete(self.detail_url)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(self.database_snapshot(), before)
+
+    def test_owner_delete_returns_empty_204_and_only_removes_its_target(self):
+        self.client.force_authenticate(user=self.owner)
+        other_before = Experience.objects.values().get(pk=self.other.pk)
+        response = self.client.delete(self.detail_url)
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response.content, b'')
+        self.assertFalse(Experience.objects.filter(pk=self.experience.pk).exists())
+        self.assertFalse(Experience.starred_by.through.objects.filter(
+            experience_id=self.experience.pk,
+        ).exists())
+        self.assertEqual(Experience.objects.values().get(pk=self.other.pk), other_before)
+        self.assertEqual(list(self.other.starred_by.all()), [self.reader])
+        self.assertEqual(Experience.objects.count(), 1)
+        self.assertEqual(self.client.get(self.detail_url).status_code, 404)
+
+    def test_updates_ignore_forged_uuid_properties_and_star_accounts(self):
+        stars_before = self.database_snapshot()[1]
+        forged_id = uuid4()
+        for user in (self.editor, self.owner):
+            self.client.force_authenticate(user=user)
+            for method in ('put', 'patch'):
+                with self.subTest(user=user.username, method=method):
+                    response = getattr(self.client, method)(self.detail_url, {
+                        **self.payload, 'title': 'Allowed update', 'id': str(forged_id),
+                        'description_points': ['Forged'], 'category_label': 'Forged',
+                        'is_ongoing': True, 'star_count': 99, 'is_starred': False,
+                        'starred_by': [],
+                    }, format='json')
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(response.data['id'], str(self.experience.pk))
+                    self.assertEqual(response.data['category_label'], 'Part-Time')
+                    self.assertFalse(response.data['is_ongoing'])
+                    self.assertEqual(response.data['star_count'], 2)
+                    self.assertEqual(response.data['is_starred'], user == self.editor)
+                    self.assertEqual(response.data['description_points'], self.payload['description'].splitlines())
+                    self.assertEqual(self.database_snapshot()[1], stars_before)
+                    self.assertFalse(Experience.objects.filter(pk=forged_id).exists())
+                    self.assertEqual(Experience.objects.count(), 2)
+
+    def test_post_to_detail_follows_permission_and_method_checks(self):
+        before = self.database_snapshot()
+        for user, expected in ((self.owner, 405), (self.editor, 403), (self.reader, 403), (None, 403)):
+            with self.subTest(user=str(user)):
+                self.client.force_authenticate(user=user)
+                response = self.client.post(self.detail_url, self.payload, format='json')
+                self.assertEqual(response.status_code, expected)
+                self.assertEqual(self.database_snapshot(), before)
+
+    def test_malformed_json_update_does_not_change_data(self):
+        before = self.database_snapshot()
+        for user in (self.editor, self.owner):
+            self.client.force_authenticate(user=user)
+            for method in ('put', 'patch'):
+                with self.subTest(user=user.username, method=method):
+                    response = getattr(self.client, method)(
+                        self.detail_url, data='{"title":', content_type='application/json',
+                    )
+                    self.assertEqual(response.status_code, 400)
+                    self.assertIn('detail', response.data)
+                    self.assertEqual(self.database_snapshot(), before)
+
+    def test_forbidden_writes_are_denied_before_missing_object_lookup(self):
+        missing = reverse('api:experience-detail', args=[uuid4()])
+        before = self.database_snapshot()
+        for user, methods in (
+            (None, ('put', 'patch', 'delete')),
+            (self.reader, ('put', 'patch', 'delete')),
+            (self.editor, ('delete',)),
+        ):
+            self.client.force_authenticate(user=user)
+            for method in methods:
+                with self.subTest(user=str(user), method=method):
+                    response = getattr(self.client, method)(missing, self.payload, format='json')
+                    self.assertEqual(response.status_code, 403)
+                    self.assertEqual(self.database_snapshot(), before)
+
+    def test_session_mutations_without_csrf_are_rejected_without_changes(self):
+        before = self.database_snapshot()
+        for user in (self.editor, self.owner):
+            client, _ = self.session_client_and_token(user)
+            for method in ('put', 'patch', 'delete'):
+                with self.subTest(user=user.username, method=method):
+                    response = getattr(client, method)(self.detail_url, self.payload, format='json')
+                    self.assertEqual(response.status_code, 403)
+                    self.assertIn('CSRF', str(response.data['detail']))
+                    self.assertEqual(self.database_snapshot(), before)
+
+    def test_session_mutations_with_wrong_csrf_are_rejected_without_changes(self):
+        before = self.database_snapshot()
+        for user in (self.editor, self.owner):
+            client, _ = self.session_client_and_token(user)
+            for method in ('put', 'patch', 'delete'):
+                with self.subTest(user=user.username, method=method):
+                    response = getattr(client, method)(
+                        self.detail_url, self.payload, format='json', HTTP_X_CSRFTOKEN='invalid',
+                    )
+                    self.assertEqual(response.status_code, 403)
+                    self.assertIn('CSRF', str(response.data['detail']))
+                    self.assertEqual(self.database_snapshot(), before)
+
+    def test_owner_session_can_put_patch_and_delete_with_valid_csrf(self):
+        client, token = self.session_client_and_token(self.owner)
+        put = client.put(self.detail_url, {
+            **self.payload, 'title': 'Session PUT',
+        }, format='json', HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(put.status_code, 200)
+        self.experience.refresh_from_db()
+        self.assertEqual(self.experience.title, 'Session PUT')
+
+        patched = client.patch(self.detail_url, {
+            'description': '<b>Session PATCH</b>',
+        }, format='json', HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(patched.status_code, 200)
+        self.experience.refresh_from_db()
+        self.assertEqual(self.experience.description, 'Session PATCH')
+
+        deleted = client.delete(self.detail_url, HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(deleted.status_code, 204)
+        self.assertEqual(deleted.content, b'')
+        self.assertFalse(Experience.objects.filter(pk=self.experience.pk).exists())
+        self.assertTrue(Experience.objects.filter(pk=self.other.pk).exists())
+        self.assertEqual(list(self.other.starred_by.all()), [self.reader])
+
+    def test_editor_session_can_update_but_cannot_delete_with_valid_csrf(self):
+        client, token = self.session_client_and_token(self.editor)
+        put = client.put(self.detail_url, {
+            **self.payload, 'title': 'Editor PUT',
+        }, format='json', HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(put.status_code, 200)
+        patched = client.patch(self.detail_url, {
+            'title': '<b>Editor PATCH</b>',
+        }, format='json', HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(patched.status_code, 200)
+        self.experience.refresh_from_db()
+        self.assertEqual(self.experience.title, 'Editor PATCH')
+
+        before = self.database_snapshot()
+        deleted = client.delete(self.detail_url, HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(deleted.status_code, 403)
+        self.assertNotIn('CSRF', str(deleted.data['detail']))
+        self.assertEqual(self.database_snapshot(), before)
+
+    def test_reader_session_with_valid_csrf_cannot_update_or_delete(self):
+        client, token = self.session_client_and_token(self.reader)
+        before = self.database_snapshot()
+        for method in ('put', 'patch', 'delete'):
+            with self.subTest(method=method):
+                response = getattr(client, method)(
+                    self.detail_url, self.payload, format='json', HTTP_X_CSRFTOKEN=token,
+                )
+                self.assertEqual(response.status_code, 403)
+                self.assertNotIn('CSRF', str(response.data['detail']))
+                self.assertEqual(self.database_snapshot(), before)
+
+    def test_put_with_required_text_preserves_omitted_optional_fields(self):
+        original = Experience.objects.values().get(pk=self.experience.pk)
+        for user in (self.editor, self.owner):
+            with self.subTest(user=user.username):
+                self.client.force_authenticate(user=user)
+                response = self.client.put(self.detail_url, {
+                    'title': 'Minimal replacement', 'description': 'Updated description.',
+                }, format='json')
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(Experience.objects.values().get(pk=self.experience.pk), {
+                    **original, 'title': 'Minimal replacement', 'description': 'Updated description.',
+                })

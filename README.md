@@ -40,7 +40,7 @@ minimal multi-page interface with a warm visual theme.
   tanpa reload, dengan preview statis dan fallback HTML tetap tersedia
 - Loading daftar/detail, empty state, toast error API, dan pencegahan submit ganda
 - Payload publik Project hanya memuat count dan status star, tanpa identitas akun
-- 186 automated test untuk fitur lama, serializer, API, integrasi halaman, CSRF,
+- 206 automated test untuk fitur lama, serializer, API, integrasi halaman, CSRF,
   XSS, permission, privacy, serta isolasi data personal antar-user
 
 ## Technology
@@ -136,7 +136,8 @@ create, PUT/PATCH, atau delete. Jadi Editor tetap bisa memakai form HTML
 disengaja untuk menjaga fitur lama dan diuji pada API serta halaman.
 
 Halaman Experience masih memakai route Tugas 5 di bawah. Pada progres Tugas 6,
-serializer, permission empat role, serta API daftar/create sudah tersedia.
+serializer, permission empat role, serta API daftar/create/detail/update/delete
+sudah tersedia.
 Integrasi halaman ke DRF dilanjutkan pada checkpoint berikutnya.
 
 ## Projects API: Tutorial 07
@@ -279,6 +280,9 @@ ini. API PUT/PATCH sudah berfungsi; form update lama tetap dapat dipakai.
 | Route | Method | Fungsi | Akses |
 | --- | --- | --- | --- |
 | `/api/v1/experiences/` | GET/HEAD, POST | Daftar DRF dan create JSON | Baca publik; create superuser |
+| `/api/v1/experiences/<uuid>/` | GET/HEAD | Detail DRF satu Experience | Publik |
+| `/api/v1/experiences/<uuid>/` | PUT/PATCH | Update melalui serializer | Editor dan superuser |
+| `/api/v1/experiences/<uuid>/` | DELETE | Hapus, 204 tanpa body | Superuser |
 | `/experience/` | GET | Menampilkan kerangka halaman dan interaksi Experience | Publik |
 | `/api/experiences/` | GET | Mengirim data Experience publik beserta state star | Publik |
 | `/experience/add/` | GET/POST | Fallback form dan AJAX create | Superuser |
@@ -304,12 +308,31 @@ hasil perhitungan read-only. Browsable API tersedia pada URL yang sama; gunakan
 JSON. Permintaan yang membatasi Accept ke HTML saja sambil memaksa format JSON
 akan ditolak dengan 406.
 
-Saat ini endpoint detail/update/delete/star DRF dan migrasi UI masih menyusul;
-route lama tetap dipakai halaman. Test list/create baru berjumlah 19 dan total
-test main mencapai 186. Test penolakan memeriksa record dan relasi star; test
-CSRF memakai `.login()` serta APIClient dengan CSRF enforcement. Cek HTTP lokal
-membuktikan JSON dan HTML Browsable API bisa dibuka, serta kedua halaman lama
-tetap mengembalikan 200. PWS belum diverifikasi ulang untuk perubahan ini.
+Endpoint `api:experience-detail` memakai UUID dari daftar. GET mengembalikan satu
+object dengan 200, sedangkan UUID valid yang tidak ditemukan menghasilkan 404
+setelah permission lolos. Pengguna yang tidak berhak menulis ditolak dengan 403
+sebelum pencarian object. PUT membutuhkan title dan description; field opsional
+yang tidak dikirim tetap memakai nilai instance. PATCH cukup field yang berubah.
+Validasi tanggal menggabungkan input dengan tanggal lama, dan `ended_at: null`
+mengubah status menjadi ongoing. Update berhasil mengembalikan object terbaru
+dengan 200. Delete hanya tersedia untuk superuser dan menghasilkan 204 tanpa
+body; jangan panggil `.json()` pada respons tersebut.
+
+| Aksi API Experience | Guest | User biasa | Editor dengan change_experience | Superuser |
+| --- | --- | --- | --- | --- |
+| Baca daftar/detail | Ya | Ya | Ya | Ya |
+| Create | 403 | 403 | 403 | 201 bila valid |
+| PUT/PATCH | 403 | 403 | 200 bila valid | 200 bila valid |
+| Delete | 403 | 403 | 403 | 204 |
+
+Star DRF dan migrasi UI masih menyusul; route lama tetap dipakai halaman.
+Test endpoint list/create berjumlah 19 dan detail/update/delete 20; total test
+main mencapai 206. Test penolakan memeriksa record serta relasi star, termasuk
+keutuhan record lain setelah delete. Test CSRF memakai `.login()` serta APIClient
+dengan CSRF enforcement: Editor dengan token valid bisa update tetapi ditolak
+delete, sedangkan user biasa tetap ditolak menulis. Cek HTTP lokal membuktikan
+JSON dan Browsable API bisa dibuka, HEAD kosong, serta missing UUID mendapat
+404 JSON. PWS belum diverifikasi ulang untuk perubahan ini.
 
 ## Verifikasi Tutorial 07
 
@@ -583,7 +606,8 @@ Selama mengerjakan Tutorial sampai Tugas 5 dan Tutorial 07, saya memakai OpenAI 
 Pada Tutorial 07, bantuan juga mencakup membaca materi serta kode aktual, menyusun roadmap/playbook pribadi, dan mengedit serializer, permission, view/URL API, integrasi Projects, test, serta dokumentasi per checkpoint yang saya minta. Codex membantu menjalankan verifikasi dan browser pada database sementara. Commit tetap saya jalankan sendiri; push, merge, dan deployment tidak dianggap otomatis selesai oleh bantuan tersebut.
 
 Pada awal Tugas 6, bantuan edit per checkpoint berlanjut ke serializer Experience,
-permission empat role, API daftar/create, test, dan dokumentasi terkait. Rincian
+permission empat role, API daftar/create/detail/update/delete, test, serta
+dokumentasi terkait. Rincian
 hasil dan batas verifikasinya dicatat pada prompt log mulai entri 34.
 
 Saat memberi prompt, saya biasanya menyertakan rubrik, source code terbaru, error yang muncul, atau hasil command Git. Saya meminta pekerjaan dibagi per module, setiap konsep baru dijelaskan, dan perubahan diperiksa sebelum commit. Cara ini membantu saya mengikuti alasan di balik `fetch()`, `await`, debounce, `AbortController`, `FormData`, CSRF, serta penggunaan `textContent`, bukan hanya melihat hasil akhirnya.
