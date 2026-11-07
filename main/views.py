@@ -149,6 +149,7 @@ def show_experience(request):
             or category_filter
             or status_filter
         ),
+        'experience_placeholder_id': '00000000-0000-0000-0000-000000000000',
     }
 
     return render(request, 'experience.html', context)

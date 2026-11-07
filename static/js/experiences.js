@@ -32,6 +32,11 @@ const experienceDeleteName = document.getElementById(
 );
 
 let experienceRequestController = null;
+const experiencePlaceholderId = '00000000-0000-0000-0000-000000000000';
+
+function experienceActionUrl(action, id) {
+    return experienceList.dataset[action].replace(experiencePlaceholderId, id);
+}
 
 function debounce(callback, delay) {
     let timeoutId;
@@ -132,7 +137,7 @@ async function toggleExperienceStar(button, experience) {
     button.disabled = true;
 
     try {
-        const response = await fetch(experience.star_url, {
+        const response = await fetch(experienceActionUrl('starUrl', experience.id), {
             method: 'POST',
             headers: {
                 'X-CSRFToken': experienceList.dataset.csrfToken,
@@ -203,6 +208,9 @@ function createExperienceCard(experience) {
     const information = document.createElement('div');
     const period = document.createElement('p');
     const points = document.createElement('ul');
+    const canStar = experienceList.dataset.canStar === 'true';
+    const canChange = experienceList.dataset.canChange === 'true';
+    const canDelete = experienceList.dataset.canDelete === 'true';
 
     article.className = 'experience-item';
     header.className = 'experience-item-header';
@@ -237,31 +245,31 @@ function createExperienceCard(experience) {
     article.append(header, points);
 
     if (
-        experience.can_star
-        || experience.can_change
-        || experience.can_delete
+        canStar
+        || canChange
+        || canDelete
     ) {
         const actions = document.createElement('div');
 
         actions.className = 'experience-actions';
 
-        if (experience.can_star) {
+        if (canStar) {
             actions.append(createExperienceStarButton(experience));
         }
 
-        if (experience.can_change) {
+        if (canChange) {
             const editLink = createTextElement(
                 'a',
                 '',
                 'Edit experience',
             );
 
-            editLink.href = experience.update_url;
+            editLink.href = experienceActionUrl('updateUrl', experience.id);
             actions.append(editLink);
         }
 
         if (
-            experience.can_delete
+            canDelete
             && experienceDeleteForm
             && experienceDeleteName
         ) {
@@ -282,7 +290,7 @@ function createExperienceCard(experience) {
             );
 
             deleteButton.addEventListener('click', () => {
-                experienceDeleteForm.action = experience.delete_url;
+                experienceDeleteForm.action = experienceActionUrl('deleteUrl', experience.id);
                 experienceDeleteName.textContent = experience.title;
             });
 
@@ -391,6 +399,10 @@ async function loadExperiences() {
         }
 
         const experiences = await response.json();
+        // Only the current request may replace the list or its feedback state.
+        if (requestController.signal.aborted || experienceRequestController !== requestController) {
+            return;
+        }
 
         if (experiences.length === 0) {
             renderExperienceEmpty();
@@ -405,7 +417,11 @@ async function loadExperiences() {
         renderExperienceCount(experiences.length);
         experienceList.replaceChildren(...experienceCards);
     } catch (error) {
-        if (error.name === 'AbortError') {
+        if (
+            error.name === 'AbortError'
+            || requestController.signal.aborted
+            || experienceRequestController !== requestController
+        ) {
             return;
         }
 

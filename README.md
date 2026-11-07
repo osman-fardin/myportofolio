@@ -14,7 +14,7 @@ minimal multi-page interface with a warm visual theme.
 
 - Minimal homepage with direct paths to Projects and About
 - Database-backed Experience and Projects pages
-- Experience dimuat dari endpoint JSON menggunakan Fetch API tanpa reload halaman
+- Daftar dan filter Experience dimuat dari DRF menggunakan Fetch API tanpa reload
 - Pencarian dan filter Experience dengan debouncing serta request cancellation
 - Modal create Experience berbasis AJAX dengan response `201`, `400`, atau `403`
 - Loading, empty, no-results, error, retry, result count, dan toast feedback
@@ -40,7 +40,7 @@ minimal multi-page interface with a warm visual theme.
   tanpa reload, dengan preview statis dan fallback HTML tetap tersedia
 - Loading daftar/detail, empty state, toast error API, dan pencegahan submit ganda
 - Payload publik Project hanya memuat count dan status star, tanpa identitas akun
-- 217 automated test untuk fitur lama, serializer, API, integrasi halaman, CSRF,
+- 224 automated test untuk fitur lama, serializer, API, integrasi halaman, CSRF,
   XSS, permission, privacy, serta isolasi data personal antar-user
 
 ## Technology
@@ -135,10 +135,11 @@ create, PUT/PATCH, atau delete. Jadi Editor tetap bisa memakai form HTML
 `is_staff` dan nama grup saja tidak memberikan izin API tersebut. Perbedaan ini
 disengaja untuk menjaga fitur lama dan diuji pada API serta halaman.
 
-Halaman Experience masih memakai route Tugas 5 di bawah. Pada progres Tugas 6,
+Daftar dan filter halaman Experience sudah memakai API DRF. Pada progres Tugas 6,
 serializer, permission empat role, serta API daftar/create/detail/update/delete
 dan star sudah tersedia.
-Integrasi halaman ke DRF dilanjutkan pada checkpoint berikutnya.
+Create, star, edit, dan delete halaman masih memakai route Tugas 5 selama
+migrasi bertahap, dengan kontrol role yang sama.
 
 ## Projects API: Tutorial 07
 
@@ -336,10 +337,10 @@ retry otomatis pada toggle. Akun login dengan UUID target yang hilang mendapat
 404. GET dari akun login mendapat 405; guest mendapat 403 karena permission
 diperiksa lebih dahulu. POST berbasis session tetap membutuhkan CSRF.
 
-API Experience pada branch backend sudah mencakup CRUD dan star. Migrasi UI
-menjadi tahap berikutnya; halaman masih memakai route lama. Test endpoint
-list/create berjumlah 19, detail/update/delete 20, dan star 11; total test
-main mencapai 217. Test penolakan memeriksa record serta relasi star, termasuk
+API Experience sudah mencakup CRUD dan star, lalu merged melalui PR #22 pada
+`59a8f09`. Checkpoint UI pertama memindahkan daftar/filter ke DRF. Test endpoint
+list/create berjumlah 19, detail/update/delete 20, dan star 11; pada checkpoint
+backend total main 217. Test penolakan memeriksa record serta relasi star, termasuk
 keutuhan record lain setelah delete. Test CSRF memakai `.login()` serta APIClient
 dengan CSRF enforcement: Editor dengan token valid bisa update tetapi ditolak
 delete, sedangkan user biasa tetap ditolak menulis. Cek HTTP lokal membuktikan
@@ -348,6 +349,30 @@ JSON dan Browsable API bisa dibuka, HEAD kosong, serta missing UUID mendapat
 berakhir, dan kesesuaian relasi antara route lama dan API baru. Cek HTTP lokal
 memastikan GET star oleh guest mendapat 403 sesuai kontrak, tanpa menjalankan
 mutation pada database lokal. PWS belum diverifikasi ulang untuk perubahan ini.
+
+### Progres integrasi halaman Experience
+
+`templates/experience.html` sekarang mengirim named URL `api:experience-list`
+melalui `data-experiences-url`. Flag star/edit/delete ditentukan template dari
+user dan permission Django, lalu dipakai JavaScript untuk merakit kontrol.
+Payload API tetap 12 field publik. Pola URL action lama memakai placeholder UUID
+dari template, sehingga tombol tetap berfungsi ketika daftar dimuat dari DRF.
+Izin tindakan tetap diperiksa server.
+
+Pencarian 400 ms, filter kategori/status, Clear, result count, loading, empty,
+error/retry, thumbnail, serta DOM `textContent` dipertahankan. Respons atau error
+request lama yang dibatalkan tidak mengganti daftar dan feedback request terbaru.
+Create/star/edit/delete UI masih memakai jalur lama pada tahap ini; create dan
+star tetap AJAX, sedangkan delete lama masih redirect. Migrasi mutation serta
+modal edit PATCH dilanjutkan per checkpoint.
+
+Tujuh test halaman baru ditambah ke `main/tests_experience_ui.py`, dan assertion
+URL pada test shell lama disesuaikan memakai `reverse('api:experience-list')`.
+Full suite main 224 lulus, check/migration/sintaks JS/whitespace bersih. Browser
+dengan database sementara memeriksa guest, user biasa, Editor, staff, dan owner;
+DRF list/filter tanpa reload atau GET list lama; debounce, kombinasi filter,
+empty/Clear, thumbnail, escaping, request lambat, error/retry, serta mutation
+lama yang tetap berfungsi. Layout stabil diperiksa pada 390/768/1440 px.
 
 ## Verifikasi Tutorial 07
 
@@ -621,7 +646,8 @@ Selama mengerjakan Tutorial sampai Tugas 5 dan Tutorial 07, saya memakai OpenAI 
 Pada Tutorial 07, bantuan juga mencakup membaca materi serta kode aktual, menyusun roadmap/playbook pribadi, dan mengedit serializer, permission, view/URL API, integrasi Projects, test, serta dokumentasi per checkpoint yang saya minta. Codex membantu menjalankan verifikasi dan browser pada database sementara. Commit tetap saya jalankan sendiri; push, merge, dan deployment tidak dianggap otomatis selesai oleh bantuan tersebut.
 
 Pada awal Tugas 6, bantuan edit per checkpoint berlanjut ke serializer Experience,
-permission empat role, API daftar/create/detail/update/delete/star, test, serta
+permission empat role, API daftar/create/detail/update/delete/star, integrasi
+daftar/filter Experience ke DRF, test, serta
 dokumentasi terkait. Rincian
 hasil dan batas verifikasinya dicatat pada prompt log mulai entri 34.
 

@@ -940,6 +940,63 @@ Experience; tampilan dan PWS tidak diubah. README serta panduan pribadi
 diperbarui. Sesudah commit ini, branch API siap direview dan diintegrasikan
 sebelum memulai branch UI. Commit, push, dan merge tetap saya jalankan sendiri.
 
+## 39. Memindahkan daftar dan filter Experience ke DRF
+
+**Prompt (ringkasan):**
+
+> Branch API sudah merged dan branch UI sudah dibuat. Lanjut satu checkpoint:
+> bantu pindahkan daftar serta filter Experience ke DRF, dengan tampilan dan
+> kontrol role tetap sesuai. Payload baru tidak punya can_star/can_change atau
+> URL action lama; jelasin penyesuaiannya agar create/star/edit/delete tetap bisa
+> dipakai selama migrasi. Cek loading, request lambat, error, dan browser juga.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan dengan bantuan AI untuk penjelasan, implementasi, pengujian,
+dan dokumentasi. Branch `feat/tugas-6-experience-ui` diperiksa dari merge API
+`59a8f09`. Endpoint daftar di template diganti ke `api:experience-list`. Flag
+role dan pola URL action dipindahkan ke atribut data template Django, dengan
+placeholder UUID dari context. JavaScript membaca flag tersebut dan mengganti
+placeholder memakai ID object API. Payload DRF tetap 12 field publik.
+
+Saya memahami bahwa izin tampilan dan izin server mempunyai fungsi berbeda.
+Kontrol star tersedia bagi akun login, edit memakai permission
+`main.change_experience`, dan create/delete khusus superuser. Template menentukan
+kontrol untuk halaman saat dirender; view tetap memeriksa setiap mutation.
+Create/star/edit/delete halaman masih memakai route lama pada checkpoint ini.
+Star lama serta link edit/delete dirakit dari named URL yang dirender template,
+sehingga tidak bergantung pada field action dari JSON lama.
+
+Debounce 400 ms, filter title/category/status, Clear, count, loading/empty/error,
+retry, thumbnail, dan safe DOM tetap dipakai. Penjagaan controller diperkuat agar
+respons atau error request yang sudah dibatalkan tidak menimpa hasil terbaru.
+Satu assertion test shell lama diperbarui sesuai kontrak URL; test JSON lama
+tetap disimpan. Tujuh test halaman baru memeriksa flag role, permission langsung,
+pola URL, token CSRF user biasa/Editor, escaping, dan container saat kosong.
+
+Pemanggilan test terarah awal sempat memakai nama class yang tidak ada; label
+dikoreksi dengan menjalankan full suite `main`. Seluruh 224 test main lulus.
+Check, pemeriksaan migrasi, sintaks JavaScript, dan whitespace bersih.
+
+Browser memakai database sementara untuk semua role, termasuk staff. Daftar dan
+filter mengambil DRF tanpa GET list lama atau reload. Debounce, kombinasi filter,
+empty/Clear, thumbnail, teks HTML yang tetap literal, request lambat, error
+503/jaringan/JSON, serta Retry diperiksa. Star lama tetap terbaca oleh DRF;
+create lama menghasilkan 201 tanpa reload dan mempertahankan filter; link edit
+terbuka dan delete lama masih redirect lalu membaca ulang DRF. Data percobaan
+create/delete hanya berada di database sementara.
+
+Skrip viewport awal mengukur segera sesudah resize dan melaporkan overflow.
+Setelah menunggu dua frame, ukuran 390/768/1440 px pas dan screenshot diperiksa.
+Chrome sempat melaporkan pembatalan View Transition saat redirect delete;
+pembanding JavaScript baseline dan pengujian ulang kode baru kemudian selesai
+tanpa page error. CSS tidak diubah untuk kedua temuan pemeriksaan tersebut.
+Hasil pembanding ini tidak dianggap sebagai perubahan animasi aplikasi.
+
+README dan panduan pribadi diperbarui. Data lokal tetap satu Project dan dua
+Experience; model, warna, stylesheet, serta PWS tidak diubah. Commit tetap saya
+jalankan sendiri sebelum melanjutkan create lewat DRF pada checkpoint berikutnya.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa
