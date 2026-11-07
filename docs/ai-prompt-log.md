@@ -1106,6 +1106,74 @@ README dan panduan pribadi diperbarui. Model, warna/desain, data lokal,
 environment, serta PWS tidak diubah. Commit tetap saya jalankan sendiri; setelah
 checkpoint star ini, berikutnya modal edit Experience melalui PATCH.
 
+## 42. Mengedit Experience melalui modal dan PATCH
+
+**Prompt (ringkasan):**
+
+> Star sudah di-commit. Lanjut modal edit Experience untuk Editor dan owner
+> memakai PATCH. Gimana prefill data lama, menjaga tanggal serta baris deskripsi,
+> dan mengirim hanya field yang berubah? Bantu implementasi dan cek validasi,
+> permission, submit ganda, fokus keyboard, serta filter setelah update.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan dengan bantuan AI untuk penjelasan, implementasi, pengujian,
+dan dokumentasi. Commit star `d0c23f4` diperiksa sebelum checkpoint edit.
+show_experience menyediakan ExperienceForm khusus edit dengan auto_id edit_%s
+bagi akun yang punya permission main.change_experience. Komponen modal baru
+memakai kelas dan stylesheet modal lama. ID field owner tidak bentrok dengan
+create; user biasa/guest tidak memperoleh modal edit. Direct permission tetap
+berfungsi tanpa mengharuskan staff atau nama grup tertentu.
+
+Link edit mempertahankan href form HTML lama. Klik biasa membuka modal dengan
+snapshot object daftar DRF, termasuk raw description, kategori, thumbnail, dan
+tanggal. Nilai tanggal diformat UTC sesuai interpretasi form lama. Perbandingan
+nilai form saat dibuka dan saat save menghasilkan PATCH parsial: hanya field
+writable yang berubah. Field tanggal yang tidak disentuh tidak dikirim, agar
+detik/mikrodetik data lama tetap utuh. Thumbnail/ended_at yang dikosongkan menjadi
+null. Body tidak memuat CSRF, field internal Django, atau metadata API. Jika
+tidak berubah, toast muncul tanpa request. Snapshot ini bukan mekanisme deteksi
+konflik edit serentak pada field yang sama.
+
+Save memakai PATCH JSON ke named URL detail dengan header CSRF. Field, tombol,
+serta target edit dikunci selama proses; label Saving dan aria-busy memberi
+feedback. Sukses 200 memperbarui daftar dengan filter aktif dan menutup modal.
+Error 400/403 atau jaringan mempertahankan isian serta mengaktifkan form kembali.
+Tidak ada retry mutation otomatis. Fokus masuk ke judul ketika modal dibuka,
+kembali ke link edit saat tutup, atau ke pencarian jika record tidak lagi cocok
+dengan filter. Menutup modal saat save tidak membatalkan request server; target
+tetap terkunci sampai selesai.
+
+Enam test edit baru memeriksa field/ID/fallback, PATCH Editor yang mempertahankan
+presisi tanggal dan star, optional null, validasi tanpa perubahan DB, permission
+yang dicabut setelah render, CSRF, serta sesi berakhir. Assertion role dan
+direct permission juga diperluas. Test awal halaman owner mengharapkan hanya
+enam field dan token, tetapi Django juga menghasilkan hidden initial-started_at
+dari default model. Assertion dikoreksi untuk memeriksa field hidden tersebut;
+allowlist JSON tidak berubah. Full suite yang sudah berjalan sebelum koreksi
+juga gagal pada assertion yang sama. Setelah koreksi, 26 test terarah dan seluruh
+237 test main lulus; check, migration, sintaks JS, serta whitespace bersih.
+
+Browser memakai database sementara dan akun palsu. Editor berhasil PATCH judul
+saja, dengan description mentah, baris kosong, tanggal presisi, dan star tetap.
+Browser diatur ke Asia/Jakarta untuk membuktikan prefill dan perubahan tanggal
+tetap mengikuti UTC form lama. No-change tidak mengirim PATCH; dua submit saat
+request ditahan menghasilkan satu request. Clear tanggal akhir mengirim null;
+filter completed tetap aktif dan fokus kembali ke pencarian saat hasil kosong.
+Escape, fokus sesudah sukses, serta form HTML fallback diperiksa. Owner berhasil
+PATCH deskripsi; guest dan akun biasa tidak melihat edit.
+
+Invalid title/tanggal menghasilkan 400 dari server tanpa kehilangan isian.
+Error 403/404 JSON, HTML 503/200, dan jaringan putus disimulasikan; CSRF salah
+serta logout diperiksa terhadap server sungguhan. Toast sesuai, input tetap,
+tombol aktif kembali, dan data tidak berubah pada kasus gagal. Pemeriksaan edit
+Editor mencatat nol request dokumen dan nol page error. Modal pas pada viewport
+390/768/1440; screenshot mobile dan desktop diperiksa. Tidak ada perubahan CSS.
+
+README dan panduan pribadi diperbarui. Model, desain, data lokal, environment,
+serta PWS tidak diubah. Commit tetap saya jalankan sendiri; berikutnya migrasi
+confirmation delete ke DELETE DRF dengan respons 204.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa

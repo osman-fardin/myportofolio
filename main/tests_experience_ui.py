@@ -87,6 +87,10 @@ class ExperienceReadPageTests(TestCase):
                         self.assertContains(response, f'id="{modal}"')
                     else:
                         self.assertNotContains(response, f'id="{modal}"')
+                if user in (self.editor, self.owner):
+                    self.assertContains(response, 'id="experience-edit-modal"')
+                else:
+                    self.assertNotContains(response, 'id="experience-edit-modal"')
 
     def test_direct_permission_enables_edit_without_staff_or_editor_group(self):
         user = get_user_model().objects.create_user(username='direct-page-editor')
@@ -97,6 +101,9 @@ class ExperienceReadPageTests(TestCase):
         attributes = self.parse_list(self.client.get(reverse('main:show_experience')))
         self.assertEqual(attributes['data-can-change'], 'true')
         self.assertEqual(attributes['data-can-delete'], 'false')
+        self.assertContains(
+            self.client.get(reverse('main:show_experience')), 'id="experience-edit-modal"',
+        )
 
     def test_named_action_patterns_use_drf_star_and_keep_html_edit_delete(self):
         attributes = self.parse_list(self.client.get(reverse('main:show_experience')))
@@ -105,6 +112,7 @@ class ExperienceReadPageTests(TestCase):
             ('update', 'main:update_experience'),
             ('delete', 'main:delete_experience'),
             ('star', 'api:experience-star'),
+            ('detail', 'api:experience-detail'),
         ):
             with self.subTest(action=action):
                 pattern = attributes[f'data-{action}-url']
@@ -285,3 +293,150 @@ class ExperienceCreatePageTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertNotIn('CSRF', str(response.data['detail']))
         self.assertEqual(Experience.objects.count(), 0)
+
+
+class _ExperienceEditFormParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.attributes = {}
+        self.ids = []
+        self.fields = []
+        self.in_form = False
+
+    def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        if attributes.get('id'):
+            self.ids.append(attributes['id'])
+        if tag == 'form':
+            self.in_form = attributes.get('id') == 'experience-edit-form'
+            if self.in_form:
+                self.attributes = attributes
+        if self.in_form and tag in ('input', 'textarea', 'select'):
+            self.fields.append(attributes)
+
+    def handle_endtag(self, tag):
+        if tag == 'form':
+            self.in_form = False
+
+
+class ExperienceEditPageTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        user_model = get_user_model()
+        cls.editor = user_model.objects.create_user(
+            username='experience-edit-page-editor', password='test-password',
+        )
+        cls.owner = user_model.objects.create_superuser(
+            username='experience-edit-page-owner', password='test-password',
+        )
+        cls.change_permission = Permission.objects.get(
+            content_type__app_label='main', codename='change_experience',
+        )
+        group = Group.objects.create(name='Editor')
+        group.permissions.add(cls.change_permission)
+        cls.editor.groups.add(group)
+        cls.experience = Experience.objects.create(
+            title='Edit this role', description='First point.\n\nSecond point.',
+            category='research', thumbnail='https://example.com/preview.jpg',
+            started_at=datetime(2026, 10, 1, 9, 30, 42, 123456, tzinfo=UTC),
+            ended_at=datetime(2026, 11, 1, 9, 30, 57, tzinfo=UTC),
+        )
+        cls.experience.starred_by.add(cls.editor)
+
+    def page_and_target(self, user=None):
+        user = user or self.editor
+        client = APIClient(enforce_csrf_checks=True)
+        self.assertTrue(client.login(username=user.username, password='test-password'))
+        page = client.get(reverse('main:show_experience'))
+        self.assertEqual(page.status_code, 200)
+        parser = _ExperienceListParser()
+        parser.feed(page.content.decode())
+        url = parser.attributes['data-detail-url'].replace(
+            '00000000-0000-0000-0000-000000000000', str(self.experience.pk),
+        )
+        self.assertEqual(url, reverse('api:experience-detail', args=[self.experience.pk]))
+        return client, page, url, parser.attributes['data-csrf-token']
+
+    def test_owner_page_has_six_edit_fields_with_unique_ids_and_html_fallback(self):
+        _, page, _, _ = self.page_and_target(self.owner)
+        parser = _ExperienceEditFormParser()
+        parser.feed(page.content.decode())
+        self.assertTrue(parser.attributes)
+        self.assertEqual(parser.attributes['method'], 'post')
+        self.assertEqual(parser.attributes['action'], reverse(
+            'main:update_experience', args=['00000000-0000-0000-0000-000000000000'],
+        ))
+        fields = {field['name']: field for field in parser.fields}
+        self.assertEqual(set(fields), {
+            'csrfmiddlewaretoken', 'title', 'description', 'category',
+            'thumbnail', 'started_at', 'ended_at', 'initial-started_at',
+        })
+        self.assertEqual(fields['initial-started_at']['type'], 'hidden')
+        self.assertEqual(fields['title']['id'], 'edit_title')
+        self.assertEqual(fields['started_at']['type'], 'datetime-local')
+        self.assertEqual(len(parser.ids), len(set(parser.ids)))
+        self.assertContains(page, 'aria-labelledby="experience-edit-title"')
+
+    def test_editor_partial_patch_keeps_exact_dates_description_and_stars(self):
+        client, _, url, token = self.page_and_target()
+        original_start, original_end = self.experience.started_at, self.experience.ended_at
+        listed = client.get(reverse('api:experience-list')).json()[0]
+        self.assertEqual(listed['description'], self.experience.description)
+        response = client.patch(url, {'title': ' <b>Updated role</b> '},
+                                format='json', HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['id'], str(self.experience.pk))
+        self.experience.refresh_from_db()
+        self.assertEqual(self.experience.title, 'Updated role')
+        self.assertEqual(self.experience.description, 'First point.\n\nSecond point.')
+        self.assertEqual(self.experience.started_at, original_start)
+        self.assertEqual(self.experience.ended_at, original_end)
+        self.assertEqual(list(self.experience.starred_by.all()), [self.editor])
+
+    def test_editor_can_clear_optional_fields_with_null_from_modal_target(self):
+        client, _, url, token = self.page_and_target()
+        response = client.patch(url, {'thumbnail': None, 'ended_at': None},
+                                format='json', HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(response.status_code, 200)
+        self.experience.refresh_from_db()
+        self.assertIsNone(self.experience.thumbnail)
+        self.assertIsNone(self.experience.ended_at)
+        self.assertTrue(response.json()['is_ongoing'])
+        self.assertTrue(response.json()['is_starred'])
+
+    def test_invalid_modal_patch_does_not_change_the_record(self):
+        client, _, url, token = self.page_and_target()
+        original = list(Experience.objects.values())
+        for payload, field in (
+            ({'title': '<img src=x onerror=alert(1)>'}, 'title'),
+            ({'ended_at': '2026-09-30T09:30'}, 'ended_at'),
+        ):
+            with self.subTest(payload=payload):
+                response = client.patch(url, payload, format='json', HTTP_X_CSRFTOKEN=token)
+                self.assertEqual(response.status_code, 400)
+                self.assertIn(field, response.json())
+                self.assertEqual(list(Experience.objects.values()), original)
+                self.assertEqual(list(self.experience.starred_by.all()), [self.editor])
+
+    def test_permission_revoked_after_page_render_prevents_modal_patch(self):
+        client, _, url, token = self.page_and_target()
+        self.editor.groups.clear()
+        original = list(Experience.objects.values())
+        response = client.patch(url, {'title': 'Denied edit'},
+                                format='json', HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(list(Experience.objects.values()), original)
+
+    def test_missing_csrf_and_expired_session_prevent_modal_patch(self):
+        client, _, url, token = self.page_and_target()
+        original = list(Experience.objects.values())
+        response = client.patch(url, {'title': 'Denied edit'}, format='json')
+        self.assertEqual(response.status_code, 403)
+        self.assertIn('CSRF', response.json()['detail'])
+        self.assertEqual(list(Experience.objects.values()), original)
+        client.logout()
+        response = client.patch(url, {'title': 'Denied edit'},
+                                format='json', HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(response.status_code, 403)
+        self.assertNotIn('CSRF', response.json()['detail'])
+        self.assertEqual(list(Experience.objects.values()), original)

@@ -140,6 +140,11 @@ def show_experience(request):
             if request.user.is_superuser
             else None
         ),
+        'experience_edit_form': (
+            ExperienceForm(auto_id='edit_%s')
+            if request.user.has_perm('main.change_experience')
+            else None
+        ),
         'category_choices': Experience.EXPERIENCE_CHOICES,
         'title_query': title_query,
         'category_filter': category_filter,

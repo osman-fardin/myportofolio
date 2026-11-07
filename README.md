@@ -17,6 +17,7 @@ minimal multi-page interface with a warm visual theme.
 - Daftar dan filter Experience dimuat dari DRF menggunakan Fetch API tanpa reload
 - Pencarian dan filter Experience dengan debouncing serta request cancellation
 - Modal create Experience melalui JSON DRF dengan response `201`, `400`, atau `403`
+- Modal edit Experience melalui PATCH untuk Editor/superuser, hanya field berubah
 - Loading, empty, no-results, error, retry, result count, dan toast feedback
 - Sanitasi input Experience menggunakan `strip_tags` dan output aman melalui
   DOM `textContent`
@@ -40,7 +41,7 @@ minimal multi-page interface with a warm visual theme.
   tanpa reload, dengan preview statis dan fallback HTML tetap tersedia
 - Loading daftar/detail, empty state, toast error API, dan pencegahan submit ganda
 - Payload publik Project hanya memuat count dan status star, tanpa identitas akun
-- 231 automated test untuk fitur lama, serializer, API, integrasi halaman, CSRF,
+- 237 automated test untuk fitur lama, serializer, API, integrasi halaman, CSRF,
   XSS, permission, privacy, serta isolasi data personal antar-user
 
 ## Technology
@@ -138,7 +139,7 @@ disengaja untuk menjaga fitur lama dan diuji pada API serta halaman.
 Daftar dan filter halaman Experience sudah memakai API DRF. Pada progres Tugas 6,
 serializer, permission empat role, serta API daftar/create/detail/update/delete
 dan star sudah tersedia.
-Create serta star halaman juga sudah memakai DRF. Edit dan delete halaman masih
+Create, star, dan modal edit halaman juga sudah memakai DRF. Delete halaman masih
 memakai route Tugas 5 selama migrasi bertahap, dengan kontrol role yang sama.
 
 ## Projects API: Tutorial 07
@@ -363,8 +364,9 @@ Pencarian 400 ms, filter kategori/status, Clear, result count, loading, empty,
 error/retry, thumbnail, serta DOM `textContent` dipertahankan. Respons atau error
 request lama yang dibatalkan tidak mengganti daftar dan feedback request terbaru.
 Create UI kini mengirim POST JSON ke `api:experience-list`, dan star memakai
-`api:experience-star`. Edit/delete masih memakai jalur HTML lama; delete masih
-redirect. Migrasi berikutnya adalah modal edit PATCH dan delete per checkpoint.
+`api:experience-star`. Edit memakai PATCH ke `api:experience-detail`, dengan
+form HTML lama tetap tersedia lewat link. Delete masih POST dan redirect;
+migrasi berikutnya adalah delete melalui DRF.
 
 Tujuh test halaman baru ditambah ke `main/tests_experience_ui.py`, dan assertion
 URL pada test shell lama disesuaikan memakai `reverse('api:experience-list')`.
@@ -411,6 +413,37 @@ atau POST lama, submit ganda saat kartu berganti, dan GET lama yang terlambat.
 Error 400/403/404, HTML 503/200, payload tidak sesuai, jaringan putus, CSRF salah,
 dan logout juga diperiksa. Setiap percobaan mengirim satu POST tanpa retry;
 state/count tetap saat gagal dan tombol kembali aktif. PWS belum diverifikasi.
+
+Modal edit memakai ExperienceForm lama dengan ID field `edit_*`, agar tidak
+bertabrakan dengan modal create milik owner. Template hanya menyediakannya untuk
+akun dengan `main.change_experience`. Klik biasa pada link edit membuka modal;
+href tetap menuju form HTML lama. Isian berasal dari object daftar DRF, termasuk
+description mentah supaya baris kosong tidak hilang saat prefill. Modal memakai
+stylesheet yang sudah ada.
+
+JavaScript membandingkan nilai form dengan snapshot saat modal dibuka, lalu
+mengirim hanya field writable yang berubah melalui PATCH JSON dan header CSRF.
+Jika tidak ada perubahan, tidak ada request. Thumbnail/tanggal akhir yang
+dikosongkan dikirim sebagai null. Tanggal ditampilkan dalam UTC sesuai form lama;
+field tanggal yang tidak diedit tidak dikirim, sehingga detik dan mikrodetik
+data lama tetap utuh. Field internal `initial-started_at` Django tidak ikut body.
+PATCH ini tidak memeriksa konflik bila akun lain mengedit field yang sama.
+
+Selama save, field dan submit dikunci, ada label Saving, dan target tidak bisa
+diganti. Respons 200 memuat ulang daftar dengan filter aktif lalu menutup modal;
+error API/jaringan mempertahankan isian dan mengaktifkan form kembali. Fokus
+masuk ke judul saat membuka, lalu kembali ke link edit setelah tutup, atau ke
+pencarian bila record sudah tidak cocok dengan filter.
+
+Enam test edit ditambahkan, ditambah assertion modal per role dan permission
+langsung. Test awal perlu dikoreksi karena ModelForm juga merender hidden field
+default `initial-started_at`; allowlist payload tetap enam field writable.
+Setelah koreksi, 26 test terarah dan seluruh 237 test main lulus. Check,
+migration, sintaks JS, serta whitespace bersih. Browser DB sementara memeriksa
+Editor/owner, guest/user biasa, prefill, PATCH parsial, presisi tanggal pada
+zona Asia/Jakarta, null, no-change, submit ganda, fokus, filter, error 400/403/404,
+HTML, jaringan, CSRF, dan sesi berakhir. Modal pas pada 390/768/1440 px; screenshot
+mobile/desktop diperiksa tanpa mengubah CSS. PWS belum diverifikasi.
 
 ## Verifikasi Tutorial 07
 
@@ -685,7 +718,7 @@ Pada Tutorial 07, bantuan juga mencakup membaca materi serta kode aktual, menyus
 
 Pada awal Tugas 6, bantuan edit per checkpoint berlanjut ke serializer Experience,
 permission empat role, API daftar/create/detail/update/delete/star, integrasi
-daftar/filter, modal create, dan star Experience ke DRF, test, serta
+daftar/filter, modal create/edit, dan star Experience ke DRF, test, serta
 dokumentasi terkait. Rincian
 hasil dan batas verifikasinya dicatat pada prompt log mulai entri 34.
 

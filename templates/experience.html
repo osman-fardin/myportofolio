@@ -33,6 +33,10 @@
                 {% include 'components/experience_create_modal.html' %}
             {% endif %}
 
+            {% if perms.main.change_experience %}
+                {% include 'components/experience_edit_modal.html' %}
+            {% endif %}
+
             <form
                 id="experience-filter-form"
                 method="get"
@@ -117,6 +121,7 @@
                 data-can-change="{{ perms.main.change_experience|yesno:'true,false' }}"
                 data-can-delete="{{ user.is_superuser|yesno:'true,false' }}"
                 data-update-url="{% url 'main:update_experience' experience_placeholder_id %}"
+                data-detail-url="{% url 'api:experience-detail' experience_placeholder_id %}"
                 data-delete-url="{% url 'main:delete_experience' experience_placeholder_id %}"
                 data-star-url="{% url 'api:experience-star' experience_placeholder_id %}"
                 data-csrf-token="{{ csrf_token }}"
