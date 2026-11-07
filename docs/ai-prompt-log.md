@@ -1,7 +1,7 @@
 # AI Prompt Log
 
 Dokumen ini berisi beberapa contoh prompt yang mewakili penggunaan OpenAI Codex
-selama pengerjaan Tutorial, Tugas 1 sampai Tugas 5, serta Tutorial 07. Prompt di
+selama pengerjaan Tutorial, Tugas 1 sampai Tugas 5, Tutorial 07, dan Tugas 6. Prompt di
 bawah diringkas dari percakapan asli agar lebih mudah dibaca. Informasi sensitif
 dan percakapan yang tidak berkaitan dengan tugas tidak disertakan.
 
@@ -708,6 +708,237 @@ dan hash akhir pengumpulan baru dicatat setelah saya membuat dan memeriksanya.
 Push, PR/merge, deployment/PWS, akses commit publik, dan submit SCELE masih perlu
 bukti. Instalasi ulang dari environment kosong juga belum diverifikasi. Tutorial
 07 harus dikumpulkan terpisah sebelum melanjutkan pengumpulan Tugas 6.
+
+## 34. Memulai serializer Experience untuk Tugas 6 (7 November 2026)
+
+**Prompt (ringkasan):**
+
+> Untuk Tugas 6, aku mau lanjut dengan pola bantuan edit langsung seperti saat
+> Tutorial 07, tetap satu checkpoint lalu aku yang commit. Bantu jelasin dan
+> terapkan serializer Experience memakai model lama. Field star harus read-only,
+> teks dibersihkan, dan tanggal tetap valid saat PATCH hanya mengirim salah satu
+> tanggal. Sertakan test yang sesuai sebelum lanjut ke permission dan endpoint.
+
+**Hasil penggunaan:**
+
+Saya meminta bantuan edit langsung per checkpoint dan tetap menjalankan commit
+sendiri. AI membantu memeriksa branch `feat/tugas-6-experience-api` dari merge
+Tutorial 07 `dd3220e`, lalu menjalankan ulang baseline. Seluruh 140 test lama,
+Django check, pemeriksaan migrasi, dan pip check lolos sebelum perubahan.
+
+Saya menambahkan ExperienceSerializer dengan bantuan AI untuk penjelasan,
+implementasi, dan pengujian. Dua belas field ditulis eksplisit, mencakup data
+model, description mentah untuk kebutuhan edit, description_points,
+category_label, is_ongoing, serta jumlah dan status star. UUID dan field turunan
+read-only; akun pemberi star tidak ditampilkan. Status star mengikuti request
+pengguna dan bernilai false jika tidak ada request atau pengguna anonim.
+
+Validasi title dan description memakai helper pembersihan teks yang sudah ada.
+Tag HTML dibuang, spasi tepi dirapikan, dan teks kosong setelah dibersihkan
+ditolak. Validasi URL, choices, panjang teks, serta format tanggal mengikuti
+field model. Saat PATCH, tanggal input dibandingkan dengan tanggal yang tetap
+tersimpan pada instance. `ended_at: null` mengembalikan status ongoing; waktu
+akhir yang sama dengan waktu mulai tetap diizinkan seperti aturan form lama.
+
+Saya memahami bahwa start date mempunyai default dari model. Saat create
+tidak mengirim start, serializer mengambil default sekali agar tanggal yang
+divalidasi sama dengan yang disimpan. Saat update, tanggal yang tidak dikirim
+tetap memakai instance. Pengujian juga mencakup perbandingan offset zona waktu.
+
+Test Experience ditempatkan pada `main/tests_experience_api.py` agar mudah
+ditinjau bersama fitur berikutnya. Seluruh 19 test baru dan total 159 test main
+lulus. Check, pemeriksaan migrasi, serta whitespace bersih. Data lokal tetap
+satu Project dan dua Experience; tidak ada perubahan schema, UI, atau PWS.
+Warning staticfiles lama tetap nonfatal. Permission empat role dan endpoint
+Experience menjadi checkpoint berikutnya; serializer ini belum dihubungkan ke
+request halaman. Header log diperbarui untuk mencakup Tugas 6.
+
+## 35. Menjaga empat role pada permission Experience
+
+**Prompt (ringkasan):**
+
+> Serializer sudah di-commit, lanjut permission Experience. Jelasin bagaimana
+> guest dan user biasa tetap boleh membaca, Editor bisa PUT/PATCH, sedangkan
+> create/delete khusus superuser. Aku memakai Django permission sejak tugas
+> sebelumnya; pastikan nama grup atau status staff saja tidak memberi hak edit
+> dan aturan Projects dari tutorial tetap sesuai checkpoint sebelumnya.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan dengan bantuan AI untuk penjelasan, implementasi, dan pengujian
+per checkpoint. Commit serializer `45925e9` diperiksa sebelum menambahkan
+IsPortfolioOwnerOrEditorOrReadOnly pada `main/permissions.py`. SAFE_METHODS
+diizinkan untuk semua pengunjung, pengguna anonim ditolak untuk mutation,
+superuser diizinkan menulis, dan akun lainnya hanya boleh PUT/PATCH jika
+memiliki `main.change_experience`.
+
+Saya memahami bahwa Editor adalah peran yang ditentukan permission yang sudah
+dipakai proyek. Nama grup Editor saja tidak cukup. Permission bisa diberikan
+melalui grup atau langsung pada user; keduanya memberi izin update yang sama.
+Status staff tidak memberikan hak create/delete Experience, dan permission
+`main.change_project` saja tidak memberi hak update Experience. Class permission
+Projects tetap memakai aturan owner-only yang sudah dibuat pada Tutorial 07.
+
+Delapan test baru pada `main/tests_experience_api.py` memeriksa matriks method
+semua role, grup tanpa permission, permission langsung dengan/tanpa staff,
+permission Project yang berbeda, serta pembatasan mutation selain PUT/PATCH.
+Test ini memeriksa keputusan class lewat APIRequestFactory; endpoint belum
+dipasang. Test status HTTP, kondisi database setelah penolakan, dan CSRF lewat
+session akan ditambahkan bersama endpoint. Star nantinya tetap memakai
+IsAuthenticated, sehingga user biasa tetap bisa star tanpa permission Editor.
+
+Sebanyak 12 test permission terarah lulus, termasuk 4 test Projects lama. Seluruh
+167 test main juga lulus; check, pemeriksaan migrasi, dan whitespace bersih.
+Data lokal tetap satu Project dan dua Experience. Tidak ada perubahan grup pada
+database lokal, model, UI, atau PWS. Saya menjalankan commit sendiri sebelum
+melanjutkan checkpoint endpoint daftar dan create.
+
+## 36. Membuat API daftar dan create Experience
+
+**Prompt (ringkasan):**
+
+> Permission sudah di-commit, lanjut endpoint daftar dan create Experience.
+> Bantu pindahkan filter title, category, dan status dari JSON lama ke query
+> parameter DRF, dengan POST khusus superuser. Jelasin request.data dan
+> request.query_params, serta pastikan test 403/400 memeriksa database. Uji juga
+> session dan CSRF yang benar-benar lewat login.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan dengan bantuan AI untuk penjelasan, implementasi, pengujian,
+dan dokumentasi. Commit permission `afbf0f0` diperiksa sebelum experience_list
+ditambahkan di `main/api_views.py` dan route `api:experience-list` didaftarkan
+sebagai `/api/v1/experiences/`. View berbasis fungsi memakai @api_view untuk
+GET/HEAD/POST, SessionAuthentication, permission empat role, serta Response DRF.
+
+Saya memahami bahwa request.query_params dipakai untuk filter, sementara
+request.data berisi input create yang diperiksa ExperienceSerializer. GET
+mengirim array datar dengan request context untuk state star akun saat ini.
+Filter judul case-insensitive, kategori, dan ongoing/completed dapat digabung.
+Spasi tepi diabaikan; kategori tidak dikenal menghasilkan hasil kosong dan
+status tidak dikenal diabaikan seperti perilaku lama. Urutan mempertahankan
+start terbaru dengan UUID sebagai penentu jika start sama. Relasi star memakai
+prefetch; optimasi Count/Exists belum ditambahkan.
+
+POST valid menghasilkan object baru dengan 201. Validasi mengembalikan 400
+per field, sedangkan guest, user biasa, Editor, dan staff ditolak dengan 403.
+Permission Editor untuk PUT/PATCH tidak menambah method pada URL daftar: update
+nantinya memakai URL detail. Field computed dan akun star tidak dapat dipalsukan
+melalui create.
+
+Sembilan belas test endpoint baru mencakup semua role, privacy, filter sendiri
+dan kombinasi, kosong, urutan, create, malformed JSON, readonly/forged input,
+HEAD/OPTIONS, wrong method, serta negosiasi JSON/HTML. Test penolakan memeriksa
+isi record dan relasi star. Test session memakai APIClient dengan CSRF
+enforcement dan .login(): token tidak ada/salah ditolak, token benar berhasil,
+dan user biasa/Editor dengan token benar tetap ditolak membuat data.
+
+Seluruh 186 test main lulus; check, pemeriksaan migrasi dan whitespace bersih.
+Runserver diperiksa melalui HTTP GET saja pada database lokal: JSON, format JSON,
+Browsable API HTML, halaman Experience dan Projects mengembalikan 200. Skrip
+smoke sempat meminta format JSON tetapi membatasi Accept ke HTML saja, sehingga
+DRF mengembalikan 406. Header diperbaiki mengikuti browser yang menerima JSON,
+lalu cek tersebut lulus. Ini koreksi pada skrip verifikasi, tanpa perubahan
+konfigurasi aplikasi. Data lokal tetap satu Project dan dua Experience.
+
+README dan panduan pribadi diperbarui sesuai progres. Halaman masih memakai
+API lama; detail/update/delete/star DRF menyusul per checkpoint. PWS tidak
+diubah dan commit tetap saya jalankan sendiri.
+
+## 37. Menambahkan API detail, update, dan delete Experience
+
+**Prompt (ringkasan):**
+
+> Daftar dan create sudah di-commit, lanjut detail Experience. Bantu terapkan
+> GET, PUT/PATCH, dan DELETE pada URL UUID, dengan Editor tetap bisa update.
+> Jelasin bedanya PUT dan PATCH untuk field serta tanggal lama, respons 404,
+> dan delete 204 kosong. Sertakan test role, database, read-only field, serta
+> CSRF melalui session yang benar-benar login.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan dengan bantuan AI untuk penjelasan, implementasi, pengujian,
+dan dokumentasi. Commit list/create `5caa74e` diperiksa sebelum experience_detail
+ditambahkan pada `main/api_views.py`. Route `api:experience-detail` memakai
+`/api/v1/experiences/<uuid>/`, SessionAuthentication, dan permission empat role.
+GET/HEAD membaca satu Experience dengan metadata star sesuai request, sedangkan
+PUT/PATCH memperbarui instance melalui serializer yang sudah ada.
+
+Saya memahami bahwa PUT membutuhkan field wajib, sementara PATCH hanya
+mengirim perubahan. Tanggal yang tidak dikirim memakai nilai instance; rentang
+tanggal tetap diperiksa, termasuk saat hanya start atau end yang diubah.
+`ended_at: null` mengembalikan status ongoing. UUID dan metadata hasil
+perhitungan tetap read-only. Editor dengan `main.change_experience` dan
+superuser dapat update; guest, user biasa, staff tanpa permission, atau akun
+yang hanya memiliki permission Project tidak mendapat hak update Experience.
+
+DELETE khusus superuser menghapus target beserta relasi starnya lalu mengirim
+204 tanpa body. Record serta star Experience lain tetap dipertahankan. UUID
+valid yang hilang menghasilkan 404 jika permission lolos. Penolakan mutation
+dapat menghasilkan 403 lebih dahulu karena permission diperiksa sebelum
+pencarian object. POST ke detail juga mengikuti urutan permission lalu method.
+
+Dua puluh test baru pada ExperienceDetailAPITests mencakup pembacaan publik,
+privacy, HEAD/OPTIONS/Browsable API, missing UUID, update Editor dan owner,
+validasi 400 beserta database yang tetap utuh, tanggal, forged metadata,
+delete 204 kosong, wrong method, dan malformed JSON. Test session memakai
+APIClient dengan CSRF enforcement dan .login(). Token kosong/salah ditolak;
+token valid memungkinkan update Editor dan mutation owner, tetapi tidak
+memperbolehkan Editor delete atau user biasa menulis.
+
+Seluruh 206 test main lulus. Check, pemeriksaan migrasi, dan whitespace bersih.
+Runserver lokal diperiksa melalui GET/HEAD saja: JSON detail sesuai object pada
+daftar, HTML Browsable API 200, HEAD kosong, dan missing UUID 404 JSON. Pengujian
+mutation hanya berjalan pada database test. Data lokal tetap satu Project dan
+dua Experience; model, tampilan, serta PWS tidak diubah. README dan panduan
+pribadi diperbarui. Commit tetap saya jalankan sendiri; endpoint star menjadi
+checkpoint berikutnya sebelum integrasi UI.
+
+## 38. Mengaktifkan endpoint star Experience
+
+**Prompt (ringkasan):**
+
+> Detail, update, dan delete sudah di-commit, lanjut endpoint star Experience.
+> Bantu pakai relasi lama dengan IsAuthenticated supaya user biasa, Editor,
+> dan owner bisa star akun sendiri. Jelasin kenapa akun harus dari request.user,
+> bagaimana responsnya dipakai daftar/detail, dan kenapa toggle tidak boleh
+> otomatis di-retry. Sertakan test isolasi, input palsu, serta CSRF session.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan dengan bantuan AI untuk penjelasan, implementasi, pengujian,
+dan dokumentasi. Commit detail/update/delete `a309f96` diperiksa sebelum
+experience_star ditambahkan pada `main/api_views.py`. Route `api:experience-star`
+memakai `/api/v1/experiences/<uuid>/star/`, method POST, SessionAuthentication,
+dan IsAuthenticated. Akun login tidak membutuhkan permission Editor untuk star.
+
+Saya memahami bahwa view mengambil akun dari request.user dan mengubah relasi
+star milik akun tersebut saja. Body tidak diperlukan dan tidak dipakai untuk
+memilih user atau mengubah data Experience. Respons 200 memakai serializer
+dengan request context, sehingga count dan is_starred terbaru bisa dibaca
+kembali pada daftar maupun detail. Field computed tetap read-only pada input
+CRUD; perubahan melalui action star diatur oleh view yang memeriksa akun.
+
+Endpoint ini toggle: dua POST berarti star lalu unstar. UI nanti tetap harus
+mengunci tombol selama request dan tidak melakukan retry otomatis. Guest ditolak
+403 sebelum method atau pencarian target; akun login yang mengirim method salah
+mendapat 405, sementara POST ke target UUID yang tidak ada mendapat 404.
+
+Sebelas test baru pada ExperienceStarAPITests mencakup semua role login,
+isolasi antar-user, konsistensi count/state pada list/detail, forged user dan
+field, missing target, wrong method, serta session yang berakhir. Test CSRF
+memakai APIClient dengan enforcement dan .login() untuk user biasa, Editor,
+serta owner: token kosong/salah ditolak, token benar memungkinkan toggle.
+Test kompatibilitas membuktikan route star lama dan API baru memakai relasi
+yang sama, tanpa model atau migration baru.
+
+Seluruh 217 test main lulus; check, pemeriksaan migrasi, dan whitespace bersih.
+Runserver diperiksa melalui GET saja: guest mendapat 403 JSON pada endpoint
+star, termasuk UUID yang hilang, dan Browsable API list/detail tetap 200 HTML.
+Mutation diuji pada database test. Data lokal tetap satu Project dan dua
+Experience; tampilan dan PWS tidak diubah. README serta panduan pribadi
+diperbarui. Sesudah commit ini, branch API siap direview dan diintegrasikan
+sebelum memulai branch UI. Commit, push, dan merge tetap saya jalankan sendiri.
 
 ## Verifikasi manual
 
