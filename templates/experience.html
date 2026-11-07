@@ -118,7 +118,7 @@
                 data-can-delete="{{ user.is_superuser|yesno:'true,false' }}"
                 data-update-url="{% url 'main:update_experience' experience_placeholder_id %}"
                 data-delete-url="{% url 'main:delete_experience' experience_placeholder_id %}"
-                data-star-url="{% url 'main:toggle_experience_star' experience_placeholder_id %}"
+                data-star-url="{% url 'api:experience-star' experience_placeholder_id %}"
                 data-csrf-token="{{ csrf_token }}"
                 aria-live="polite"
                 aria-busy="true"

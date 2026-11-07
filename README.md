@@ -21,7 +21,7 @@ minimal multi-page interface with a warm visual theme.
 - Sanitasi input Experience menggunakan `strip_tags` dan output aman melalui
   DOM `textContent`
 - Authorization Experience untuk guest, user biasa, Editor, dan superuser
-- AJAX star dan unstar Experience per user tanpa reload halaman
+- Star dan unstar Experience per user melalui DRF tanpa reload halaman
 - Penghapusan Experience berbasis POST dengan confirmation popover
 - Project and experience management through Django Admin
 - Shared navigation and footer using Django template inheritance
@@ -40,7 +40,7 @@ minimal multi-page interface with a warm visual theme.
   tanpa reload, dengan preview statis dan fallback HTML tetap tersedia
 - Loading daftar/detail, empty state, toast error API, dan pencegahan submit ganda
 - Payload publik Project hanya memuat count dan status star, tanpa identitas akun
-- 229 automated test untuk fitur lama, serializer, API, integrasi halaman, CSRF,
+- 231 automated test untuk fitur lama, serializer, API, integrasi halaman, CSRF,
   XSS, permission, privacy, serta isolasi data personal antar-user
 
 ## Technology
@@ -138,7 +138,7 @@ disengaja untuk menjaga fitur lama dan diuji pada API serta halaman.
 Daftar dan filter halaman Experience sudah memakai API DRF. Pada progres Tugas 6,
 serializer, permission empat role, serta API daftar/create/detail/update/delete
 dan star sudah tersedia.
-Create halaman juga sudah memakai JSON DRF. Star, edit, dan delete halaman masih
+Create serta star halaman juga sudah memakai DRF. Edit dan delete halaman masih
 memakai route Tugas 5 selama migrasi bertahap, dengan kontrol role yang sama.
 
 ## Projects API: Tutorial 07
@@ -362,9 +362,9 @@ Izin tindakan tetap diperiksa server.
 Pencarian 400 ms, filter kategori/status, Clear, result count, loading, empty,
 error/retry, thumbnail, serta DOM `textContent` dipertahankan. Respons atau error
 request lama yang dibatalkan tidak mengganti daftar dan feedback request terbaru.
-Create UI kini mengirim POST JSON ke `api:experience-list`, sedangkan star/edit/
-delete masih memakai jalur lama. Star tetap AJAX dan delete lama masih redirect.
-Migrasi berikutnya adalah star, modal edit PATCH, dan delete per checkpoint.
+Create UI kini mengirim POST JSON ke `api:experience-list`, dan star memakai
+`api:experience-star`. Edit/delete masih memakai jalur HTML lama; delete masih
+redirect. Migrasi berikutnya adalah modal edit PATCH dan delete per checkpoint.
 
 Tujuh test halaman baru ditambah ke `main/tests_experience_ui.py`, dan assertion
 URL pada test shell lama disesuaikan memakai `reverse('api:experience-list')`.
@@ -389,6 +389,28 @@ migration, sintaks JS, dan whitespace bersih. Browser database sementara menguji
 create pertama saat daftar kosong, payload/header, submit ganda, filter sesudah
 sukses, 400, 403, respons HTML, status tak sesuai, dan jaringan putus. Pengujian
 ulang mencatat satu POST, nol request dokumen, dan nol page error saat create.
+
+Star mengirim POST tanpa body dengan header CSRF, lalu memakai `is_starred` dan
+`star_count` dari object DRF terbaru untuk label, count, dan `aria-pressed`.
+Status harus 200 dengan ID, boolean, dan count valid sebelum state UI berubah.
+Error field/detail DRF ditampilkan sebagai teks lewat toast; error jaringan
+meminta pengguna memuat ulang daftar untuk memastikan hasil. Toggle tidak
+diulang otomatis karena dua POST dapat mengembalikan state awal.
+
+Pengunci memakai Set ID Experience, sehingga kartu baru dari filter tetap
+disabled selama star berjalan. Respons sukses juga memperbarui tombol yang
+sudah dirender ulang. Jika GET daftar masih berjalan saat toggle sukses,
+request tersebut diganti dengan pembacaan terbaru agar state lama tidak
+menimpa hasil mutation. Filter tetap dipertahankan.
+
+Dua test halaman baru memeriksa URL star yang ditolak untuk guest, CSRF kosong,
+dan sesi berakhir; test URL serta token user biasa/Editor kini mengarah ke DRF.
+Full main 231 lulus; check/migration/sintaks JS/whitespace bersih. Browser DB
+sementara memeriksa guest, dua akun biasa, Editor, owner, star/unstar tanpa reload
+atau POST lama, submit ganda saat kartu berganti, dan GET lama yang terlambat.
+Error 400/403/404, HTML 503/200, payload tidak sesuai, jaringan putus, CSRF salah,
+dan logout juga diperiksa. Setiap percobaan mengirim satu POST tanpa retry;
+state/count tetap saat gagal dan tombol kembali aktif. PWS belum diverifikasi.
 
 ## Verifikasi Tutorial 07
 
@@ -663,7 +685,7 @@ Pada Tutorial 07, bantuan juga mencakup membaca materi serta kode aktual, menyus
 
 Pada awal Tugas 6, bantuan edit per checkpoint berlanjut ke serializer Experience,
 permission empat role, API daftar/create/detail/update/delete/star, integrasi
-daftar/filter dan modal create Experience ke DRF, test, serta
+daftar/filter, modal create, dan star Experience ke DRF, test, serta
 dokumentasi terkait. Rincian
 hasil dan batas verifikasinya dicatat pada prompt log mulai entri 34.
 

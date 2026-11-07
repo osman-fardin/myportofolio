@@ -98,13 +98,13 @@ class ExperienceReadPageTests(TestCase):
         self.assertEqual(attributes['data-can-change'], 'true')
         self.assertEqual(attributes['data-can-delete'], 'false')
 
-    def test_named_action_patterns_keep_the_existing_mutation_routes(self):
+    def test_named_action_patterns_use_drf_star_and_keep_html_edit_delete(self):
         attributes = self.parse_list(self.client.get(reverse('main:show_experience')))
         placeholder = '00000000-0000-0000-0000-000000000000'
         for action, route in (
             ('update', 'main:update_experience'),
             ('delete', 'main:delete_experience'),
-            ('star', 'main:toggle_experience_star'),
+            ('star', 'api:experience-star'),
         ):
             with self.subTest(action=action):
                 pattern = attributes[f'data-{action}-url']
@@ -129,8 +129,38 @@ class ExperienceReadPageTests(TestCase):
                 )
                 starred = client.post(star_url, HTTP_X_CSRFTOKEN=attributes['data-csrf-token'])
                 self.assertEqual(starred.status_code, 200)
+                self.assertEqual(starred.json()['id'], str(self.experience.pk))
                 self.assertTrue(starred.json()['is_starred'])
                 self.assertTrue(self.experience.starred_by.filter(pk=user.pk).exists())
+
+    def test_guest_page_star_url_is_denied_without_changing_the_relation(self):
+        attributes = self.parse_list(self.client.get(reverse('main:show_experience')))
+        self.assertEqual(attributes['data-can-star'], 'false')
+        url = attributes['data-star-url'].replace(
+            '00000000-0000-0000-0000-000000000000', str(self.experience.pk),
+        )
+        response = APIClient(enforce_csrf_checks=True).post(url)
+        self.assertEqual(response.status_code, 403)
+        self.assertIn('detail', response.json())
+        self.assertFalse(self.experience.starred_by.exists())
+
+    def test_rendered_star_url_rejects_missing_csrf_and_an_expired_session(self):
+        client = APIClient(enforce_csrf_checks=True)
+        self.assertTrue(client.login(username=self.reader.username, password='test-password'))
+        attributes = self.parse_list(client.get(reverse('main:show_experience')))
+        url = attributes['data-star-url'].replace(
+            '00000000-0000-0000-0000-000000000000', str(self.experience.pk),
+        )
+        response = client.post(url)
+        self.assertEqual(response.status_code, 403)
+        self.assertIn('CSRF', response.json()['detail'])
+        self.assertFalse(self.experience.starred_by.exists())
+
+        client.logout()
+        response = client.post(url, HTTP_X_CSRFTOKEN=attributes['data-csrf-token'])
+        self.assertEqual(response.status_code, 403)
+        self.assertNotIn('CSRF', response.json()['detail'])
+        self.assertFalse(self.experience.starred_by.exists())
 
     def test_filter_values_are_preserved_and_html_escaped(self):
         title = '<img src=x onerror="alert(1)">'

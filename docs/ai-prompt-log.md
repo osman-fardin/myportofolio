@@ -1049,6 +1049,63 @@ README dan panduan pribadi diperbarui. Data lokal tetap satu Project dan dua
 Experience; model, desain, environment, serta PWS tidak diubah. Commit tetap
 saya jalankan sendiri. Sesudah checkpoint ini, tahap berikutnya adalah star UI.
 
+## 41. Memindahkan star Experience ke DRF
+
+**Prompt (ringkasan):**
+
+> Create sudah di-commit. Lanjut satu checkpoint star/unstar Experience ke DRF.
+> Gimana memakai respons object baru, menangani error dan CSRF, serta mencegah
+> dua POST saat tombol diklik cepat atau filter merender ulang kartu? Bantu
+> implementasi dan cek agar state lama dari request daftar tidak menimpa star.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan dengan bantuan AI untuk penjelasan, implementasi, pengujian,
+dan dokumentasi. Commit create `dae1fce` diperiksa sebelum perubahan berikutnya.
+Named URL star di template dipindah ke `api:experience-star`. POST tetap tanpa
+body dengan X-CSRFToken dan Accept JSON; header AJAX lama tidak diperlukan.
+Relasi star, API backend, dan aturan empat role tidak diubah.
+
+JavaScript membaca is_starred dan star_count dari object terbaru. Status harus
+200 dengan ID yang sesuai, boolean, serta count integer nonnegatif. Label,
+count, dan aria-pressed baru diperbarui setelah respons itu lolos. Error detail
+atau field DRF ditampilkan lewat toast sebagai teks, dengan pesan status
+cadangan bila body bukan JSON. Error jaringan atau respons sukses yang tidak
+sesuai meminta refresh daftar sebelum mencoba lagi, karena hasil toggle belum
+bisa dipastikan. Tidak ada retry POST otomatis.
+
+Set berisi ID Experience yang sedang melakukan star menjaga pengunci walaupun
+filter mengganti elemen kartu. Tombol kartu baru ikut disabled, lalu menerima
+state terbaru dan aktif kembali saat request selesai. Jika GET daftar masih
+berjalan ketika toggle sukses, GET lama dibatalkan dan daftar dibaca kembali
+dengan filter aktif. Pembacaan biasa yang tidak bersamaan dengan toggle tidak
+ditambah request baru.
+
+Dua test halaman ditambahkan untuk penolakan guest, CSRF kosong, dan sesi
+berakhir lewat URL yang benar-benar dirender template. Test URL serta token user
+biasa/Editor disesuaikan ke DRF, termasuk assertion ID object respons. Seluruh
+25 test terarah dan 231 test main lulus; check, pemeriksaan migrasi, sintaks JS,
+dan whitespace bersih. Warning staticfiles lama tetap nonfatal.
+
+Browser memakai akun palsu dan dua record pada database sementara. Guest tidak
+melihat tombol star; dua akun biasa, Editor, dan owner berhasil star lalu unstar
+dengan filter tetap aktif, header CSRF ada, tanpa body, tanpa request dokumen,
+tanpa POST route lama, dan tanpa page error. Klik ganda serta pergantian kartu
+selama POST tertahan menghasilkan satu POST; tombol kartu baru tetap terkunci
+dan kemudian menampilkan hasil terbaru. GET yang membawa snapshot sebelum
+unstar ditahan untuk membuktikan pembacaan baru menghindari state lama.
+
+Browser juga mensimulasikan 400/403/404 JSON, HTML 503/200, payload 200 yang salah,
+serta jaringan putus. CSRF salah dan sesi yang berakhir diuji terhadap server
+sungguhan. Toast sesuai, pesan menyerupai HTML tetap literal, state/count tidak
+diubah saat gagal, dan tombol kembali aktif. Setiap percobaan hanya mengirim
+satu POST. Console mencatat error request yang sengaja diuji serta favicon 404
+saat membuka halaman; tidak ada page error pada pemeriksaan interaksi.
+
+README dan panduan pribadi diperbarui. Model, warna/desain, data lokal,
+environment, serta PWS tidak diubah. Commit tetap saya jalankan sendiri; setelah
+checkpoint star ini, berikutnya modal edit Experience melalui PATCH.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa

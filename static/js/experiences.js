@@ -32,6 +32,7 @@ const experienceDeleteName = document.getElementById(
 );
 
 let experienceRequestController = null;
+const pendingExperienceStars = new Set();
 const experiencePlaceholderId = '00000000-0000-0000-0000-000000000000';
 
 function experienceActionUrl(action, id) {
@@ -135,6 +136,9 @@ function updateExperienceStarButton(button, isStarred, starCount) {
 }
 
 async function toggleExperienceStar(button, experience) {
+    if (button.disabled || pendingExperienceStars.has(experience.id)) return;
+
+    pendingExperienceStars.add(experience.id);
     button.disabled = true;
 
     try {
@@ -142,34 +146,59 @@ async function toggleExperienceStar(button, experience) {
             method: 'POST',
             headers: {
                 'X-CSRFToken': experienceList.dataset.csrfToken,
-                'X-Requested-With': 'XMLHttpRequest',
                 Accept: 'application/json',
             },
         });
 
-        if (!response.ok) {
-            throw new Error(
-                `Failed to update experience star: ${response.status}`,
-            );
+        const data = await response.json().catch(() => ({}));
+
+        if (response.status !== 200) {
+            throw new Error(experienceApiErrorMessage(data, response.status));
         }
 
-        const data = await response.json();
+        if (
+            data.id !== experience.id
+            || typeof data.is_starred !== 'boolean'
+            || !Number.isInteger(data.star_count)
+            || data.star_count < 0
+        ) {
+            throw new Error('Star update could not be confirmed. Refresh the list before trying again.');
+        }
 
         updateExperienceStarButton(
             button,
             data.is_starred,
             data.star_count,
         );
+        syncExperienceStarButtons(experience.id, data);
+
+        // A list request started before the toggle may contain an older star state.
+        if (experienceRequestController) {
+            await loadExperiences();
+        }
     } catch (error) {
         console.error(error);
 
         showToast(
             'Could not update star',
-            'Please try again in a moment.',
+            error instanceof TypeError ? 'Could not confirm the update. Refresh the list before trying again.' : error.message,
             'error',
         );
     } finally {
+        pendingExperienceStars.delete(experience.id);
         button.disabled = false;
+        syncExperienceStarButtons(experience.id);
+    }
+}
+
+function syncExperienceStarButtons(id, data) {
+    for (const button of experienceList.querySelectorAll('.experience-star-button')) {
+        if (button.dataset.experienceId !== id) continue;
+
+        if (data) {
+            updateExperienceStarButton(button, data.is_starred, data.star_count);
+        }
+        button.disabled = pendingExperienceStars.has(id);
     }
 }
 
@@ -189,6 +218,8 @@ function createExperienceStarButton(experience) {
 
     button.type = 'button';
     button.className = 'experience-star-button';
+    button.dataset.experienceId = experience.id;
+    button.disabled = pendingExperienceStars.has(experience.id);
     icon.setAttribute('aria-hidden', 'true');
     button.append(icon, label, count);
     updateExperienceStarButton(
