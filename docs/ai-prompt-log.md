@@ -1174,6 +1174,71 @@ README dan panduan pribadi diperbarui. Model, desain, data lokal, environment,
 serta PWS tidak diubah. Commit tetap saya jalankan sendiri; berikutnya migrasi
 confirmation delete ke DELETE DRF dengan respons 204.
 
+## 43. Menghapus Experience melalui DELETE DRF
+
+**Prompt (ringkasan):**
+
+> Edit sudah di-commit. Lanjut confirmation delete Experience melalui DRF tanpa
+> reload. Gimana menangani respons 204 tanpa JSON, menjaga filter serta role,
+> dan mencegah submit ganda atau target berubah saat request berjalan? Bantu
+> implementasi dan cek cancel, error, CSRF, serta daftar setelah record terakhir dihapus.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan dengan bantuan AI untuk penjelasan, implementasi, pengujian,
+dan dokumentasi. Commit edit `3aadc51` diperiksa sebelum checkpoint delete.
+Confirmation popover serta gaya lama dipertahankan. Form diberi URL detail DRF
+untuk Fetch, action POST lama sebagai fallback, dan aria-busy. Cancel mendapat
+fokus awal; judul konfirmasi tetap ditulis dengan textContent.
+
+JavaScript menangkap submit dan mengirim DELETE tanpa body dengan header CSRF.
+Hanya status 204 dianggap sukses, tanpa memanggil response.json() pada cabang
+itu. Daftar dimuat kembali dengan filter aktif lalu popover ditutup. Jika GET
+daftar gagal setelah penghapusan berhasil, Retry hanya membaca daftar; DELETE
+tidak dikirim ulang. Fokus kembali ke trigger yang masih ada atau ke pencarian
+jika record hilang. Menutup popover saat request berjalan tidak membatalkan
+penghapusan yang sudah dikirim.
+
+ID target disimpan selama DELETE, submit dikunci dengan label Deleting, dan
+kontrol star/delete target ikut disabled. Kartu baru dari filter tetap mengikuti
+lock tersebut. Confirmation tidak bisa mengganti target selama delete; delete
+juga ditahan saat star target atau save edit berjalan, dan edit target yang
+sedang dihapus tidak dibuka. Error API field/detail, HTML, atau jaringan menjaga
+konfirmasi serta target, memunculkan toast, dan mengaktifkan kontrol kembali.
+Tidak ada retry mutation otomatis, termasuk ketika hasil jaringan belum pasti.
+
+Enam test halaman baru mencakup target API/fallback, 204 kosong, penghapusan
+relasi star target dengan record lain tetap utuh, penolakan guest/user biasa/
+Editor/staff, CSRF kosong/salah, sesi berakhir, owner yang diturunkan aksesnya
+setelah render, serta POST lama. Penempatan class baru sempat memotong bagian
+akhir test sesi edit. Run terarah yang telanjur berjalan gagal saat blok itu
+mencoba membaca respons HTML sebagai JSON. Blok dikembalikan ke test edit dan
+struktur diperiksa lagi. Setelah perbaikan, 46 test terarah dan seluruh 243
+test main lulus; check, migration, sintaks JS, dan whitespace bersih.
+
+Browser memakai database sementara dengan tiga record dan akun palsu. Guest,
+user biasa, serta Editor tidak melihat delete; owner memperoleh konfirmasi.
+Cancel tidak mengirim request dan mengembalikan fokus. Simulasi 400/403/404 JSON,
+HTML 503/200, serta jaringan putus menjaga target dan mengaktifkan tombol kembali.
+CSRF salah serta logout diperiksa terhadap server sungguhan; data tetap pada
+kasus gagal. Lock star terhadap delete, dua submit, serta kartu yang dirender
+ulang saat DELETE tertahan juga diperiksa.
+
+Skrip QA awal sempat mencoba response.text() pada respons browser 204; Chrome
+tidak menyediakan body resource itu dan pemeriksaan berhenti. Body kosong tetap
+dibuktikan lewat automated test API. Pengujian browser berikutnya memakai status
+204 serta instrumentasi pemanggilan JSON: nol pemanggilan JSON pada 204. Run
+ulang delete selesai dengan satu DELETE, filter tetap, fokus ke pencarian,
+nol request dokumen, nol POST lama, serta nol page error.
+
+Delete sukses diikuti GET 503 disimulasikan; Retry tidak mengulang DELETE.
+Penghapusan record terakhir menghasilkan empty state, lalu create pertama
+melalui DRF masih berhasil 201. Popover pas pada 390/768/1440 px dan screenshot
+mobile diperiksa. Model, CSS/desain, data lokal, environment, serta PWS tidak
+diubah. README dan panduan pribadi diperbarui. Commit tetap saya jalankan
+sendiri; berikutnya fitur tambahan filter personal Starred by me, lalu audit
+akhir dan dokumentasi Tugas 6.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa

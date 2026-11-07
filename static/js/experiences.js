@@ -37,6 +37,9 @@ const experienceDeleteForm = document.getElementById(
 const experienceDeleteName = document.getElementById(
     'experience-delete-name',
 );
+const experienceDeleteModal = document.getElementById('experience-delete-modal');
+let experienceDeleteTarget = null;
+let experienceDeletingId = null;
 
 let experienceRequestController = null;
 const pendingExperienceStars = new Set();
@@ -44,6 +47,10 @@ const experiencePlaceholderId = '00000000-0000-0000-0000-000000000000';
 
 function experienceActionUrl(action, id) {
     return experienceList.dataset[action].replace(experiencePlaceholderId, id);
+}
+
+function experienceMutationPending(id) {
+    return pendingExperienceStars.has(id) || experienceDeletingId === id;
 }
 
 function debounce(callback, delay) {
@@ -143,10 +150,11 @@ function updateExperienceStarButton(button, isStarred, starCount) {
 }
 
 async function toggleExperienceStar(button, experience) {
-    if (button.disabled || pendingExperienceStars.has(experience.id)) return;
+    if (button.disabled || experienceMutationPending(experience.id)) return;
 
     pendingExperienceStars.add(experience.id);
     button.disabled = true;
+    syncExperienceMutationControls(experience.id);
 
     try {
         const response = await fetch(experienceActionUrl('starUrl', experience.id), {
@@ -177,7 +185,7 @@ async function toggleExperienceStar(button, experience) {
             data.is_starred,
             data.star_count,
         );
-        syncExperienceStarButtons(experience.id, data);
+        syncExperienceMutationControls(experience.id, data);
 
         // A list request started before the toggle may contain an older star state.
         if (experienceRequestController) {
@@ -194,18 +202,23 @@ async function toggleExperienceStar(button, experience) {
     } finally {
         pendingExperienceStars.delete(experience.id);
         button.disabled = false;
-        syncExperienceStarButtons(experience.id);
+        syncExperienceMutationControls(experience.id);
     }
 }
 
-function syncExperienceStarButtons(id, data) {
+function syncExperienceMutationControls(id, data) {
     for (const button of experienceList.querySelectorAll('.experience-star-button')) {
         if (button.dataset.experienceId !== id) continue;
 
         if (data) {
             updateExperienceStarButton(button, data.is_starred, data.star_count);
         }
-        button.disabled = pendingExperienceStars.has(id);
+        button.disabled = experienceMutationPending(id);
+    }
+    for (const button of experienceList.querySelectorAll('[data-experience-delete-id]')) {
+        if (button.dataset.experienceDeleteId === id) {
+            button.disabled = experienceMutationPending(id);
+        }
     }
 }
 
@@ -226,7 +239,7 @@ function createExperienceStarButton(experience) {
     button.type = 'button';
     button.className = 'experience-star-button';
     button.dataset.experienceId = experience.id;
-    button.disabled = pendingExperienceStars.has(experience.id);
+    button.disabled = experienceMutationPending(experience.id);
     icon.setAttribute('aria-hidden', 'true');
     button.append(icon, label, count);
     updateExperienceStarButton(
@@ -329,6 +342,8 @@ function createExperienceCard(experience) {
             );
 
             deleteButton.type = 'button';
+            deleteButton.dataset.experienceDeleteId = experience.id;
+            deleteButton.disabled = experienceMutationPending(experience.id);
             deleteButton.setAttribute(
                 'popovertarget',
                 'experience-delete-modal',
@@ -338,8 +353,14 @@ function createExperienceCard(experience) {
                 `Delete ${experience.title}`,
             );
 
-            deleteButton.addEventListener('click', () => {
+            deleteButton.addEventListener('click', (event) => {
+                if (experienceDeletingId || experienceEditSaving || experienceMutationPending(experience.id)) {
+                    event.preventDefault();
+                    return;
+                }
+                experienceDeleteTarget = { id: experience.id, trigger: deleteButton };
                 experienceDeleteForm.action = experienceActionUrl('deleteUrl', experience.id);
+                experienceDeleteForm.dataset.apiUrl = experienceActionUrl('detailUrl', experience.id);
                 experienceDeleteName.textContent = experience.title;
             });
 
@@ -490,7 +511,7 @@ async function loadExperiences() {
 }
 
 function openExperienceEdit(experience, trigger) {
-    if (experienceEditSaving) return;
+    if (experienceEditSaving || experienceDeletingId === experience.id) return;
 
     experienceEditForm.reset();
     const initialValues = {};
@@ -576,6 +597,54 @@ async function submitExperienceEdit(event) {
         }
         submitButton.disabled = false;
         submitButton.textContent = 'Save changes';
+    }
+}
+
+async function submitExperienceDelete(event) {
+    event.preventDefault();
+    if (
+        experienceDeletingId || !experienceDeleteTarget || experienceEditSaving
+        || experienceMutationPending(experienceDeleteTarget.id)
+    ) return;
+
+    const target = experienceDeleteTarget;
+    const submitButton = experienceDeleteForm.querySelector('button[type="submit"]');
+    experienceDeletingId = target.id;
+    experienceDeleteForm.setAttribute('aria-busy', 'true');
+    submitButton.disabled = true;
+    submitButton.textContent = 'Deleting...';
+    syncExperienceMutationControls(target.id);
+
+    try {
+        const response = await fetch(experienceDeleteForm.dataset.apiUrl, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': experienceList.dataset.csrfToken,
+                Accept: 'application/json',
+            },
+        });
+        if (response.status !== 204) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(experienceApiErrorMessage(data, response.status));
+        }
+
+        // A successful DELETE has no JSON body.
+        showToast('Experience deleted', 'Experience deleted successfully.', 'success');
+        await loadExperiences();
+        experienceDeleteModal.hidePopover();
+    } catch (error) {
+        console.error(error);
+        showToast(
+            'Could not delete experience',
+            error instanceof TypeError ? 'Could not confirm deletion. Refresh the list before trying again.' : error.message,
+            'error',
+        );
+    } finally {
+        experienceDeletingId = null;
+        experienceDeleteForm.setAttribute('aria-busy', 'false');
+        submitButton.disabled = false;
+        submitButton.textContent = 'Yes, delete';
+        syncExperienceMutationControls(target.id);
     }
 }
 
@@ -700,5 +769,21 @@ if (experienceEditForm && experienceEditModal) {
             .find(link => link.dataset.experienceEditId === target.id);
         const focusTarget = target.trigger.isConnected ? target.trigger : currentLink;
         (focusTarget ?? experienceTitleFilter).focus({ preventScroll: true });
+    });
+}
+
+if (experienceDeleteForm && experienceDeleteModal) {
+    experienceDeleteForm.addEventListener('submit', submitExperienceDelete);
+    experienceDeleteModal.addEventListener('toggle', (event) => {
+        if (event.newState === 'open') {
+            experienceDeleteModal.querySelector('.project-delete-modal-actions > button').focus();
+        } else if (experienceDeleteTarget) {
+            const target = experienceDeleteTarget;
+            experienceDeleteTarget = null;
+            const currentButton = [...experienceList.querySelectorAll('[data-experience-delete-id]')]
+                .find(button => button.dataset.experienceDeleteId === target.id);
+            const focusTarget = target.trigger.isConnected ? target.trigger : currentButton;
+            (focusTarget ?? experienceTitleFilter).focus({ preventScroll: true });
+        }
     });
 }

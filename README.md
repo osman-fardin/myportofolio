@@ -23,7 +23,7 @@ minimal multi-page interface with a warm visual theme.
   DOM `textContent`
 - Authorization Experience untuk guest, user biasa, Editor, dan superuser
 - Star dan unstar Experience per user melalui DRF tanpa reload halaman
-- Penghapusan Experience berbasis POST dengan confirmation popover
+- Penghapusan Experience melalui DELETE DRF tanpa reload, dengan confirmation popover
 - Project and experience management through Django Admin
 - Shared navigation and footer using Django template inheritance
 - Responsive layouts for desktop, tablet, and mobile screens
@@ -41,7 +41,7 @@ minimal multi-page interface with a warm visual theme.
   tanpa reload, dengan preview statis dan fallback HTML tetap tersedia
 - Loading daftar/detail, empty state, toast error API, dan pencegahan submit ganda
 - Payload publik Project hanya memuat count dan status star, tanpa identitas akun
-- 237 automated test untuk fitur lama, serializer, API, integrasi halaman, CSRF,
+- 243 automated test untuk fitur lama, serializer, API, integrasi halaman, CSRF,
   XSS, permission, privacy, serta isolasi data personal antar-user
 
 ## Technology
@@ -139,8 +139,8 @@ disengaja untuk menjaga fitur lama dan diuji pada API serta halaman.
 Daftar dan filter halaman Experience sudah memakai API DRF. Pada progres Tugas 6,
 serializer, permission empat role, serta API daftar/create/detail/update/delete
 dan star sudah tersedia.
-Create, star, dan modal edit halaman juga sudah memakai DRF. Delete halaman masih
-memakai route Tugas 5 selama migrasi bertahap, dengan kontrol role yang sama.
+Daftar/filter, create, star, modal edit, dan delete halaman sudah memakai DRF,
+dengan kontrol role yang sama. Route form HTML lama tetap tersedia.
 
 ## Projects API: Tutorial 07
 
@@ -365,8 +365,8 @@ error/retry, thumbnail, serta DOM `textContent` dipertahankan. Respons atau erro
 request lama yang dibatalkan tidak mengganti daftar dan feedback request terbaru.
 Create UI kini mengirim POST JSON ke `api:experience-list`, dan star memakai
 `api:experience-star`. Edit memakai PATCH ke `api:experience-detail`, dengan
-form HTML lama tetap tersedia lewat link. Delete masih POST dan redirect;
-migrasi berikutnya adalah delete melalui DRF.
+form HTML lama tetap tersedia lewat link. Confirmation delete mengirim DELETE
+ke `api:experience-detail`, tanpa reload halaman.
 
 Tujuh test halaman baru ditambah ke `main/tests_experience_ui.py`, dan assertion
 URL pada test shell lama disesuaikan memakai `reverse('api:experience-list')`.
@@ -444,6 +444,32 @@ Editor/owner, guest/user biasa, prefill, PATCH parsial, presisi tanggal pada
 zona Asia/Jakarta, null, no-change, submit ganda, fokus, filter, error 400/403/404,
 HTML, jaringan, CSRF, dan sesi berakhir. Modal pas pada 390/768/1440 px; screenshot
 mobile/desktop diperiksa tanpa mengubah CSS. PWS belum diverifikasi.
+
+Confirmation delete tetap khusus superuser dan menampilkan judul lewat
+`textContent`. Fokus awal berada pada Cancel; membatalkan tidak mengirim request.
+Form menyimpan action POST lama sebagai fallback dan URL detail DRF untuk Fetch.
+DELETE memakai header CSRF tanpa body. Hanya status 204 dianggap sukses dan
+tidak dibaca sebagai JSON; daftar kemudian dimuat dengan filter yang tetap aktif.
+Jika refresh daftar gagal setelah delete sukses, Retry hanya mengulang GET.
+
+Submit, target, serta kontrol star/delete pada record yang sedang dihapus
+dikunci, termasuk saat filter merender ulang kartu. Delete tidak dimulai saat
+star target atau save edit masih berjalan; edit target yang sedang dihapus
+juga ditolak di UI. Error API/jaringan mempertahankan konfirmasi, mengaktifkan
+kontrol kembali, dan menampilkan toast. Tidak ada retry mutation otomatis.
+Sesudah tutup, fokus kembali ke trigger bila masih tersedia atau ke pencarian
+jika record sudah dihapus. Menutup popover tidak membatalkan DELETE yang terkirim.
+
+Enam test delete ditambahkan untuk target URL/fallback, 204 kosong, keutuhan
+record lain, role, CSRF/sesi, owner yang diturunkan aksesnya setelah render,
+serta POST lama. Struktur penempatan test sempat memotong test edit dan sudah
+dikoreksi; setelah itu 46 test terarah dan seluruh 243 test main lulus. Check,
+migration, sintaks JS, dan whitespace bersih. Browser DB sementara memeriksa
+Cancel, role, filter, lock saat rerender, klik ganda, 400/403/404, HTML/jaringan,
+CSRF, sesi, penghapusan record terakhir, serta create sesudah daftar kosong.
+Instrumentasi browser mencatat nol pemanggilan JSON pada 204; pengujian ulang
+delete mencatat satu DELETE, nol request dokumen/POST lama, dan nol page error.
+Popover pas pada 390/768/1440 px; screenshot mobile diperiksa. PWS belum diverifikasi.
 
 ## Verifikasi Tutorial 07
 
@@ -718,7 +744,7 @@ Pada Tutorial 07, bantuan juga mencakup membaca materi serta kode aktual, menyus
 
 Pada awal Tugas 6, bantuan edit per checkpoint berlanjut ke serializer Experience,
 permission empat role, API daftar/create/detail/update/delete/star, integrasi
-daftar/filter, modal create/edit, dan star Experience ke DRF, test, serta
+daftar/filter, modal create/edit/delete, dan star Experience ke DRF, test, serta
 dokumentasi terkait. Rincian
 hasil dan batas verifikasinya dicatat pada prompt log mulai entri 34.
 

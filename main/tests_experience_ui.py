@@ -440,3 +440,137 @@ class ExperienceEditPageTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertNotIn('CSRF', response.json()['detail'])
         self.assertEqual(list(Experience.objects.values()), original)
+
+
+class _ExperienceDeleteFormParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.attributes = {}
+
+    def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        if tag == 'form' and attributes.get('id') == 'experience-delete-form':
+            self.attributes = attributes
+
+
+class ExperienceDeletePageTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        user_model = get_user_model()
+        cls.owner = user_model.objects.create_superuser(
+            username='experience-delete-page-owner', password='test-password',
+        )
+        cls.reader = user_model.objects.create_user(
+            username='experience-delete-page-reader', password='test-password',
+        )
+        cls.editor = user_model.objects.create_user(
+            username='experience-delete-page-editor', password='test-password',
+        )
+        cls.editor.user_permissions.add(Permission.objects.get(
+            content_type__app_label='main', codename='change_experience',
+        ))
+        cls.staff = user_model.objects.create_user(
+            username='experience-delete-page-staff', password='test-password', is_staff=True,
+        )
+        cls.experience = Experience.objects.create(
+            title='Delete only this role', description='A temporary role.',
+        )
+        cls.experience.starred_by.add(cls.owner, cls.reader)
+        cls.other = Experience.objects.create(
+            title='Keep this role', description='An unrelated role.',
+        )
+        cls.other.starred_by.add(cls.editor)
+
+    def owner_page_and_target(self):
+        client = APIClient(enforce_csrf_checks=True)
+        self.assertTrue(client.login(username=self.owner.username, password='test-password'))
+        page = client.get(reverse('main:show_experience'))
+        self.assertEqual(page.status_code, 200)
+        parser = _ExperienceDeleteFormParser()
+        parser.feed(page.content.decode())
+        self.assertTrue(parser.attributes)
+        url = parser.attributes['data-api-url'].replace(
+            '00000000-0000-0000-0000-000000000000', str(self.experience.pk),
+        )
+        self.assertEqual(url, reverse('api:experience-detail', args=[self.experience.pk]))
+        return client, page, parser.attributes, url, client.cookies['csrftoken'].value
+
+    def database_snapshot(self):
+        return (
+            list(Experience.objects.order_by('id').values()),
+            list(Experience.starred_by.through.objects.order_by('id').values()),
+        )
+
+    def test_owner_confirmation_has_api_target_and_native_post_fallback(self):
+        _, page, attributes, _, _ = self.owner_page_and_target()
+        self.assertEqual(attributes['method'], 'post')
+        self.assertEqual(attributes['aria-busy'], 'false')
+        self.assertEqual(attributes['action'], reverse(
+            'main:delete_experience', args=['00000000-0000-0000-0000-000000000000'],
+        ))
+        self.assertContains(page, 'aria-labelledby="experience-delete-title"')
+        self.assertContains(page, 'autofocus')
+        self.assertNotContains(page, self.experience.title)
+
+    def test_delete_via_rendered_api_target_returns_empty_204_and_preserves_other_data(self):
+        client, _, _, url, token = self.owner_page_and_target()
+        other_before = Experience.objects.filter(pk=self.other.pk).values().get()
+        response = client.delete(url, HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response.content, b'')
+        self.assertFalse(Experience.objects.filter(pk=self.experience.pk).exists())
+        self.assertFalse(Experience.starred_by.through.objects.filter(
+            experience_id=self.experience.pk,
+        ).exists())
+        self.assertEqual(Experience.objects.filter(pk=self.other.pk).values().get(), other_before)
+        self.assertEqual(list(self.other.starred_by.all()), [self.editor])
+        self.assertEqual(Experience.objects.count(), 1)
+
+    def test_guest_reader_editor_and_staff_cannot_delete_from_the_rendered_target(self):
+        _, _, _, url, _ = self.owner_page_and_target()
+        original = self.database_snapshot()
+        for user in (None, self.reader, self.editor, self.staff):
+            with self.subTest(user=str(user)):
+                client = APIClient(enforce_csrf_checks=True)
+                if user:
+                    self.assertTrue(client.login(username=user.username, password='test-password'))
+                page = client.get(reverse('main:show_experience'))
+                self.assertNotContains(page, 'id="experience-delete-form"')
+                token = client.cookies['csrftoken'].value
+                response = client.delete(url, HTTP_X_CSRFTOKEN=token)
+                self.assertEqual(response.status_code, 403)
+                self.assertNotIn('CSRF', response.json()['detail'])
+                self.assertEqual(self.database_snapshot(), original)
+
+    def test_missing_or_wrong_csrf_and_expired_session_do_not_delete(self):
+        client, _, _, url, token = self.owner_page_and_target()
+        original = self.database_snapshot()
+        for headers in ({}, {'HTTP_X_CSRFTOKEN': 'invalid'}):
+            response = client.delete(url, **headers)
+            self.assertEqual(response.status_code, 403)
+            self.assertIn('CSRF', response.json()['detail'])
+            self.assertEqual(self.database_snapshot(), original)
+        client.logout()
+        response = client.delete(url, HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(response.status_code, 403)
+        self.assertNotIn('CSRF', response.json()['detail'])
+        self.assertEqual(self.database_snapshot(), original)
+
+    def test_owner_demoted_after_confirmation_render_cannot_delete(self):
+        client, _, _, url, token = self.owner_page_and_target()
+        self.owner.is_superuser = False
+        self.owner.save(update_fields=['is_superuser'])
+        original = self.database_snapshot()
+        response = client.delete(url, HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(self.database_snapshot(), original)
+
+    def test_native_post_delete_still_redirects_and_preserves_the_other_record(self):
+        client, _, attributes, _, token = self.owner_page_and_target()
+        url = attributes['action'].replace(
+            '00000000-0000-0000-0000-000000000000', str(self.experience.pk),
+        )
+        response = client.post(url, HTTP_X_CSRFTOKEN=token)
+        self.assertRedirects(response, reverse('main:show_experience'), fetch_redirect_response=False)
+        self.assertFalse(Experience.objects.filter(pk=self.experience.pk).exists())
+        self.assertTrue(Experience.objects.filter(pk=self.other.pk).exists())
