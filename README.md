@@ -14,15 +14,17 @@ minimal multi-page interface with a warm visual theme.
 
 - Minimal homepage with direct paths to Projects and About
 - Database-backed Experience and Projects pages
-- Experience dimuat dari endpoint JSON menggunakan Fetch API tanpa reload halaman
+- Daftar dan filter Experience dimuat dari DRF menggunakan Fetch API tanpa reload
 - Pencarian dan filter Experience dengan debouncing serta request cancellation
-- Modal create Experience berbasis AJAX dengan response `201`, `400`, atau `403`
+- Filter personal **Starred by me** pada Experience, digabung title/category/status
+- Modal create Experience melalui JSON DRF dengan response `201`, `400`, atau `403`
+- Modal edit Experience melalui PATCH untuk Editor/superuser, hanya field berubah
 - Loading, empty, no-results, error, retry, result count, dan toast feedback
 - Sanitasi input Experience menggunakan `strip_tags` dan output aman melalui
   DOM `textContent`
 - Authorization Experience untuk guest, user biasa, Editor, dan superuser
-- AJAX star dan unstar Experience per user tanpa reload halaman
-- Penghapusan Experience berbasis POST dengan confirmation popover
+- Star dan unstar Experience per user melalui DRF tanpa reload halaman
+- Penghapusan Experience melalui DELETE DRF tanpa reload, dengan confirmation popover
 - Project and experience management through Django Admin
 - Shared navigation and footer using Django template inheritance
 - Responsive layouts for desktop, tablet, and mobile screens
@@ -40,7 +42,7 @@ minimal multi-page interface with a warm visual theme.
   tanpa reload, dengan preview statis dan fallback HTML tetap tersedia
 - Loading daftar/detail, empty state, toast error API, dan pencegahan submit ganda
 - Payload publik Project hanya memuat count dan status star, tanpa identitas akun
-- 217 automated test untuk fitur lama, serializer, API, integrasi halaman, CSRF,
+- 266 automated test untuk fitur lama, serializer, API, integrasi halaman, CSRF,
   XSS, permission, privacy, serta isolasi data personal antar-user
 
 ## Technology
@@ -135,10 +137,11 @@ create, PUT/PATCH, atau delete. Jadi Editor tetap bisa memakai form HTML
 `is_staff` dan nama grup saja tidak memberikan izin API tersebut. Perbedaan ini
 disengaja untuk menjaga fitur lama dan diuji pada API serta halaman.
 
-Halaman Experience masih memakai route Tugas 5 di bawah. Pada progres Tugas 6,
+Daftar dan filter halaman Experience sudah memakai API DRF. Pada progres Tugas 6,
 serializer, permission empat role, serta API daftar/create/detail/update/delete
 dan star sudah tersedia.
-Integrasi halaman ke DRF dilanjutkan pada checkpoint berikutnya.
+Daftar/filter, create, star, modal edit, dan delete halaman sudah memakai DRF,
+dengan kontrol role yang sama. Route form HTML lama tetap tersedia.
 
 ## Projects API: Tutorial 07
 
@@ -255,8 +258,39 @@ request dikirim, baca ulang state sebelum memutuskan mengulang mutation.
 `main/serializers.py` menangani representasi/validasi, `main/permissions.py`
 menangani izin, dan `main/api_views.py` memakai `@api_view` serta `Response`.
 `main/api_urls.py` didaftarkan pada prefix `/api/v1/` di `portofolio/urls.py`.
-Queryset daftar/detail memakai prefetch relasi star; belum memakai optimasi
-Count/Exists. Model serta migration tidak berubah.
+Queryset API daftar/detail Projects dan Experience memakai helper
+`main/querysets.py`: Count menghitung seluruh star dan Exists mengecek membership
+akun request pada tabel penghubung. Guest memakai boolean false. Model serta
+migration tidak berubah; halaman/fallback HTML lama tetap memakai jalurnya sendiri.
+
+Annotation ini khusus akun pada request tersebut, bukan cache untuk dipakai
+lintas akun atau sesudah relasi berubah. Serializer membaca annotation bila ada;
+instance biasa dari create/star memakai count/exists terbaru. Toggle tetap
+mengambil instance biasa agar hasilnya tidak memakai summary sebelum mutation.
+Filter mine memakai hasil Exists sehingga total count tidak terpotong ke satu akun.
+
+Pengukuran E7 menggunakan SQLite lokal dan fixture sementara yang sama untuk
+kode sebelum/sesudah: 20 record per model, masing-masing 10 akun pemberi star.
+APIRequestFactory memakai akun yang sudah tersedia, di luar query autentikasi sesi.
+
+| Pembacaan per resource | Sebelum: query / object User dimuat | Sesudah: query / object User dimuat |
+| --- | --- | --- |
+| List 1 record | 2 / 10 | 1 / 0 |
+| List 20 record | 2 / 200 | 1 / 0 |
+| Detail guest atau login | 2 / 10 | 1 / 0 |
+
+Payload delapan respons list/detail pembanding sama persis. Prefetch lama sudah
+mencegah N+1; perubahan ini mengurangi query dan pemuatan object akun, bukan
+bukti latency atau throughput produksi. Database masih harus menghitung relasi
+star; list belum dipaginasi. PWS belum diukur.
+
+Sepuluh test baru di `main/tests_api_queries.py` memeriksa query konstan untuk
+1/20 record, tidak ada SELECT/object User, kesamaan payload baseline prefetch,
+serialisasi tanpa query tambahan setelah summary dimuat, mine/count total,
+empty/guest, serta fallback create/star dan PATCH read-only. Seluruh 266 test
+main lulus; check, migration, dan whitespace bersih. Smoke HTTP lokal pada DB
+sementara memeriksa JSON, Browsable API list/detail, HEAD, serta guest mine
+untuk kedua resource. UI tidak diubah atau diuji browser ulang pada E7.
 
 `main/views.py` tetap menyediakan halaman dan fallback ORM tanpa deserialize
 JSON lama. Named URL disalurkan melalui atribut `data-*` ke
@@ -292,13 +326,20 @@ ini. API PUT/PATCH sudah berfungsi; form update lama tetap dapat dipakai.
 | `/experience/<uuid>/star/` | POST | Toggle star dan mengembalikan state terbaru | User login |
 
 Progres API Tugas 6 pada 7 November: `api:experience-list` mendukung filter
-`title`, `category`, dan `status=ongoing/completed`, termasuk kombinasinya.
+`title`, `category`, `status=ongoing/completed`, dan `starred=mine`, termasuk kombinasinya.
 Daftar berupa array datar dengan 12 field publik dari ExperienceSerializer;
 `description` mentah tetap tersedia bersama `description_points`. Akun pemberi
 star tidak dikirim; hanya count dan status sesuai request pengguna.
 Urutan memakai `-started_at`, lalu UUID sebagai penentu saat tanggal sama.
 Kategori tidak dikenal menghasilkan `[]`; status tidak dikenal diabaikan seperti
 jalur JSON lama. Hasil kosong tetap 200.
+
+`starred=mine` dibatasi memakai `request.user`; parameter user ID atau username
+tidak dapat memilih star akun lain. Guest mendapat `[]` dengan 200. Spasi tepi
+dipangkas; nilai selain `mine` diabaikan. Count pada hasil tetap menghitung star
+semua akun, sedangkan `is_starred` mengikuti akun yang meminta. Payload tetap
+12 field publik tanpa identitas pemberi star. Query filter ini tidak mengubah
+permission mutation atau otomatis memberi star pada record baru.
 
 POST memakai SessionAuthentication dan header CSRF, menghasilkan 201 saat valid,
 400 untuk error serializer, serta 403 untuk guest, user biasa, Editor, atau
@@ -336,10 +377,10 @@ retry otomatis pada toggle. Akun login dengan UUID target yang hilang mendapat
 404. GET dari akun login mendapat 405; guest mendapat 403 karena permission
 diperiksa lebih dahulu. POST berbasis session tetap membutuhkan CSRF.
 
-API Experience pada branch backend sudah mencakup CRUD dan star. Migrasi UI
-menjadi tahap berikutnya; halaman masih memakai route lama. Test endpoint
-list/create berjumlah 19, detail/update/delete 20, dan star 11; total test
-main mencapai 217. Test penolakan memeriksa record serta relasi star, termasuk
+API Experience sudah mencakup CRUD dan star, lalu merged melalui PR #22 pada
+`59a8f09`. Checkpoint UI pertama memindahkan daftar/filter ke DRF. Test endpoint
+list/create berjumlah 19, detail/update/delete 20, dan star 11; pada checkpoint
+backend total main 217. Test penolakan memeriksa record serta relasi star, termasuk
 keutuhan record lain setelah delete. Test CSRF memakai `.login()` serta APIClient
 dengan CSRF enforcement: Editor dengan token valid bisa update tetapi ditolak
 delete, sedangkan user biasa tetap ditolak menulis. Cek HTTP lokal membuktikan
@@ -348,6 +389,152 @@ JSON dan Browsable API bisa dibuka, HEAD kosong, serta missing UUID mendapat
 berakhir, dan kesesuaian relasi antara route lama dan API baru. Cek HTTP lokal
 memastikan GET star oleh guest mendapat 403 sesuai kontrak, tanpa menjalankan
 mutation pada database lokal. PWS belum diverifikasi ulang untuk perubahan ini.
+
+### Progres integrasi halaman Experience
+
+`templates/experience.html` sekarang mengirim named URL `api:experience-list`
+melalui `data-experiences-url`. Flag star/edit/delete ditentukan template dari
+user dan permission Django, lalu dipakai JavaScript untuk merakit kontrol.
+Payload API tetap 12 field publik. Pola URL action lama memakai placeholder UUID
+dari template, sehingga tombol tetap berfungsi ketika daftar dimuat dari DRF.
+Izin tindakan tetap diperiksa server.
+
+Pencarian 400 ms, filter kategori/status, Clear, result count, loading, empty,
+error/retry, thumbnail, serta DOM `textContent` dipertahankan. Respons atau error
+request lama yang dibatalkan tidak mengganti daftar dan feedback request terbaru.
+Create UI kini mengirim POST JSON ke `api:experience-list`, dan star memakai
+`api:experience-star`. Edit memakai PATCH ke `api:experience-detail`, dengan
+form HTML lama tetap tersedia lewat link. Confirmation delete mengirim DELETE
+ke `api:experience-detail`, tanpa reload halaman.
+
+Tujuh test halaman baru ditambah ke `main/tests_experience_ui.py`, dan assertion
+URL pada test shell lama disesuaikan memakai `reverse('api:experience-list')`.
+Full suite main 224 lulus, check/migration/sintaks JS/whitespace bersih. Browser
+dengan database sementara memeriksa guest, user biasa, Editor, staff, dan owner;
+DRF list/filter tanpa reload atau GET list lama; debounce, kombinasi filter,
+empty/Clear, thumbnail, escaping, request lambat, error/retry, serta mutation
+lama yang tetap berfungsi. Layout stabil diperiksa pada 390/768/1440 px.
+
+Pada checkpoint create, modal memakai `data-api-url` untuk Fetch dan tetap
+menyimpan action HTML sebagai fallback. JSON hanya memuat enam field writable;
+thumbnail dan tanggal akhir kosong dikirim sebagai `null`. Nilai `datetime-local`
+dikirim apa adanya, sehingga interpretasi UTC dari form lama tetap sama, tanpa
+konversi zona waktu tambahan di browser. Respons 201 menutup/reset modal dan
+memuat ulang daftar dengan filter aktif. Error DRF atau jaringan mempertahankan
+isian, menampilkan toast, dan mengaktifkan kembali tombol. Submit ganda dikunci
+selama request; POST tidak diulang otomatis.
+
+Lima test integrasi create ditambahkan: JSON valid, fallback dan kesamaan tanggal,
+validasi field, CSRF, serta sesi berakhir. Total main kini 229 lulus; check,
+migration, sintaks JS, dan whitespace bersih. Browser database sementara menguji
+create pertama saat daftar kosong, payload/header, submit ganda, filter sesudah
+sukses, 400, 403, respons HTML, status tak sesuai, dan jaringan putus. Pengujian
+ulang mencatat satu POST, nol request dokumen, dan nol page error saat create.
+
+Star mengirim POST tanpa body dengan header CSRF, lalu memakai `is_starred` dan
+`star_count` dari object DRF terbaru untuk label, count, dan `aria-pressed`.
+Status harus 200 dengan ID, boolean, dan count valid sebelum state UI berubah.
+Error field/detail DRF ditampilkan sebagai teks lewat toast; error jaringan
+meminta pengguna memuat ulang daftar untuk memastikan hasil. Toggle tidak
+diulang otomatis karena dua POST dapat mengembalikan state awal.
+
+Pengunci memakai Set ID Experience, sehingga kartu baru dari filter tetap
+disabled selama star berjalan. Respons sukses juga memperbarui tombol yang
+sudah dirender ulang. Jika GET daftar masih berjalan saat toggle sukses,
+request tersebut diganti dengan pembacaan terbaru agar state lama tidak
+menimpa hasil mutation. Filter tetap dipertahankan.
+
+Dua test halaman baru memeriksa URL star yang ditolak untuk guest, CSRF kosong,
+dan sesi berakhir; test URL serta token user biasa/Editor kini mengarah ke DRF.
+Full main 231 lulus; check/migration/sintaks JS/whitespace bersih. Browser DB
+sementara memeriksa guest, dua akun biasa, Editor, owner, star/unstar tanpa reload
+atau POST lama, submit ganda saat kartu berganti, dan GET lama yang terlambat.
+Error 400/403/404, HTML 503/200, payload tidak sesuai, jaringan putus, CSRF salah,
+dan logout juga diperiksa. Setiap percobaan mengirim satu POST tanpa retry;
+state/count tetap saat gagal dan tombol kembali aktif. PWS belum diverifikasi.
+
+Modal edit memakai ExperienceForm lama dengan ID field `edit_*`, agar tidak
+bertabrakan dengan modal create milik owner. Template hanya menyediakannya untuk
+akun dengan `main.change_experience`. Klik biasa pada link edit membuka modal;
+href tetap menuju form HTML lama. Isian berasal dari object daftar DRF, termasuk
+description mentah supaya baris kosong tidak hilang saat prefill. Modal memakai
+stylesheet yang sudah ada.
+
+JavaScript membandingkan nilai form dengan snapshot saat modal dibuka, lalu
+mengirim hanya field writable yang berubah melalui PATCH JSON dan header CSRF.
+Jika tidak ada perubahan, tidak ada request. Thumbnail/tanggal akhir yang
+dikosongkan dikirim sebagai null. Tanggal ditampilkan dalam UTC sesuai form lama;
+field tanggal yang tidak diedit tidak dikirim, sehingga detik dan mikrodetik
+data lama tetap utuh. Field internal `initial-started_at` Django tidak ikut body.
+PATCH ini tidak memeriksa konflik bila akun lain mengedit field yang sama.
+
+Selama save, field dan submit dikunci, ada label Saving, dan target tidak bisa
+diganti. Respons 200 memuat ulang daftar dengan filter aktif lalu menutup modal;
+error API/jaringan mempertahankan isian dan mengaktifkan form kembali. Fokus
+masuk ke judul saat membuka, lalu kembali ke link edit setelah tutup, atau ke
+pencarian bila record sudah tidak cocok dengan filter.
+
+Enam test edit ditambahkan, ditambah assertion modal per role dan permission
+langsung. Test awal perlu dikoreksi karena ModelForm juga merender hidden field
+default `initial-started_at`; allowlist payload tetap enam field writable.
+Setelah koreksi, 26 test terarah dan seluruh 237 test main lulus. Check,
+migration, sintaks JS, serta whitespace bersih. Browser DB sementara memeriksa
+Editor/owner, guest/user biasa, prefill, PATCH parsial, presisi tanggal pada
+zona Asia/Jakarta, null, no-change, submit ganda, fokus, filter, error 400/403/404,
+HTML, jaringan, CSRF, dan sesi berakhir. Modal pas pada 390/768/1440 px; screenshot
+mobile/desktop diperiksa tanpa mengubah CSS. PWS belum diverifikasi.
+
+Confirmation delete tetap khusus superuser dan menampilkan judul lewat
+`textContent`. Fokus awal berada pada Cancel; membatalkan tidak mengirim request.
+Form menyimpan action POST lama sebagai fallback dan URL detail DRF untuk Fetch.
+DELETE memakai header CSRF tanpa body. Hanya status 204 dianggap sukses dan
+tidak dibaca sebagai JSON; daftar kemudian dimuat dengan filter yang tetap aktif.
+Jika refresh daftar gagal setelah delete sukses, Retry hanya mengulang GET.
+
+Submit, target, serta kontrol star/delete pada record yang sedang dihapus
+dikunci, termasuk saat filter merender ulang kartu. Delete tidak dimulai saat
+star target atau save edit masih berjalan; edit target yang sedang dihapus
+juga ditolak di UI. Error API/jaringan mempertahankan konfirmasi, mengaktifkan
+kontrol kembali, dan menampilkan toast. Tidak ada retry mutation otomatis.
+Sesudah tutup, fokus kembali ke trigger bila masih tersedia atau ke pencarian
+jika record sudah dihapus. Menutup popover tidak membatalkan DELETE yang terkirim.
+
+Enam test delete ditambahkan untuk target URL/fallback, 204 kosong, keutuhan
+record lain, role, CSRF/sesi, owner yang diturunkan aksesnya setelah render,
+serta POST lama. Struktur penempatan test sempat memotong test edit dan sudah
+dikoreksi; setelah itu 46 test terarah dan seluruh 243 test main lulus. Check,
+migration, sintaks JS, dan whitespace bersih. Browser DB sementara memeriksa
+Cancel, role, filter, lock saat rerender, klik ganda, 400/403/404, HTML/jaringan,
+CSRF, sesi, penghapusan record terakhir, serta create sesudah daftar kosong.
+Instrumentasi browser mencatat nol pemanggilan JSON pada 204; pengujian ulang
+delete mencatat satu DELETE, nol request dokumen/POST lama, dan nol page error.
+Popover pas pada 390/768/1440 px; screenshot mobile diperiksa. PWS belum diverifikasi.
+
+Filter personal Experience merupakan tambahan E6. Checkbox Starred by me hanya
+ditampilkan untuk akun login, dan URL `?starred=mine` bisa dibuka kembali dengan
+filter tetap terpilih. Guest yang membuka URL tersebut mendapat pesan untuk
+login; Clear menghapus filter personal beserta title/category/status. Daftar
+tetap dimuat melalui Fetch tanpa reload. Empty state membedakan akun yang belum
+punya star dengan hasil kombinasi filter yang kosong.
+
+Unstar yang sukses memuat ulang hasil personal agar kartu yang tidak lagi cocok
+hilang, sambil mempertahankan filter lain. Fokus tombol yang hilang dikembalikan
+ke checkbox. Pencatatan fokus sempat dilakukan sesudah tombol disabled; browser
+menemukan fokus sudah terlepas. Pencatatan dipindah ke awal klik dan cek ulang
+lulus. Error unstar mempertahankan kartu/state; Retry daftar tetap hanya GET.
+
+Delapan test API dan lima test halaman ada di `main/tests_experience_starred.py`.
+Seluruh 13 test baru dan 256 test main lulus; check/migration/JS/whitespace bersih.
+Test mencakup isolasi A/B, total count, kombinasi filter, guest/HEAD, input akun
+palsu, nilai query, escaping, role, unstar, dan create tanpa auto-star. Browser
+DB sementara memeriksa keyboard Space, URL/Clear, empty state, unstar/fokus,
+request lambat, 503/Retry, penolakan 403/sesi berakhir, serta create/edit/delete
+dengan mine tetap aktif. Pemeriksaan ulang mencatat nol request dokumen dan
+nol page error. Layout diperiksa pada 320/390/768/901/1024/1440 px, dengan
+screenshot mobile/desktop. CSS tambahan mengikuti warna Experience yang sudah
+ada; warna Projects tetap. Model/data/PWS tidak diubah. E7 Count/Exists kini
+selesai lokal, dengan bukti pada bagian struktur API; audit akhir dan E8
+dokumentasi/refleksi masih menyusul.
 
 ## Verifikasi Tutorial 07
 
@@ -621,9 +808,13 @@ Selama mengerjakan Tutorial sampai Tugas 5 dan Tutorial 07, saya memakai OpenAI 
 Pada Tutorial 07, bantuan juga mencakup membaca materi serta kode aktual, menyusun roadmap/playbook pribadi, dan mengedit serializer, permission, view/URL API, integrasi Projects, test, serta dokumentasi per checkpoint yang saya minta. Codex membantu menjalankan verifikasi dan browser pada database sementara. Commit tetap saya jalankan sendiri; push, merge, dan deployment tidak dianggap otomatis selesai oleh bantuan tersebut.
 
 Pada awal Tugas 6, bantuan edit per checkpoint berlanjut ke serializer Experience,
-permission empat role, API daftar/create/detail/update/delete/star, test, serta
+permission empat role, API daftar/create/detail/update/delete/star, integrasi
+daftar/filter termasuk filter personal, modal create/edit/delete, dan star Experience
+ke DRF, test, serta
 dokumentasi terkait. Rincian
 hasil dan batas verifikasinya dicatat pada prompt log mulai entri 34.
+Pada E7, bantuan juga mencakup helper Count/Exists bersama untuk API Projects dan
+Experience, fallback metadata serializer, test query, dan pengukuran pembanding.
 
 Saat memberi prompt, saya biasanya menyertakan rubrik, source code terbaru, error yang muncul, atau hasil command Git. Saya meminta pekerjaan dibagi per module, setiap konsep baru dijelaskan, dan perubahan diperiksa sebelum commit. Cara ini membantu saya mengikuti alasan di balik `fetch()`, `await`, debounce, `AbortController`, `FormData`, CSRF, serta penggunaan `textContent`, bukan hanya melihat hasil akhirnya.
 

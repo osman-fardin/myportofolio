@@ -782,7 +782,7 @@ class ExperienceJsonTests(TestCase):
         self.assertEqual(response.context['status_filter'], 'ongoing')
         self.assertContains(
             response,
-            'data-experiences-url="/api/experiences/"',
+            f'data-experiences-url="{reverse("api:experience-list")}"',
         )
         self.assertContains(response, 'Loading experiences...')
         self.assertNotContains(response, self.ongoing_experience.title)

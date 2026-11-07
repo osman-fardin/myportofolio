@@ -14,6 +14,7 @@ from .permissions import (
     IsPortfolioOwnerOrEditorOrReadOnly,
     IsPortfolioOwnerOrReadOnly,
 )
+from .querysets import with_star_summary
 from .serializers import ExperienceSerializer, ProjectSerializer
 
 
@@ -22,7 +23,7 @@ from .serializers import ExperienceSerializer, ProjectSerializer
 @permission_classes([IsPortfolioOwnerOrReadOnly])
 def project_list(request):
     if request.method in ('GET', 'HEAD'):
-        projects = Project.objects.prefetch_related('starred_by').order_by(
+        projects = with_star_summary(Project.objects.all(), request.user).order_by(
             'display_order', 'title', 'id',
         )
         title = request.query_params.get('title', '').strip()
@@ -33,7 +34,7 @@ def project_list(request):
 
         if starred == 'mine':
             if request.user.is_authenticated:
-                projects = projects.filter(starred_by=request.user)
+                projects = projects.filter(_api_is_starred=True)
             else:
                 projects = projects.none()
 
@@ -59,7 +60,7 @@ def project_list(request):
 @permission_classes([IsPortfolioOwnerOrReadOnly])
 def project_detail(request, project_id):
     project = get_object_or_404(
-        Project.objects.prefetch_related('starred_by'),
+        with_star_summary(Project.objects.all(), request.user),
         pk=project_id,
     )
 
@@ -103,12 +104,13 @@ def project_star(request, project_id):
 @permission_classes([IsPortfolioOwnerOrEditorOrReadOnly])
 def experience_list(request):
     if request.method in ('GET', 'HEAD'):
-        experiences = Experience.objects.prefetch_related('starred_by').order_by(
+        experiences = with_star_summary(Experience.objects.all(), request.user).order_by(
             '-started_at', 'id',
         )
         title = request.query_params.get('title', '').strip()
         category = request.query_params.get('category', '').strip()
         experience_status = request.query_params.get('status', '').strip()
+        starred = request.query_params.get('starred', '').strip()
 
         if title:
             experiences = experiences.filter(title__icontains=title)
@@ -118,6 +120,12 @@ def experience_list(request):
             experiences = experiences.filter(ended_at__isnull=True)
         elif experience_status == 'completed':
             experiences = experiences.filter(ended_at__isnull=False)
+
+        if starred == 'mine':
+            if request.user.is_authenticated:
+                experiences = experiences.filter(_api_is_starred=True)
+            else:
+                experiences = experiences.none()
 
         serializer = ExperienceSerializer(
             experiences, many=True, context={'request': request},
@@ -136,7 +144,7 @@ def experience_list(request):
 @permission_classes([IsPortfolioOwnerOrEditorOrReadOnly])
 def experience_detail(request, experience_id):
     experience = get_object_or_404(
-        Experience.objects.prefetch_related('starred_by'), pk=experience_id,
+        with_star_summary(Experience.objects.all(), request.user), pk=experience_id,
     )
 
     if request.method in ('GET', 'HEAD'):

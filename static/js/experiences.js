@@ -11,6 +11,7 @@ const experienceCategoryFilter = document.getElementById(
 const experienceStatusFilter = document.getElementById(
     'experience-status-filter',
 );
+const experienceStarredFilter = document.getElementById('experience-starred-filter');
 const experienceFilterClear = document.getElementById(
     'experience-filter-clear',
 );
@@ -23,6 +24,13 @@ const experienceCreateForm = document.getElementById(
 const experienceCreateModal = document.getElementById(
     'experience-create-modal',
 );
+const experienceEditForm = document.getElementById('experience-edit-form');
+const experienceEditModal = document.getElementById('experience-edit-modal');
+const experienceEditableFields = [
+    'title', 'description', 'category', 'thumbnail', 'started_at', 'ended_at',
+];
+let experienceEditTarget = null;
+let experienceEditSaving = false;
 
 const experienceDeleteForm = document.getElementById(
     'experience-delete-form',
@@ -30,8 +38,21 @@ const experienceDeleteForm = document.getElementById(
 const experienceDeleteName = document.getElementById(
     'experience-delete-name',
 );
+const experienceDeleteModal = document.getElementById('experience-delete-modal');
+let experienceDeleteTarget = null;
+let experienceDeletingId = null;
 
 let experienceRequestController = null;
+const pendingExperienceStars = new Set();
+const experiencePlaceholderId = '00000000-0000-0000-0000-000000000000';
+
+function experienceActionUrl(action, id) {
+    return experienceList.dataset[action].replace(experiencePlaceholderId, id);
+}
+
+function experienceMutationPending(id) {
+    return pendingExperienceStars.has(id) || experienceDeletingId === id;
+}
 
 function debounce(callback, delay) {
     let timeoutId;
@@ -63,6 +84,13 @@ function getExperienceFilters() {
         filters.set('status', status);
     }
 
+    if (
+        experienceStarredFilter?.checked
+        || (!experienceStarredFilter && experienceList.dataset.starredFilter === 'mine')
+    ) {
+        filters.set('starred', 'mine');
+    }
+
     return filters;
 }
 
@@ -73,6 +101,7 @@ function syncExperienceUrl(filters) {
         : window.location.pathname;
 
     window.history.replaceState(null, '', nextUrl);
+    experienceList.dataset.starredFilter = filters.get('starred') || '';
     experienceFilterClear.hidden = !query;
 }
 
@@ -94,11 +123,12 @@ function createTextElement(tagName, className, text) {
     return element;
 }
 
-function getFirstFormError(errors = {}) {
-    const errorGroups = Object.values(errors);
-    const firstError = errorGroups.flat()[0];
+function experienceApiErrorMessage(data, status) {
+    const messages = data && typeof data === 'object'
+        ? Object.values(data).flat().filter(value => typeof value === 'string')
+        : [];
 
-    return firstError?.message ?? 'Please check the experience form.';
+    return messages.join(' ') || `Request failed (HTTP ${status}).`;
 }
 
 function formatMonthYear(value) {
@@ -129,41 +159,79 @@ function updateExperienceStarButton(button, isStarred, starCount) {
 }
 
 async function toggleExperienceStar(button, experience) {
+    if (button.disabled || experienceMutationPending(experience.id)) return;
+
+    const restoreFocus = document.activeElement === button;
+    pendingExperienceStars.add(experience.id);
     button.disabled = true;
+    syncExperienceMutationControls(experience.id);
 
     try {
-        const response = await fetch(experience.star_url, {
+        const response = await fetch(experienceActionUrl('starUrl', experience.id), {
             method: 'POST',
             headers: {
                 'X-CSRFToken': experienceList.dataset.csrfToken,
-                'X-Requested-With': 'XMLHttpRequest',
                 Accept: 'application/json',
             },
         });
 
-        if (!response.ok) {
-            throw new Error(
-                `Failed to update experience star: ${response.status}`,
-            );
+        const data = await response.json().catch(() => ({}));
+
+        if (response.status !== 200) {
+            throw new Error(experienceApiErrorMessage(data, response.status));
         }
 
-        const data = await response.json();
+        if (
+            data.id !== experience.id
+            || typeof data.is_starred !== 'boolean'
+            || !Number.isInteger(data.star_count)
+            || data.star_count < 0
+        ) {
+            throw new Error('Star update could not be confirmed. Refresh the list before trying again.');
+        }
 
         updateExperienceStarButton(
             button,
             data.is_starred,
             data.star_count,
         );
+        syncExperienceMutationControls(experience.id, data);
+
+        // A list request started before the toggle may contain an older star state.
+        if (experienceRequestController || getExperienceFilters().get('starred') === 'mine') {
+            await loadExperiences();
+            if (restoreFocus && document.activeElement === document.body) {
+                experienceStarredFilter?.focus({ preventScroll: true });
+            }
+        }
     } catch (error) {
         console.error(error);
 
         showToast(
             'Could not update star',
-            'Please try again in a moment.',
+            error instanceof TypeError ? 'Could not confirm the update. Refresh the list before trying again.' : error.message,
             'error',
         );
     } finally {
+        pendingExperienceStars.delete(experience.id);
         button.disabled = false;
+        syncExperienceMutationControls(experience.id);
+    }
+}
+
+function syncExperienceMutationControls(id, data) {
+    for (const button of experienceList.querySelectorAll('.experience-star-button')) {
+        if (button.dataset.experienceId !== id) continue;
+
+        if (data) {
+            updateExperienceStarButton(button, data.is_starred, data.star_count);
+        }
+        button.disabled = experienceMutationPending(id);
+    }
+    for (const button of experienceList.querySelectorAll('[data-experience-delete-id]')) {
+        if (button.dataset.experienceDeleteId === id) {
+            button.disabled = experienceMutationPending(id);
+        }
     }
 }
 
@@ -183,6 +251,8 @@ function createExperienceStarButton(experience) {
 
     button.type = 'button';
     button.className = 'experience-star-button';
+    button.dataset.experienceId = experience.id;
+    button.disabled = experienceMutationPending(experience.id);
     icon.setAttribute('aria-hidden', 'true');
     button.append(icon, label, count);
     updateExperienceStarButton(
@@ -203,6 +273,9 @@ function createExperienceCard(experience) {
     const information = document.createElement('div');
     const period = document.createElement('p');
     const points = document.createElement('ul');
+    const canStar = experienceList.dataset.canStar === 'true';
+    const canChange = experienceList.dataset.canChange === 'true';
+    const canDelete = experienceList.dataset.canDelete === 'true';
 
     article.className = 'experience-item';
     header.className = 'experience-item-header';
@@ -237,31 +310,41 @@ function createExperienceCard(experience) {
     article.append(header, points);
 
     if (
-        experience.can_star
-        || experience.can_change
-        || experience.can_delete
+        canStar
+        || canChange
+        || canDelete
     ) {
         const actions = document.createElement('div');
 
         actions.className = 'experience-actions';
 
-        if (experience.can_star) {
+        if (canStar) {
             actions.append(createExperienceStarButton(experience));
         }
 
-        if (experience.can_change) {
+        if (canChange) {
             const editLink = createTextElement(
                 'a',
                 '',
                 'Edit experience',
             );
 
-            editLink.href = experience.update_url;
+            editLink.href = experienceActionUrl('updateUrl', experience.id);
+            editLink.dataset.experienceEditId = experience.id;
+            if (experienceEditForm && experienceEditModal) {
+                editLink.setAttribute('aria-haspopup', 'dialog');
+                editLink.setAttribute('aria-controls', 'experience-edit-modal');
+                editLink.addEventListener('click', (event) => {
+                    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+                    event.preventDefault();
+                    openExperienceEdit(experience, editLink);
+                });
+            }
             actions.append(editLink);
         }
 
         if (
-            experience.can_delete
+            canDelete
             && experienceDeleteForm
             && experienceDeleteName
         ) {
@@ -272,6 +355,8 @@ function createExperienceCard(experience) {
             );
 
             deleteButton.type = 'button';
+            deleteButton.dataset.experienceDeleteId = experience.id;
+            deleteButton.disabled = experienceMutationPending(experience.id);
             deleteButton.setAttribute(
                 'popovertarget',
                 'experience-delete-modal',
@@ -281,8 +366,14 @@ function createExperienceCard(experience) {
                 `Delete ${experience.title}`,
             );
 
-            deleteButton.addEventListener('click', () => {
-                experienceDeleteForm.action = experience.delete_url;
+            deleteButton.addEventListener('click', (event) => {
+                if (experienceDeletingId || experienceEditSaving || experienceMutationPending(experience.id)) {
+                    event.preventDefault();
+                    return;
+                }
+                experienceDeleteTarget = { id: experience.id, trigger: deleteButton };
+                experienceDeleteForm.action = experienceActionUrl('deleteUrl', experience.id);
+                experienceDeleteForm.dataset.apiUrl = experienceActionUrl('detailUrl', experience.id);
                 experienceDeleteName.textContent = experience.title;
             });
 
@@ -320,9 +411,17 @@ function renderExperienceLoading() {
 
 function renderExperienceEmpty() {
     const filters = getExperienceFilters();
-    const message = filters.toString()
+    let message = filters.toString()
         ? 'No experiences match these filters.'
         : 'No experience has been added yet.';
+    if (filters.get('starred') === 'mine') {
+        const hasOtherFilters = ['title', 'category', 'status'].some(name => filters.has(name));
+        message = experienceList.dataset.canStar !== 'true'
+            ? 'Log in to view your starred experiences.'
+            : hasOtherFilters
+                ? 'No starred experiences match these filters.'
+                : 'You have not starred any experiences yet.';
+    }
     const emptyState = createTextElement(
         'p',
         'experience-empty',
@@ -391,6 +490,10 @@ async function loadExperiences() {
         }
 
         const experiences = await response.json();
+        // Only the current request may replace the list or its feedback state.
+        if (requestController.signal.aborted || experienceRequestController !== requestController) {
+            return;
+        }
 
         if (experiences.length === 0) {
             renderExperienceEmpty();
@@ -405,7 +508,11 @@ async function loadExperiences() {
         renderExperienceCount(experiences.length);
         experienceList.replaceChildren(...experienceCards);
     } catch (error) {
-        if (error.name === 'AbortError') {
+        if (
+            error.name === 'AbortError'
+            || requestController.signal.aborted
+            || experienceRequestController !== requestController
+        ) {
             return;
         }
 
@@ -424,12 +531,152 @@ async function loadExperiences() {
     }
 }
 
+function openExperienceEdit(experience, trigger) {
+    if (experienceEditSaving || experienceDeletingId === experience.id) return;
+
+    experienceEditForm.reset();
+    const initialValues = {};
+    for (const name of experienceEditableFields) {
+        let value = experience[name] ?? '';
+        if ((name === 'started_at' || name === 'ended_at') && value) {
+            // The existing HTML form and API interpret datetime-local values in UTC.
+            value = new Date(value).toISOString().slice(0, 16);
+        }
+        experienceEditForm.elements.namedItem(name).value = value;
+        initialValues[name] = experienceEditForm.elements.namedItem(name).value;
+    }
+
+    experienceEditTarget = { id: experience.id, initialValues, trigger };
+    experienceEditForm.action = experienceActionUrl('updateUrl', experience.id);
+    experienceEditForm.dataset.apiUrl = experienceActionUrl('detailUrl', experience.id);
+    experienceEditModal.showPopover();
+    experienceEditForm.elements.namedItem('title').focus();
+}
+
+async function submitExperienceEdit(event) {
+    event.preventDefault();
+    if (experienceEditSaving || !experienceEditTarget) return;
+
+    const target = experienceEditTarget;
+    const fields = new FormData(experienceEditForm);
+    const payload = {};
+    for (const name of experienceEditableFields) {
+        const value = fields.get(name);
+        if (value !== target.initialValues[name]) {
+            payload[name] = (name === 'thumbnail' || name === 'ended_at') && !value
+                ? null : value;
+        }
+    }
+    if (Object.keys(payload).length === 0) {
+        showToast('No changes', 'Change a field before saving.');
+        return;
+    }
+
+    const submitButton = experienceEditForm.querySelector('button[type="submit"]');
+    experienceEditSaving = true;
+    experienceEditForm.setAttribute('aria-busy', 'true');
+    for (const name of experienceEditableFields) {
+        experienceEditForm.elements.namedItem(name).disabled = true;
+    }
+    submitButton.disabled = true;
+    submitButton.textContent = 'Saving...';
+
+    try {
+        const response = await fetch(experienceEditForm.dataset.apiUrl, {
+            method: 'PATCH',
+            body: JSON.stringify(payload),
+            headers: {
+                'X-CSRFToken': experienceList.dataset.csrfToken,
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+            },
+        });
+        const data = await response.json().catch(() => ({}));
+        if (response.status !== 200) {
+            throw new Error(experienceApiErrorMessage(data, response.status));
+        }
+        if (data?.id !== target.id) {
+            throw new Error('Update could not be confirmed. Refresh the list before trying again.');
+        }
+
+        await loadExperiences();
+        experienceEditForm.reset();
+        experienceEditModal.hidePopover();
+        showToast('Experience updated', 'Experience updated successfully.', 'success');
+    } catch (error) {
+        console.error(error);
+        showToast(
+            'Could not update experience',
+            error instanceof TypeError ? 'Could not confirm the update. Check the list before trying again.' : error.message,
+            'error',
+        );
+    } finally {
+        experienceEditSaving = false;
+        experienceEditForm.setAttribute('aria-busy', 'false');
+        for (const name of experienceEditableFields) {
+            experienceEditForm.elements.namedItem(name).disabled = false;
+        }
+        submitButton.disabled = false;
+        submitButton.textContent = 'Save changes';
+    }
+}
+
+async function submitExperienceDelete(event) {
+    event.preventDefault();
+    if (
+        experienceDeletingId || !experienceDeleteTarget || experienceEditSaving
+        || experienceMutationPending(experienceDeleteTarget.id)
+    ) return;
+
+    const target = experienceDeleteTarget;
+    const submitButton = experienceDeleteForm.querySelector('button[type="submit"]');
+    experienceDeletingId = target.id;
+    experienceDeleteForm.setAttribute('aria-busy', 'true');
+    submitButton.disabled = true;
+    submitButton.textContent = 'Deleting...';
+    syncExperienceMutationControls(target.id);
+
+    try {
+        const response = await fetch(experienceDeleteForm.dataset.apiUrl, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': experienceList.dataset.csrfToken,
+                Accept: 'application/json',
+            },
+        });
+        if (response.status !== 204) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(experienceApiErrorMessage(data, response.status));
+        }
+
+        // A successful DELETE has no JSON body.
+        showToast('Experience deleted', 'Experience deleted successfully.', 'success');
+        await loadExperiences();
+        experienceDeleteModal.hidePopover();
+    } catch (error) {
+        console.error(error);
+        showToast(
+            'Could not delete experience',
+            error instanceof TypeError ? 'Could not confirm deletion. Refresh the list before trying again.' : error.message,
+            'error',
+        );
+    } finally {
+        experienceDeletingId = null;
+        experienceDeleteForm.setAttribute('aria-busy', 'false');
+        submitButton.disabled = false;
+        submitButton.textContent = 'Yes, delete';
+        syncExperienceMutationControls(target.id);
+    }
+}
+
 async function submitExperience(event) {
     event.preventDefault();
 
     const submitButton = experienceCreateForm.querySelector(
         'button[type="submit"]',
     );
+    if (submitButton.disabled) return;
+
     const csrfToken = experienceCreateForm.querySelector(
         '[name="csrfmiddlewaretoken"]',
     ).value;
@@ -437,24 +684,26 @@ async function submitExperience(event) {
     submitButton.disabled = true;
 
     try {
-        const response = await fetch(experienceCreateForm.action, {
+        const fields = new FormData(experienceCreateForm);
+        const payload = Object.fromEntries(
+            experienceEditableFields.map(name => [name, fields.get(name)]),
+        );
+        payload.thumbnail = payload.thumbnail || null;
+        payload.ended_at = payload.ended_at || null;
+
+        const response = await fetch(experienceCreateForm.dataset.apiUrl, {
             method: 'POST',
-            body: new FormData(experienceCreateForm),
+            body: JSON.stringify(payload),
             headers: {
                 'X-CSRFToken': csrfToken,
-                'X-Requested-With': 'XMLHttpRequest',
                 Accept: 'application/json',
+                'Content-Type': 'application/json',
             },
         });
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
 
-        if (!response.ok) {
-            showToast(
-                'Could not add experience',
-                data.message ?? getFirstFormError(data.errors),
-                'error',
-            );
-            return;
+        if (response.status !== 201) {
+            throw new Error(experienceApiErrorMessage(data, response.status));
         }
 
         experienceCreateForm.reset();
@@ -462,7 +711,7 @@ async function submitExperience(event) {
 
         showToast(
             'Experience added',
-            data.message,
+            'Experience added successfully.',
             'success',
         );
 
@@ -472,7 +721,7 @@ async function submitExperience(event) {
 
         showToast(
             'Could not add experience',
-            'Please try again in a moment.',
+            error instanceof TypeError ? 'Please try again in a moment.' : error.message,
             'error',
         );
     } finally {
@@ -516,6 +765,8 @@ if (
         experienceTitleFilter.value = '';
         experienceCategoryFilter.value = '';
         experienceStatusFilter.value = '';
+        if (experienceStarredFilter) experienceStarredFilter.checked = false;
+        experienceList.dataset.starredFilter = '';
 
         loadExperiences();
     });
@@ -523,9 +774,43 @@ if (
     loadExperiences();
 }
 
+if (experienceStarredFilter) {
+    experienceStarredFilter.addEventListener('change', loadExperiences);
+}
+
 if (experienceCreateForm && experienceCreateModal) {
     experienceCreateForm.addEventListener(
         'submit',
         submitExperience,
     );
+}
+
+if (experienceEditForm && experienceEditModal) {
+    experienceEditForm.addEventListener('submit', submitExperienceEdit);
+    experienceEditModal.addEventListener('toggle', (event) => {
+        if (event.newState !== 'closed' || !experienceEditTarget) return;
+
+        const target = experienceEditTarget;
+        experienceEditTarget = null;
+        const currentLink = [...experienceList.querySelectorAll('[data-experience-edit-id]')]
+            .find(link => link.dataset.experienceEditId === target.id);
+        const focusTarget = target.trigger.isConnected ? target.trigger : currentLink;
+        (focusTarget ?? experienceTitleFilter).focus({ preventScroll: true });
+    });
+}
+
+if (experienceDeleteForm && experienceDeleteModal) {
+    experienceDeleteForm.addEventListener('submit', submitExperienceDelete);
+    experienceDeleteModal.addEventListener('toggle', (event) => {
+        if (event.newState === 'open') {
+            experienceDeleteModal.querySelector('.project-delete-modal-actions > button').focus();
+        } else if (experienceDeleteTarget) {
+            const target = experienceDeleteTarget;
+            experienceDeleteTarget = null;
+            const currentButton = [...experienceList.querySelectorAll('[data-experience-delete-id]')]
+                .find(button => button.dataset.experienceDeleteId === target.id);
+            const focusTarget = target.trigger.isConnected ? target.trigger : currentButton;
+            (focusTarget ?? experienceTitleFilter).focus({ preventScroll: true });
+        }
+    });
 }

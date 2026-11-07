@@ -33,11 +33,15 @@
                 {% include 'components/experience_create_modal.html' %}
             {% endif %}
 
+            {% if perms.main.change_experience %}
+                {% include 'components/experience_edit_modal.html' %}
+            {% endif %}
+
             <form
                 id="experience-filter-form"
                 method="get"
                 action="{% url 'main:show_experience' %}"
-                class="experience-filters"
+                class="experience-filters{% if user.is_authenticated %} experience-filters-personal{% endif %}"
                 aria-label="Filter experiences"
             >
                 <div class="experience-filter-field">
@@ -92,6 +96,19 @@
                     </select>
                 </div>
 
+                {% if user.is_authenticated %}
+                    <label class="experience-starred-filter" for="experience-starred-filter">
+                        <input
+                            id="experience-starred-filter"
+                            type="checkbox"
+                            name="starred"
+                            value="mine"
+                            {% if starred_filter == 'mine' %}checked{% endif %}
+                        >
+                        Starred by me
+                    </label>
+                {% endif %}
+
                 <button type="submit">Apply filters</button>
 
                 <a
@@ -112,7 +129,15 @@
             <div
                 id="experience-list"
                 class="experience-list"
-                data-experiences-url="{% url 'main:get_experiences_json' %}"
+                data-experiences-url="{% url 'api:experience-list' %}"
+                data-starred-filter="{{ starred_filter }}"
+                data-can-star="{{ user.is_authenticated|yesno:'true,false' }}"
+                data-can-change="{{ perms.main.change_experience|yesno:'true,false' }}"
+                data-can-delete="{{ user.is_superuser|yesno:'true,false' }}"
+                data-update-url="{% url 'main:update_experience' experience_placeholder_id %}"
+                data-detail-url="{% url 'api:experience-detail' experience_placeholder_id %}"
+                data-delete-url="{% url 'main:delete_experience' experience_placeholder_id %}"
+                data-star-url="{% url 'api:experience-star' experience_placeholder_id %}"
                 data-csrf-token="{{ csrf_token }}"
                 aria-live="polite"
                 aria-busy="true"

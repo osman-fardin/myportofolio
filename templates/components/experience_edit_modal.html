@@ -1,0 +1,60 @@
+<div
+    id="experience-edit-modal"
+    class="project-create-modal experience-edit-modal"
+    popover="auto"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="experience-edit-title"
+>
+    <div class="project-create-modal-content">
+        <header class="project-create-modal-header">
+            <div>
+                <p class="section-kicker">Update experience</p>
+                <h2 id="experience-edit-title">Edit experience</h2>
+            </div>
+            <button
+                type="button"
+                class="project-create-modal-close"
+                popovertarget="experience-edit-modal"
+                popovertargetaction="hide"
+                aria-label="Close edit form"
+            >
+                &times;
+            </button>
+        </header>
+
+        <form
+            id="experience-edit-form"
+            method="post"
+            action="{% url 'main:update_experience' experience_placeholder_id %}"
+            class="project-form"
+            aria-busy="false"
+        >
+            {% csrf_token %}
+
+            {% for field in experience_edit_form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}">
+                        {{ field.label }}
+                        {% if not field.field.required %}
+                            <span class="form-optional">Optional</span>
+                        {% endif %}
+                    </label>
+                    {{ field }}
+                </div>
+            {% endfor %}
+
+            <div class="project-form-actions">
+                <button type="submit">Save changes</button>
+                <button
+                    type="button"
+                    class="project-create-cancel"
+                    popovertarget="experience-edit-modal"
+                    popovertargetaction="hide"
+                >
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

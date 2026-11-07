@@ -940,6 +940,427 @@ Experience; tampilan dan PWS tidak diubah. README serta panduan pribadi
 diperbarui. Sesudah commit ini, branch API siap direview dan diintegrasikan
 sebelum memulai branch UI. Commit, push, dan merge tetap saya jalankan sendiri.
 
+## 39. Memindahkan daftar dan filter Experience ke DRF
+
+**Prompt (ringkasan):**
+
+> Branch API sudah merged dan branch UI sudah dibuat. Lanjut satu checkpoint:
+> bantu pindahkan daftar serta filter Experience ke DRF, dengan tampilan dan
+> kontrol role tetap sesuai. Payload baru tidak punya can_star/can_change atau
+> URL action lama; jelasin penyesuaiannya agar create/star/edit/delete tetap bisa
+> dipakai selama migrasi. Cek loading, request lambat, error, dan browser juga.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan dengan bantuan AI untuk penjelasan, implementasi, pengujian,
+dan dokumentasi. Branch `feat/tugas-6-experience-ui` diperiksa dari merge API
+`59a8f09`. Endpoint daftar di template diganti ke `api:experience-list`. Flag
+role dan pola URL action dipindahkan ke atribut data template Django, dengan
+placeholder UUID dari context. JavaScript membaca flag tersebut dan mengganti
+placeholder memakai ID object API. Payload DRF tetap 12 field publik.
+
+Saya memahami bahwa izin tampilan dan izin server mempunyai fungsi berbeda.
+Kontrol star tersedia bagi akun login, edit memakai permission
+`main.change_experience`, dan create/delete khusus superuser. Template menentukan
+kontrol untuk halaman saat dirender; view tetap memeriksa setiap mutation.
+Create/star/edit/delete halaman masih memakai route lama pada checkpoint ini.
+Star lama serta link edit/delete dirakit dari named URL yang dirender template,
+sehingga tidak bergantung pada field action dari JSON lama.
+
+Debounce 400 ms, filter title/category/status, Clear, count, loading/empty/error,
+retry, thumbnail, dan safe DOM tetap dipakai. Penjagaan controller diperkuat agar
+respons atau error request yang sudah dibatalkan tidak menimpa hasil terbaru.
+Satu assertion test shell lama diperbarui sesuai kontrak URL; test JSON lama
+tetap disimpan. Tujuh test halaman baru memeriksa flag role, permission langsung,
+pola URL, token CSRF user biasa/Editor, escaping, dan container saat kosong.
+
+Pemanggilan test terarah awal sempat memakai nama class yang tidak ada; label
+dikoreksi dengan menjalankan full suite `main`. Seluruh 224 test main lulus.
+Check, pemeriksaan migrasi, sintaks JavaScript, dan whitespace bersih.
+
+Browser memakai database sementara untuk semua role, termasuk staff. Daftar dan
+filter mengambil DRF tanpa GET list lama atau reload. Debounce, kombinasi filter,
+empty/Clear, thumbnail, teks HTML yang tetap literal, request lambat, error
+503/jaringan/JSON, serta Retry diperiksa. Star lama tetap terbaca oleh DRF;
+create lama menghasilkan 201 tanpa reload dan mempertahankan filter; link edit
+terbuka dan delete lama masih redirect lalu membaca ulang DRF. Data percobaan
+create/delete hanya berada di database sementara.
+
+Skrip viewport awal mengukur segera sesudah resize dan melaporkan overflow.
+Setelah menunggu dua frame, ukuran 390/768/1440 px pas dan screenshot diperiksa.
+Chrome sempat melaporkan pembatalan View Transition saat redirect delete;
+pembanding JavaScript baseline dan pengujian ulang kode baru kemudian selesai
+tanpa page error. CSS tidak diubah untuk kedua temuan pemeriksaan tersebut.
+Hasil pembanding ini tidak dianggap sebagai perubahan animasi aplikasi.
+
+README dan panduan pribadi diperbarui. Data lokal tetap satu Project dan dua
+Experience; model, warna, stylesheet, serta PWS tidak diubah. Commit tetap saya
+jalankan sendiri sebelum melanjutkan create lewat DRF pada checkpoint berikutnya.
+
+## 40. Mengirim create Experience sebagai JSON ke DRF
+
+**Prompt (ringkasan):**
+
+> Daftar/filter sudah di-commit. Lanjut satu checkpoint create Experience ke
+> DRF: gimana mengubah FormData menjadi JSON, menangani field opsional dan
+> tanggal, serta membaca error API tanpa kehilangan isian? Bantu implementasi
+> dan cek submit ganda, CSRF, sesi berakhir, serta filter setelah sukses.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan dengan bantuan AI untuk penjelasan, implementasi, pengujian,
+dan dokumentasi. Commit daftar/filter `5a60493` diperiksa lebih dahulu. Modal
+create mendapat `data-api-url` dari named URL DRF, sedangkan action HTML lama
+tetap tersedia sebagai fallback. Fetch mengirim JSON dengan enam field writable
+dan header Content-Type, Accept, serta X-CSRFToken. Token dan field metadata
+tidak masuk body. Thumbnail dan ended_at kosong menjadi null.
+
+Nilai datetime-local dikirim tanpa konversi Date di browser, agar interpretasi
+UTC yang dipakai form lama tetap sama. Respons sukses harus 201: form direset,
+modal ditutup, toast sukses muncul, lalu daftar dimuat dengan filter aktif.
+Error field/detail DRF atau pesan status cadangan ditampilkan lewat toast.
+Error jaringan, respons HTML, atau status tidak sesuai mempertahankan isian.
+Tombol dikunci selama request dan diaktifkan kembali dalam finally. Tidak ada
+retry POST otomatis. Star/edit/delete UI belum dipindahkan pada checkpoint ini.
+
+Lima test integrasi baru memeriksa URL API modal, JSON/null dan sanitasi,
+fallback HTML dengan tanggal yang sama, invalid title/tanggal tanpa penyimpanan,
+CSRF, dan sesi berakhir. Dua puluh empat test terarah dan seluruh 229 test main
+lulus. Check, pemeriksaan migrasi, sintaks JavaScript, dan whitespace bersih.
+
+Browser memakai database sementara yang awalnya kosong. Validasi title dan
+tanggal menghasilkan 400 tanpa record baru. Create pertama berhasil; payload
+enam field, null, token CSRF, serta tanggal tersimpan diperiksa. Submit ganda
+hanya mengirim satu POST; sukses mereset/menutup modal. Kombinasi filter tetap
+aktif walaupun record baru tidak cocok. Error JSON 403, HTML 503, HTML 200 yang
+tidak sesuai kontrak, dan jaringan putus diperiksa; CSRF salah serta logout
+diuji terhadap server sungguhan. Isian tetap ada, tombol kembali aktif, dan
+record tidak bertambah pada kasus gagal.
+
+Skrip QA sempat memakai URL relatif pada APIRequestContext tanpa base URL dan
+mencari input melalui role setelah modal tersembunyi. Skrip diperbaiki memakai
+URL penuh serta locator field yang tetap bisa diperiksa saat modal tertutup.
+Penghitung framenavigated juga menangkap history.replaceState dari filter;
+pemeriksaan reload diperbaiki dengan menghitung request dokumen. Pengujian
+ulang berhasil: satu POST, nol request dokumen, nol page error. Koreksi ini
+ada pada skrip QA, bukan perubahan tampilan aplikasi.
+
+README dan panduan pribadi diperbarui. Data lokal tetap satu Project dan dua
+Experience; model, desain, environment, serta PWS tidak diubah. Commit tetap
+saya jalankan sendiri. Sesudah checkpoint ini, tahap berikutnya adalah star UI.
+
+## 41. Memindahkan star Experience ke DRF
+
+**Prompt (ringkasan):**
+
+> Create sudah di-commit. Lanjut satu checkpoint star/unstar Experience ke DRF.
+> Gimana memakai respons object baru, menangani error dan CSRF, serta mencegah
+> dua POST saat tombol diklik cepat atau filter merender ulang kartu? Bantu
+> implementasi dan cek agar state lama dari request daftar tidak menimpa star.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan dengan bantuan AI untuk penjelasan, implementasi, pengujian,
+dan dokumentasi. Commit create `dae1fce` diperiksa sebelum perubahan berikutnya.
+Named URL star di template dipindah ke `api:experience-star`. POST tetap tanpa
+body dengan X-CSRFToken dan Accept JSON; header AJAX lama tidak diperlukan.
+Relasi star, API backend, dan aturan empat role tidak diubah.
+
+JavaScript membaca is_starred dan star_count dari object terbaru. Status harus
+200 dengan ID yang sesuai, boolean, serta count integer nonnegatif. Label,
+count, dan aria-pressed baru diperbarui setelah respons itu lolos. Error detail
+atau field DRF ditampilkan lewat toast sebagai teks, dengan pesan status
+cadangan bila body bukan JSON. Error jaringan atau respons sukses yang tidak
+sesuai meminta refresh daftar sebelum mencoba lagi, karena hasil toggle belum
+bisa dipastikan. Tidak ada retry POST otomatis.
+
+Set berisi ID Experience yang sedang melakukan star menjaga pengunci walaupun
+filter mengganti elemen kartu. Tombol kartu baru ikut disabled, lalu menerima
+state terbaru dan aktif kembali saat request selesai. Jika GET daftar masih
+berjalan ketika toggle sukses, GET lama dibatalkan dan daftar dibaca kembali
+dengan filter aktif. Pembacaan biasa yang tidak bersamaan dengan toggle tidak
+ditambah request baru.
+
+Dua test halaman ditambahkan untuk penolakan guest, CSRF kosong, dan sesi
+berakhir lewat URL yang benar-benar dirender template. Test URL serta token user
+biasa/Editor disesuaikan ke DRF, termasuk assertion ID object respons. Seluruh
+25 test terarah dan 231 test main lulus; check, pemeriksaan migrasi, sintaks JS,
+dan whitespace bersih. Warning staticfiles lama tetap nonfatal.
+
+Browser memakai akun palsu dan dua record pada database sementara. Guest tidak
+melihat tombol star; dua akun biasa, Editor, dan owner berhasil star lalu unstar
+dengan filter tetap aktif, header CSRF ada, tanpa body, tanpa request dokumen,
+tanpa POST route lama, dan tanpa page error. Klik ganda serta pergantian kartu
+selama POST tertahan menghasilkan satu POST; tombol kartu baru tetap terkunci
+dan kemudian menampilkan hasil terbaru. GET yang membawa snapshot sebelum
+unstar ditahan untuk membuktikan pembacaan baru menghindari state lama.
+
+Browser juga mensimulasikan 400/403/404 JSON, HTML 503/200, payload 200 yang salah,
+serta jaringan putus. CSRF salah dan sesi yang berakhir diuji terhadap server
+sungguhan. Toast sesuai, pesan menyerupai HTML tetap literal, state/count tidak
+diubah saat gagal, dan tombol kembali aktif. Setiap percobaan hanya mengirim
+satu POST. Console mencatat error request yang sengaja diuji serta favicon 404
+saat membuka halaman; tidak ada page error pada pemeriksaan interaksi.
+
+README dan panduan pribadi diperbarui. Model, warna/desain, data lokal,
+environment, serta PWS tidak diubah. Commit tetap saya jalankan sendiri; setelah
+checkpoint star ini, berikutnya modal edit Experience melalui PATCH.
+
+## 42. Mengedit Experience melalui modal dan PATCH
+
+**Prompt (ringkasan):**
+
+> Star sudah di-commit. Lanjut modal edit Experience untuk Editor dan owner
+> memakai PATCH. Gimana prefill data lama, menjaga tanggal serta baris deskripsi,
+> dan mengirim hanya field yang berubah? Bantu implementasi dan cek validasi,
+> permission, submit ganda, fokus keyboard, serta filter setelah update.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan dengan bantuan AI untuk penjelasan, implementasi, pengujian,
+dan dokumentasi. Commit star `d0c23f4` diperiksa sebelum checkpoint edit.
+show_experience menyediakan ExperienceForm khusus edit dengan auto_id edit_%s
+bagi akun yang punya permission main.change_experience. Komponen modal baru
+memakai kelas dan stylesheet modal lama. ID field owner tidak bentrok dengan
+create; user biasa/guest tidak memperoleh modal edit. Direct permission tetap
+berfungsi tanpa mengharuskan staff atau nama grup tertentu.
+
+Link edit mempertahankan href form HTML lama. Klik biasa membuka modal dengan
+snapshot object daftar DRF, termasuk raw description, kategori, thumbnail, dan
+tanggal. Nilai tanggal diformat UTC sesuai interpretasi form lama. Perbandingan
+nilai form saat dibuka dan saat save menghasilkan PATCH parsial: hanya field
+writable yang berubah. Field tanggal yang tidak disentuh tidak dikirim, agar
+detik/mikrodetik data lama tetap utuh. Thumbnail/ended_at yang dikosongkan menjadi
+null. Body tidak memuat CSRF, field internal Django, atau metadata API. Jika
+tidak berubah, toast muncul tanpa request. Snapshot ini bukan mekanisme deteksi
+konflik edit serentak pada field yang sama.
+
+Save memakai PATCH JSON ke named URL detail dengan header CSRF. Field, tombol,
+serta target edit dikunci selama proses; label Saving dan aria-busy memberi
+feedback. Sukses 200 memperbarui daftar dengan filter aktif dan menutup modal.
+Error 400/403 atau jaringan mempertahankan isian serta mengaktifkan form kembali.
+Tidak ada retry mutation otomatis. Fokus masuk ke judul ketika modal dibuka,
+kembali ke link edit saat tutup, atau ke pencarian jika record tidak lagi cocok
+dengan filter. Menutup modal saat save tidak membatalkan request server; target
+tetap terkunci sampai selesai.
+
+Enam test edit baru memeriksa field/ID/fallback, PATCH Editor yang mempertahankan
+presisi tanggal dan star, optional null, validasi tanpa perubahan DB, permission
+yang dicabut setelah render, CSRF, serta sesi berakhir. Assertion role dan
+direct permission juga diperluas. Test awal halaman owner mengharapkan hanya
+enam field dan token, tetapi Django juga menghasilkan hidden initial-started_at
+dari default model. Assertion dikoreksi untuk memeriksa field hidden tersebut;
+allowlist JSON tidak berubah. Full suite yang sudah berjalan sebelum koreksi
+juga gagal pada assertion yang sama. Setelah koreksi, 26 test terarah dan seluruh
+237 test main lulus; check, migration, sintaks JS, serta whitespace bersih.
+
+Browser memakai database sementara dan akun palsu. Editor berhasil PATCH judul
+saja, dengan description mentah, baris kosong, tanggal presisi, dan star tetap.
+Browser diatur ke Asia/Jakarta untuk membuktikan prefill dan perubahan tanggal
+tetap mengikuti UTC form lama. No-change tidak mengirim PATCH; dua submit saat
+request ditahan menghasilkan satu request. Clear tanggal akhir mengirim null;
+filter completed tetap aktif dan fokus kembali ke pencarian saat hasil kosong.
+Escape, fokus sesudah sukses, serta form HTML fallback diperiksa. Owner berhasil
+PATCH deskripsi; guest dan akun biasa tidak melihat edit.
+
+Invalid title/tanggal menghasilkan 400 dari server tanpa kehilangan isian.
+Error 403/404 JSON, HTML 503/200, dan jaringan putus disimulasikan; CSRF salah
+serta logout diperiksa terhadap server sungguhan. Toast sesuai, input tetap,
+tombol aktif kembali, dan data tidak berubah pada kasus gagal. Pemeriksaan edit
+Editor mencatat nol request dokumen dan nol page error. Modal pas pada viewport
+390/768/1440; screenshot mobile dan desktop diperiksa. Tidak ada perubahan CSS.
+
+README dan panduan pribadi diperbarui. Model, desain, data lokal, environment,
+serta PWS tidak diubah. Commit tetap saya jalankan sendiri; berikutnya migrasi
+confirmation delete ke DELETE DRF dengan respons 204.
+
+## 43. Menghapus Experience melalui DELETE DRF
+
+**Prompt (ringkasan):**
+
+> Edit sudah di-commit. Lanjut confirmation delete Experience melalui DRF tanpa
+> reload. Gimana menangani respons 204 tanpa JSON, menjaga filter serta role,
+> dan mencegah submit ganda atau target berubah saat request berjalan? Bantu
+> implementasi dan cek cancel, error, CSRF, serta daftar setelah record terakhir dihapus.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan dengan bantuan AI untuk penjelasan, implementasi, pengujian,
+dan dokumentasi. Commit edit `3aadc51` diperiksa sebelum checkpoint delete.
+Confirmation popover serta gaya lama dipertahankan. Form diberi URL detail DRF
+untuk Fetch, action POST lama sebagai fallback, dan aria-busy. Cancel mendapat
+fokus awal; judul konfirmasi tetap ditulis dengan textContent.
+
+JavaScript menangkap submit dan mengirim DELETE tanpa body dengan header CSRF.
+Hanya status 204 dianggap sukses, tanpa memanggil response.json() pada cabang
+itu. Daftar dimuat kembali dengan filter aktif lalu popover ditutup. Jika GET
+daftar gagal setelah penghapusan berhasil, Retry hanya membaca daftar; DELETE
+tidak dikirim ulang. Fokus kembali ke trigger yang masih ada atau ke pencarian
+jika record hilang. Menutup popover saat request berjalan tidak membatalkan
+penghapusan yang sudah dikirim.
+
+ID target disimpan selama DELETE, submit dikunci dengan label Deleting, dan
+kontrol star/delete target ikut disabled. Kartu baru dari filter tetap mengikuti
+lock tersebut. Confirmation tidak bisa mengganti target selama delete; delete
+juga ditahan saat star target atau save edit berjalan, dan edit target yang
+sedang dihapus tidak dibuka. Error API field/detail, HTML, atau jaringan menjaga
+konfirmasi serta target, memunculkan toast, dan mengaktifkan kontrol kembali.
+Tidak ada retry mutation otomatis, termasuk ketika hasil jaringan belum pasti.
+
+Enam test halaman baru mencakup target API/fallback, 204 kosong, penghapusan
+relasi star target dengan record lain tetap utuh, penolakan guest/user biasa/
+Editor/staff, CSRF kosong/salah, sesi berakhir, owner yang diturunkan aksesnya
+setelah render, serta POST lama. Penempatan class baru sempat memotong bagian
+akhir test sesi edit. Run terarah yang telanjur berjalan gagal saat blok itu
+mencoba membaca respons HTML sebagai JSON. Blok dikembalikan ke test edit dan
+struktur diperiksa lagi. Setelah perbaikan, 46 test terarah dan seluruh 243
+test main lulus; check, migration, sintaks JS, dan whitespace bersih.
+
+Browser memakai database sementara dengan tiga record dan akun palsu. Guest,
+user biasa, serta Editor tidak melihat delete; owner memperoleh konfirmasi.
+Cancel tidak mengirim request dan mengembalikan fokus. Simulasi 400/403/404 JSON,
+HTML 503/200, serta jaringan putus menjaga target dan mengaktifkan tombol kembali.
+CSRF salah serta logout diperiksa terhadap server sungguhan; data tetap pada
+kasus gagal. Lock star terhadap delete, dua submit, serta kartu yang dirender
+ulang saat DELETE tertahan juga diperiksa.
+
+Skrip QA awal sempat mencoba response.text() pada respons browser 204; Chrome
+tidak menyediakan body resource itu dan pemeriksaan berhenti. Body kosong tetap
+dibuktikan lewat automated test API. Pengujian browser berikutnya memakai status
+204 serta instrumentasi pemanggilan JSON: nol pemanggilan JSON pada 204. Run
+ulang delete selesai dengan satu DELETE, filter tetap, fokus ke pencarian,
+nol request dokumen, nol POST lama, serta nol page error.
+
+Delete sukses diikuti GET 503 disimulasikan; Retry tidak mengulang DELETE.
+Penghapusan record terakhir menghasilkan empty state, lalu create pertama
+melalui DRF masih berhasil 201. Popover pas pada 390/768/1440 px dan screenshot
+mobile diperiksa. Model, CSS/desain, data lokal, environment, serta PWS tidak
+diubah. README dan panduan pribadi diperbarui. Commit tetap saya jalankan
+sendiri; berikutnya fitur tambahan filter personal Starred by me, lalu audit
+akhir dan dokumentasi Tugas 6.
+
+## 44. Filter personal Starred by me pada Experience
+
+**Prompt (ringkasan):**
+
+> Delete sudah di-commit. Lanjut filter Starred by me pada Experience sesuai
+> roadmap. Gimana membatasi hasil ke akun login, menggabungkannya dengan title,
+> category, dan status, serta menjaga count total dan data akun lain? Bantu
+> implementasi dan cek Clear, URL, empty state, keyboard, serta unstar dari daftar personal.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan dengan bantuan AI untuk penjelasan, implementasi, pengujian,
+dan dokumentasi. Commit delete `666b111` diperiksa sebelum E6. Endpoint list
+Experience membaca starred=mine dan menyaring relasi lama berdasarkan
+request.user. Guest mendapat array kosong 200; query user_id, username, atau
+starred_by tidak dapat mengganti akun. Nilai query dipangkas dan hanya mine
+yang mengaktifkan filter. Filter title/category/status, urutan, 12 field publik,
+count total, dan permission mutation tetap dipertahankan. Tidak ada model atau
+migration baru, auto-star, maupun daftar identitas pemberi star dalam payload.
+
+View/template menyimpan state filter personal dan menampilkan checkbox hanya
+bagi user login. JavaScript mengirim query itu bersama filter lain dan menjaga
+URL saat dibuka ulang. Guest yang langsung membuka mine tetap memakai query
+tersebut walaupun tidak punya checkbox. Clear menghapus semua filter. Empty
+state membedakan guest, akun yang belum punya star, dan kombinasi tanpa hasil.
+CSS menambahkan kontrol dan susunan enam kolom desktop bagi akun login, dengan
+warna Experience lama; breakpoint mobile/tablet tetap dipakai. Gaya input
+checkbox dibagi dengan Projects, tetapi warna labelnya mengikuti masing-masing halaman.
+
+Unstar sukses pada mine memuat ulang daftar sehingga kartu yang tidak lagi
+cocok hilang. Filter tetap aktif, lock selama request tetap berlaku, dan fokus
+dari tombol yang hilang diarahkan ke checkbox. Percobaan browser awal berhenti
+pada assertion fokus: pencatatan fokus dilakukan setelah disabled melepas
+fokus tombol. Kode diperbaiki dengan mencatatnya sebelum tombol dikunci.
+Pengujian ulang fokus, empty state terakhir, dan filter kemudian lulus.
+
+Delapan APITestCase dan lima test halaman dibuat dalam file terpisah
+main/tests_experience_starred.py. Test mencakup isolasi dua akun, count total
+pada record bersama, bentuk publik tanpa duplikasi, kombinasi title/category/
+status, guest/HEAD, trim dan nilai query tidak dikenal, parameter akun palsu,
+read tanpa mutation, unstar yang menjaga star akun lain, create tanpa auto-star,
+permission, role checkbox, URL/Clear, serta escaping. Seluruh 13 test baru dan
+256 test main lulus; check dan migration bersih. Sintaks JS serta whitespace
+diperiksa lagi setelah koreksi fokus.
+
+Browser menggunakan database sementara dengan empat record dan akun palsu.
+Guest, dua akun biasa, Editor tanpa star, serta owner diperiksa. Keyboard Space
+mengaktifkan filter; Clear mengembalikan semua record. Kombinasi filter dan
+unstar berhasil membaca ulang hasil personal. Respons mine yang ditahan tidak
+menimpa hasil terbaru ketika checkbox dilepas. GET 503 diikuti Retry tetap
+mempertahankan mine, dan unstar 403 mempertahankan kartu/state. Logout di tengah
+sesi ditolak server; reload URL mine sebagai guest menghasilkan daftar kosong.
+
+Owner membuat record saat mine aktif: create 201 tidak otomatis memberi star
+dan record tidak tampil sampai diberi star. Sesudah itu PATCH 200 serta DELETE
+204 menjaga filter personal. Pemeriksaan ulang mencatat nol request dokumen
+dan nol page error. Layout tanpa overflow diperiksa pada 320/390/768/901/1024/
+1440 px; screenshot mobile/desktop diperiksa. Warna dan fitur lama dipertahankan,
+data percobaan hanya pada database sementara. README dan panduan pribadi
+diperbarui; commit tetap saya jalankan sendiri. E7 optimasi query dan E8
+dokumentasi akhir belum dianggap selesai pada checkpoint ini.
+
+## 45. Mengurangi query dan pemuatan akun pada summary star API
+
+**Prompt (ringkasan):**
+
+> Filter personal sudah di-commit. Lanjut optimasi Count/Exists sesuai roadmap.
+> Gimana menghitung count dan status star tanpa memuat seluruh User, sambil
+> menjaga payload, mine, dan hasil setelah create/PATCH/toggle? Bantu implementasi
+> dan bandingkan query serta object akun sebelum/sesudah dengan fixture yang sama.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan dengan bantuan AI untuk penjelasan, implementasi, pengujian,
+dan dokumentasi. Commit filter `0ff71e4` diperiksa sebelum E7. Kode lama sudah
+memakai prefetch sehingga jumlah query list tetap dua, tetapi masih membuat
+object User untuk setiap pasangan record/star. Fixture database sementara
+dibuat berisi 20 Project dan 20 Experience, masing-masing dengan 10 akun palsu.
+APIRequestFactory mengisolasi query pembacaan data dari autentikasi sesi.
+
+Helper with_star_summary pada main/querysets.py menambahkan Count distinct
+untuk seluruh relasi dan Exists pada tabel penghubung untuk akun request.
+Guest memakai Value false. API list/detail kedua model memakai helper ini;
+mine menyaring annotation Exists agar count tetap mencakup seluruh star.
+Annotation hanya untuk request itu, bukan cache lintas akun atau mutation.
+StarSummaryMixin dipakai kedua serializer untuk membaca annotation bila tersedia.
+Instance biasa pada create/star memakai count dan exists terbaru tanpa memuat
+User. Endpoint toggle tetap memakai instance biasa agar state sebelum mutation
+tidak terbawa pada respons. Kontrak field, permission, validasi, model, serta
+route HTML lama dipertahankan.
+
+Pengukuran baseline awal: list satu record dua query dan 10 object User; list
+20 record dua query dan 200 object User; detail dua query dan 10 object User.
+Sesudah perubahan, semua pembacaan tersebut satu query dengan nol object User,
+baik Projects maupun Experience. Perbandingan dijalankan lagi memakai kode
+baseline commit 0ff71e4 dalam namespace sementara, pada database/fixture yang
+sama. Delapan payload list/detail pembanding sama persis. Tidak ada klaim waktu
+respons produksi; SQLite lokal, query autentikasi di luar hitungan, dan list
+belum dipaginasi menjadi batas pengukurannya.
+
+Skrip pengukuran awal memakai __file__ dari manage.py shell untuk menyimpan
+output, tetapi itu menunjuk modul shell Django. Lokasi output diperbaiki ke
+path sementara eksplisit, dan file hasil sementara yang sempat tertulis di
+folder environment dihapus setelah isinya dipastikan milik fixture QA ini.
+Dependency dan konfigurasi environment tidak diubah. Whitespace serializer
+juga dirapikan setelah diff check awal menemukan baris kosong di akhir file.
+
+Sepuluh test baru pada main/tests_api_queries.py memeriksa list 1/20, detail
+guest/member/outsider, kesamaan payload prefetch lama, query serta hydration
+User, serialisasi summary yang sudah dimuat tanpa query tambahan, mine/count
+total, empty/guest, fallback serializer biasa, create, toggle dua arah, dan
+PATCH yang mengabaikan metadata palsu. Seluruh 10 test query, 138 test API
+terarah, dan 266 test main lulus. Check, migration, dan whitespace bersih.
+
+Smoke HTTP runserver hanya GET/HEAD pada database sementara: JSON list/detail,
+Browsable API HTML list/detail, HEAD kosong, count total 10, state guest false,
+serta guest mine [] 200 diperiksa untuk kedua resource. Tidak ada perubahan
+template, JavaScript, atau CSS pada E7, dan browser UI tidak diulang. Data
+lokal tetap satu Project dan dua Experience; PWS tidak diubah atau diukur.
+README serta panduan pribadi diperbarui. Commit tetap saya jalankan sendiri;
+berikutnya review branch UI, lalu audit akhir dan dokumentasi/refleksi E8.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa
