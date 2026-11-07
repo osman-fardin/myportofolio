@@ -1239,6 +1239,68 @@ diubah. README dan panduan pribadi diperbarui. Commit tetap saya jalankan
 sendiri; berikutnya fitur tambahan filter personal Starred by me, lalu audit
 akhir dan dokumentasi Tugas 6.
 
+## 44. Filter personal Starred by me pada Experience
+
+**Prompt (ringkasan):**
+
+> Delete sudah di-commit. Lanjut filter Starred by me pada Experience sesuai
+> roadmap. Gimana membatasi hasil ke akun login, menggabungkannya dengan title,
+> category, dan status, serta menjaga count total dan data akun lain? Bantu
+> implementasi dan cek Clear, URL, empty state, keyboard, serta unstar dari daftar personal.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan dengan bantuan AI untuk penjelasan, implementasi, pengujian,
+dan dokumentasi. Commit delete `666b111` diperiksa sebelum E6. Endpoint list
+Experience membaca starred=mine dan menyaring relasi lama berdasarkan
+request.user. Guest mendapat array kosong 200; query user_id, username, atau
+starred_by tidak dapat mengganti akun. Nilai query dipangkas dan hanya mine
+yang mengaktifkan filter. Filter title/category/status, urutan, 12 field publik,
+count total, dan permission mutation tetap dipertahankan. Tidak ada model atau
+migration baru, auto-star, maupun daftar identitas pemberi star dalam payload.
+
+View/template menyimpan state filter personal dan menampilkan checkbox hanya
+bagi user login. JavaScript mengirim query itu bersama filter lain dan menjaga
+URL saat dibuka ulang. Guest yang langsung membuka mine tetap memakai query
+tersebut walaupun tidak punya checkbox. Clear menghapus semua filter. Empty
+state membedakan guest, akun yang belum punya star, dan kombinasi tanpa hasil.
+CSS menambahkan kontrol dan susunan enam kolom desktop bagi akun login, dengan
+warna Experience lama; breakpoint mobile/tablet tetap dipakai. Gaya input
+checkbox dibagi dengan Projects, tetapi warna labelnya mengikuti masing-masing halaman.
+
+Unstar sukses pada mine memuat ulang daftar sehingga kartu yang tidak lagi
+cocok hilang. Filter tetap aktif, lock selama request tetap berlaku, dan fokus
+dari tombol yang hilang diarahkan ke checkbox. Percobaan browser awal berhenti
+pada assertion fokus: pencatatan fokus dilakukan setelah disabled melepas
+fokus tombol. Kode diperbaiki dengan mencatatnya sebelum tombol dikunci.
+Pengujian ulang fokus, empty state terakhir, dan filter kemudian lulus.
+
+Delapan APITestCase dan lima test halaman dibuat dalam file terpisah
+main/tests_experience_starred.py. Test mencakup isolasi dua akun, count total
+pada record bersama, bentuk publik tanpa duplikasi, kombinasi title/category/
+status, guest/HEAD, trim dan nilai query tidak dikenal, parameter akun palsu,
+read tanpa mutation, unstar yang menjaga star akun lain, create tanpa auto-star,
+permission, role checkbox, URL/Clear, serta escaping. Seluruh 13 test baru dan
+256 test main lulus; check dan migration bersih. Sintaks JS serta whitespace
+diperiksa lagi setelah koreksi fokus.
+
+Browser menggunakan database sementara dengan empat record dan akun palsu.
+Guest, dua akun biasa, Editor tanpa star, serta owner diperiksa. Keyboard Space
+mengaktifkan filter; Clear mengembalikan semua record. Kombinasi filter dan
+unstar berhasil membaca ulang hasil personal. Respons mine yang ditahan tidak
+menimpa hasil terbaru ketika checkbox dilepas. GET 503 diikuti Retry tetap
+mempertahankan mine, dan unstar 403 mempertahankan kartu/state. Logout di tengah
+sesi ditolak server; reload URL mine sebagai guest menghasilkan daftar kosong.
+
+Owner membuat record saat mine aktif: create 201 tidak otomatis memberi star
+dan record tidak tampil sampai diberi star. Sesudah itu PATCH 200 serta DELETE
+204 menjaga filter personal. Pemeriksaan ulang mencatat nol request dokumen
+dan nol page error. Layout tanpa overflow diperiksa pada 320/390/768/901/1024/
+1440 px; screenshot mobile/desktop diperiksa. Warna dan fitur lama dipertahankan,
+data percobaan hanya pada database sementara. README dan panduan pribadi
+diperbarui; commit tetap saya jalankan sendiri. E7 optimasi query dan E8
+dokumentasi akhir belum dianggap selesai pada checkpoint ini.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa

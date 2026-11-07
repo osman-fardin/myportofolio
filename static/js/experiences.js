@@ -11,6 +11,7 @@ const experienceCategoryFilter = document.getElementById(
 const experienceStatusFilter = document.getElementById(
     'experience-status-filter',
 );
+const experienceStarredFilter = document.getElementById('experience-starred-filter');
 const experienceFilterClear = document.getElementById(
     'experience-filter-clear',
 );
@@ -83,6 +84,13 @@ function getExperienceFilters() {
         filters.set('status', status);
     }
 
+    if (
+        experienceStarredFilter?.checked
+        || (!experienceStarredFilter && experienceList.dataset.starredFilter === 'mine')
+    ) {
+        filters.set('starred', 'mine');
+    }
+
     return filters;
 }
 
@@ -93,6 +101,7 @@ function syncExperienceUrl(filters) {
         : window.location.pathname;
 
     window.history.replaceState(null, '', nextUrl);
+    experienceList.dataset.starredFilter = filters.get('starred') || '';
     experienceFilterClear.hidden = !query;
 }
 
@@ -152,6 +161,7 @@ function updateExperienceStarButton(button, isStarred, starCount) {
 async function toggleExperienceStar(button, experience) {
     if (button.disabled || experienceMutationPending(experience.id)) return;
 
+    const restoreFocus = document.activeElement === button;
     pendingExperienceStars.add(experience.id);
     button.disabled = true;
     syncExperienceMutationControls(experience.id);
@@ -188,8 +198,11 @@ async function toggleExperienceStar(button, experience) {
         syncExperienceMutationControls(experience.id, data);
 
         // A list request started before the toggle may contain an older star state.
-        if (experienceRequestController) {
+        if (experienceRequestController || getExperienceFilters().get('starred') === 'mine') {
             await loadExperiences();
+            if (restoreFocus && document.activeElement === document.body) {
+                experienceStarredFilter?.focus({ preventScroll: true });
+            }
         }
     } catch (error) {
         console.error(error);
@@ -398,9 +411,17 @@ function renderExperienceLoading() {
 
 function renderExperienceEmpty() {
     const filters = getExperienceFilters();
-    const message = filters.toString()
+    let message = filters.toString()
         ? 'No experiences match these filters.'
         : 'No experience has been added yet.';
+    if (filters.get('starred') === 'mine') {
+        const hasOtherFilters = ['title', 'category', 'status'].some(name => filters.has(name));
+        message = experienceList.dataset.canStar !== 'true'
+            ? 'Log in to view your starred experiences.'
+            : hasOtherFilters
+                ? 'No starred experiences match these filters.'
+                : 'You have not starred any experiences yet.';
+    }
     const emptyState = createTextElement(
         'p',
         'experience-empty',
@@ -744,11 +765,17 @@ if (
         experienceTitleFilter.value = '';
         experienceCategoryFilter.value = '';
         experienceStatusFilter.value = '';
+        if (experienceStarredFilter) experienceStarredFilter.checked = false;
+        experienceList.dataset.starredFilter = '';
 
         loadExperiences();
     });
 
     loadExperiences();
+}
+
+if (experienceStarredFilter) {
+    experienceStarredFilter.addEventListener('change', loadExperiences);
 }
 
 if (experienceCreateForm && experienceCreateModal) {

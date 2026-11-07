@@ -109,6 +109,7 @@ def experience_list(request):
         title = request.query_params.get('title', '').strip()
         category = request.query_params.get('category', '').strip()
         experience_status = request.query_params.get('status', '').strip()
+        starred = request.query_params.get('starred', '').strip()
 
         if title:
             experiences = experiences.filter(title__icontains=title)
@@ -118,6 +119,12 @@ def experience_list(request):
             experiences = experiences.filter(ended_at__isnull=True)
         elif experience_status == 'completed':
             experiences = experiences.filter(ended_at__isnull=False)
+
+        if starred == 'mine':
+            if request.user.is_authenticated:
+                experiences = experiences.filter(starred_by=request.user)
+            else:
+                experiences = experiences.none()
 
         serializer = ExperienceSerializer(
             experiences, many=True, context={'request': request},

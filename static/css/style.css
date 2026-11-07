@@ -588,6 +588,15 @@ body:has(.site-menu[open]) {
     gap: 0.35rem;
 }
 
+.experience-filters-personal {
+    grid-template-columns:
+        minmax(140px, 1.5fr)
+        repeat(2, minmax(110px, 1fr))
+        auto
+        auto
+        auto;
+}
+
 .experience-filter-field label {
     color: var(--walnut);
     font-size: 0.75rem;
@@ -1013,7 +1022,8 @@ body:has(.site-menu[open]) {
     white-space: nowrap;
 }
 
-.project-starred-filter input {
+.project-starred-filter input,
+.experience-starred-filter input {
     width: 1rem;
     height: 1rem;
     accent-color: var(--copper);
@@ -1037,6 +1047,27 @@ body:has(.site-menu[open]) {
 .project-search button:focus-visible,
 .project-starred-filter input:focus-visible {
     outline: 2px solid var(--surface);
+    outline-offset: 3px;
+}
+
+.experience-starred-filter {
+    display: inline-flex;
+    min-height: 42px;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.75rem;
+    color: var(--walnut);
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.experience-starred-filter input:focus-visible {
+    outline: 2px solid var(--copper);
     outline-offset: 3px;
 }
 

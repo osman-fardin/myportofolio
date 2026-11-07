@@ -131,6 +131,7 @@ def show_experience(request):
     title_query = request.GET.get('title', '').strip()
     category_filter = request.GET.get('category', '').strip()
     status_filter = request.GET.get('status', '').strip()
+    starred_filter = 'mine' if request.GET.get('starred', '').strip() == 'mine' else ''
 
     context = {
         'name': 'Muhammad Osman Fardin',
@@ -149,10 +150,12 @@ def show_experience(request):
         'title_query': title_query,
         'category_filter': category_filter,
         'status_filter': status_filter,
+        'starred_filter': starred_filter,
         'has_active_filters': bool(
             title_query
             or category_filter
             or status_filter
+            or starred_filter
         ),
         'experience_placeholder_id': '00000000-0000-0000-0000-000000000000',
     }

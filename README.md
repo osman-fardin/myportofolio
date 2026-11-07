@@ -16,6 +16,7 @@ minimal multi-page interface with a warm visual theme.
 - Database-backed Experience and Projects pages
 - Daftar dan filter Experience dimuat dari DRF menggunakan Fetch API tanpa reload
 - Pencarian dan filter Experience dengan debouncing serta request cancellation
+- Filter personal **Starred by me** pada Experience, digabung title/category/status
 - Modal create Experience melalui JSON DRF dengan response `201`, `400`, atau `403`
 - Modal edit Experience melalui PATCH untuk Editor/superuser, hanya field berubah
 - Loading, empty, no-results, error, retry, result count, dan toast feedback
@@ -41,7 +42,7 @@ minimal multi-page interface with a warm visual theme.
   tanpa reload, dengan preview statis dan fallback HTML tetap tersedia
 - Loading daftar/detail, empty state, toast error API, dan pencegahan submit ganda
 - Payload publik Project hanya memuat count dan status star, tanpa identitas akun
-- 243 automated test untuk fitur lama, serializer, API, integrasi halaman, CSRF,
+- 256 automated test untuk fitur lama, serializer, API, integrasi halaman, CSRF,
   XSS, permission, privacy, serta isolasi data personal antar-user
 
 ## Technology
@@ -294,13 +295,20 @@ ini. API PUT/PATCH sudah berfungsi; form update lama tetap dapat dipakai.
 | `/experience/<uuid>/star/` | POST | Toggle star dan mengembalikan state terbaru | User login |
 
 Progres API Tugas 6 pada 7 November: `api:experience-list` mendukung filter
-`title`, `category`, dan `status=ongoing/completed`, termasuk kombinasinya.
+`title`, `category`, `status=ongoing/completed`, dan `starred=mine`, termasuk kombinasinya.
 Daftar berupa array datar dengan 12 field publik dari ExperienceSerializer;
 `description` mentah tetap tersedia bersama `description_points`. Akun pemberi
 star tidak dikirim; hanya count dan status sesuai request pengguna.
 Urutan memakai `-started_at`, lalu UUID sebagai penentu saat tanggal sama.
 Kategori tidak dikenal menghasilkan `[]`; status tidak dikenal diabaikan seperti
 jalur JSON lama. Hasil kosong tetap 200.
+
+`starred=mine` dibatasi memakai `request.user`; parameter user ID atau username
+tidak dapat memilih star akun lain. Guest mendapat `[]` dengan 200. Spasi tepi
+dipangkas; nilai selain `mine` diabaikan. Count pada hasil tetap menghitung star
+semua akun, sedangkan `is_starred` mengikuti akun yang meminta. Payload tetap
+12 field publik tanpa identitas pemberi star. Query filter ini tidak mengubah
+permission mutation atau otomatis memberi star pada record baru.
 
 POST memakai SessionAuthentication dan header CSRF, menghasilkan 201 saat valid,
 400 untuk error serializer, serta 403 untuk guest, user biasa, Editor, atau
@@ -470,6 +478,31 @@ CSRF, sesi, penghapusan record terakhir, serta create sesudah daftar kosong.
 Instrumentasi browser mencatat nol pemanggilan JSON pada 204; pengujian ulang
 delete mencatat satu DELETE, nol request dokumen/POST lama, dan nol page error.
 Popover pas pada 390/768/1440 px; screenshot mobile diperiksa. PWS belum diverifikasi.
+
+Filter personal Experience merupakan tambahan E6. Checkbox Starred by me hanya
+ditampilkan untuk akun login, dan URL `?starred=mine` bisa dibuka kembali dengan
+filter tetap terpilih. Guest yang membuka URL tersebut mendapat pesan untuk
+login; Clear menghapus filter personal beserta title/category/status. Daftar
+tetap dimuat melalui Fetch tanpa reload. Empty state membedakan akun yang belum
+punya star dengan hasil kombinasi filter yang kosong.
+
+Unstar yang sukses memuat ulang hasil personal agar kartu yang tidak lagi cocok
+hilang, sambil mempertahankan filter lain. Fokus tombol yang hilang dikembalikan
+ke checkbox. Pencatatan fokus sempat dilakukan sesudah tombol disabled; browser
+menemukan fokus sudah terlepas. Pencatatan dipindah ke awal klik dan cek ulang
+lulus. Error unstar mempertahankan kartu/state; Retry daftar tetap hanya GET.
+
+Delapan test API dan lima test halaman ada di `main/tests_experience_starred.py`.
+Seluruh 13 test baru dan 256 test main lulus; check/migration/JS/whitespace bersih.
+Test mencakup isolasi A/B, total count, kombinasi filter, guest/HEAD, input akun
+palsu, nilai query, escaping, role, unstar, dan create tanpa auto-star. Browser
+DB sementara memeriksa keyboard Space, URL/Clear, empty state, unstar/fokus,
+request lambat, 503/Retry, penolakan 403/sesi berakhir, serta create/edit/delete
+dengan mine tetap aktif. Pemeriksaan ulang mencatat nol request dokumen dan
+nol page error. Layout diperiksa pada 320/390/768/901/1024/1440 px, dengan
+screenshot mobile/desktop. CSS tambahan mengikuti warna Experience yang sudah
+ada; warna Projects tetap. Model/data/PWS tidak diubah; optimasi query E7 dan
+dokumentasi akhir E8 masih menyusul.
 
 ## Verifikasi Tutorial 07
 
@@ -744,7 +777,8 @@ Pada Tutorial 07, bantuan juga mencakup membaca materi serta kode aktual, menyus
 
 Pada awal Tugas 6, bantuan edit per checkpoint berlanjut ke serializer Experience,
 permission empat role, API daftar/create/detail/update/delete/star, integrasi
-daftar/filter, modal create/edit/delete, dan star Experience ke DRF, test, serta
+daftar/filter termasuk filter personal, modal create/edit/delete, dan star Experience
+ke DRF, test, serta
 dokumentasi terkait. Rincian
 hasil dan batas verifikasinya dicatat pada prompt log mulai entri 34.
 

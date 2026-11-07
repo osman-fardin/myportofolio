@@ -41,7 +41,7 @@
                 id="experience-filter-form"
                 method="get"
                 action="{% url 'main:show_experience' %}"
-                class="experience-filters"
+                class="experience-filters{% if user.is_authenticated %} experience-filters-personal{% endif %}"
                 aria-label="Filter experiences"
             >
                 <div class="experience-filter-field">
@@ -96,6 +96,19 @@
                     </select>
                 </div>
 
+                {% if user.is_authenticated %}
+                    <label class="experience-starred-filter" for="experience-starred-filter">
+                        <input
+                            id="experience-starred-filter"
+                            type="checkbox"
+                            name="starred"
+                            value="mine"
+                            {% if starred_filter == 'mine' %}checked{% endif %}
+                        >
+                        Starred by me
+                    </label>
+                {% endif %}
+
                 <button type="submit">Apply filters</button>
 
                 <a
@@ -117,6 +130,7 @@
                 id="experience-list"
                 class="experience-list"
                 data-experiences-url="{% url 'api:experience-list' %}"
+                data-starred-filter="{{ starred_filter }}"
                 data-can-star="{{ user.is_authenticated|yesno:'true,false' }}"
                 data-can-change="{{ perms.main.change_experience|yesno:'true,false' }}"
                 data-can-delete="{{ user.is_superuser|yesno:'true,false' }}"
