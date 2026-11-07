@@ -17,7 +17,25 @@ def _clean_required_text(value):
     return value
 
 
-class ProjectSerializer(serializers.ModelSerializer):
+class StarSummaryMixin:
+    """Use request-scoped annotations or read fresh metadata for plain instances."""
+
+    def get_star_count(self, obj):
+        if hasattr(obj, '_api_star_count'):
+            return obj._api_star_count
+        return obj.starred_by.count()
+
+    def get_is_starred(self, obj):
+        request = self.context.get('request')
+        if request is None or not request.user.is_authenticated:
+            return False
+        if hasattr(obj, '_api_is_starred'):
+            return obj._api_is_starred
+        # Plain instances from create/star must read current membership after saving.
+        return obj.starred_by.filter(pk=request.user.pk).exists()
+
+
+class ProjectSerializer(StarSummaryMixin, serializers.ModelSerializer):
     star_count = serializers.SerializerMethodField()
     is_starred = serializers.SerializerMethodField()
 
@@ -57,19 +75,8 @@ class ProjectSerializer(serializers.ModelSerializer):
     def validate_thumbnail_path(self, value):
         return strip_tags(value).strip()
 
-    def get_star_count(self, obj):
-        return obj.starred_by.count()
 
-    def get_is_starred(self, obj):
-        request = self.context.get('request')
-
-        if request is None or not request.user.is_authenticated:
-            return False
-
-        return request.user in obj.starred_by.all()
-
-
-class ExperienceSerializer(serializers.ModelSerializer):
+class ExperienceSerializer(StarSummaryMixin, serializers.ModelSerializer):
     description_points = serializers.ListField(
         child=serializers.CharField(), read_only=True,
     )
@@ -125,14 +132,3 @@ class ExperienceSerializer(serializers.ModelSerializer):
             })
 
         return attrs
-
-    def get_star_count(self, obj):
-        return obj.starred_by.count()
-
-    def get_is_starred(self, obj):
-        request = self.context.get('request')
-
-        if request is None or not request.user.is_authenticated:
-            return False
-
-        return request.user in obj.starred_by.all()

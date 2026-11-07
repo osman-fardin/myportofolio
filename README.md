@@ -42,7 +42,7 @@ minimal multi-page interface with a warm visual theme.
   tanpa reload, dengan preview statis dan fallback HTML tetap tersedia
 - Loading daftar/detail, empty state, toast error API, dan pencegahan submit ganda
 - Payload publik Project hanya memuat count dan status star, tanpa identitas akun
-- 256 automated test untuk fitur lama, serializer, API, integrasi halaman, CSRF,
+- 266 automated test untuk fitur lama, serializer, API, integrasi halaman, CSRF,
   XSS, permission, privacy, serta isolasi data personal antar-user
 
 ## Technology
@@ -258,8 +258,39 @@ request dikirim, baca ulang state sebelum memutuskan mengulang mutation.
 `main/serializers.py` menangani representasi/validasi, `main/permissions.py`
 menangani izin, dan `main/api_views.py` memakai `@api_view` serta `Response`.
 `main/api_urls.py` didaftarkan pada prefix `/api/v1/` di `portofolio/urls.py`.
-Queryset daftar/detail memakai prefetch relasi star; belum memakai optimasi
-Count/Exists. Model serta migration tidak berubah.
+Queryset API daftar/detail Projects dan Experience memakai helper
+`main/querysets.py`: Count menghitung seluruh star dan Exists mengecek membership
+akun request pada tabel penghubung. Guest memakai boolean false. Model serta
+migration tidak berubah; halaman/fallback HTML lama tetap memakai jalurnya sendiri.
+
+Annotation ini khusus akun pada request tersebut, bukan cache untuk dipakai
+lintas akun atau sesudah relasi berubah. Serializer membaca annotation bila ada;
+instance biasa dari create/star memakai count/exists terbaru. Toggle tetap
+mengambil instance biasa agar hasilnya tidak memakai summary sebelum mutation.
+Filter mine memakai hasil Exists sehingga total count tidak terpotong ke satu akun.
+
+Pengukuran E7 menggunakan SQLite lokal dan fixture sementara yang sama untuk
+kode sebelum/sesudah: 20 record per model, masing-masing 10 akun pemberi star.
+APIRequestFactory memakai akun yang sudah tersedia, di luar query autentikasi sesi.
+
+| Pembacaan per resource | Sebelum: query / object User dimuat | Sesudah: query / object User dimuat |
+| --- | --- | --- |
+| List 1 record | 2 / 10 | 1 / 0 |
+| List 20 record | 2 / 200 | 1 / 0 |
+| Detail guest atau login | 2 / 10 | 1 / 0 |
+
+Payload delapan respons list/detail pembanding sama persis. Prefetch lama sudah
+mencegah N+1; perubahan ini mengurangi query dan pemuatan object akun, bukan
+bukti latency atau throughput produksi. Database masih harus menghitung relasi
+star; list belum dipaginasi. PWS belum diukur.
+
+Sepuluh test baru di `main/tests_api_queries.py` memeriksa query konstan untuk
+1/20 record, tidak ada SELECT/object User, kesamaan payload baseline prefetch,
+serialisasi tanpa query tambahan setelah summary dimuat, mine/count total,
+empty/guest, serta fallback create/star dan PATCH read-only. Seluruh 266 test
+main lulus; check, migration, dan whitespace bersih. Smoke HTTP lokal pada DB
+sementara memeriksa JSON, Browsable API list/detail, HEAD, serta guest mine
+untuk kedua resource. UI tidak diubah atau diuji browser ulang pada E7.
 
 `main/views.py` tetap menyediakan halaman dan fallback ORM tanpa deserialize
 JSON lama. Named URL disalurkan melalui atribut `data-*` ke
@@ -501,8 +532,9 @@ request lambat, 503/Retry, penolakan 403/sesi berakhir, serta create/edit/delete
 dengan mine tetap aktif. Pemeriksaan ulang mencatat nol request dokumen dan
 nol page error. Layout diperiksa pada 320/390/768/901/1024/1440 px, dengan
 screenshot mobile/desktop. CSS tambahan mengikuti warna Experience yang sudah
-ada; warna Projects tetap. Model/data/PWS tidak diubah; optimasi query E7 dan
-dokumentasi akhir E8 masih menyusul.
+ada; warna Projects tetap. Model/data/PWS tidak diubah. E7 Count/Exists kini
+selesai lokal, dengan bukti pada bagian struktur API; audit akhir dan E8
+dokumentasi/refleksi masih menyusul.
 
 ## Verifikasi Tutorial 07
 
@@ -781,6 +813,8 @@ daftar/filter termasuk filter personal, modal create/edit/delete, dan star Exper
 ke DRF, test, serta
 dokumentasi terkait. Rincian
 hasil dan batas verifikasinya dicatat pada prompt log mulai entri 34.
+Pada E7, bantuan juga mencakup helper Count/Exists bersama untuk API Projects dan
+Experience, fallback metadata serializer, test query, dan pengukuran pembanding.
 
 Saat memberi prompt, saya biasanya menyertakan rubrik, source code terbaru, error yang muncul, atau hasil command Git. Saya meminta pekerjaan dibagi per module, setiap konsep baru dijelaskan, dan perubahan diperiksa sebelum commit. Cara ini membantu saya mengikuti alasan di balik `fetch()`, `await`, debounce, `AbortController`, `FormData`, CSRF, serta penggunaan `textContent`, bukan hanya melihat hasil akhirnya.
 

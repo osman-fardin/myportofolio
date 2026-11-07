@@ -1301,6 +1301,66 @@ data percobaan hanya pada database sementara. README dan panduan pribadi
 diperbarui; commit tetap saya jalankan sendiri. E7 optimasi query dan E8
 dokumentasi akhir belum dianggap selesai pada checkpoint ini.
 
+## 45. Mengurangi query dan pemuatan akun pada summary star API
+
+**Prompt (ringkasan):**
+
+> Filter personal sudah di-commit. Lanjut optimasi Count/Exists sesuai roadmap.
+> Gimana menghitung count dan status star tanpa memuat seluruh User, sambil
+> menjaga payload, mine, dan hasil setelah create/PATCH/toggle? Bantu implementasi
+> dan bandingkan query serta object akun sebelum/sesudah dengan fixture yang sama.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan dengan bantuan AI untuk penjelasan, implementasi, pengujian,
+dan dokumentasi. Commit filter `0ff71e4` diperiksa sebelum E7. Kode lama sudah
+memakai prefetch sehingga jumlah query list tetap dua, tetapi masih membuat
+object User untuk setiap pasangan record/star. Fixture database sementara
+dibuat berisi 20 Project dan 20 Experience, masing-masing dengan 10 akun palsu.
+APIRequestFactory mengisolasi query pembacaan data dari autentikasi sesi.
+
+Helper with_star_summary pada main/querysets.py menambahkan Count distinct
+untuk seluruh relasi dan Exists pada tabel penghubung untuk akun request.
+Guest memakai Value false. API list/detail kedua model memakai helper ini;
+mine menyaring annotation Exists agar count tetap mencakup seluruh star.
+Annotation hanya untuk request itu, bukan cache lintas akun atau mutation.
+StarSummaryMixin dipakai kedua serializer untuk membaca annotation bila tersedia.
+Instance biasa pada create/star memakai count dan exists terbaru tanpa memuat
+User. Endpoint toggle tetap memakai instance biasa agar state sebelum mutation
+tidak terbawa pada respons. Kontrak field, permission, validasi, model, serta
+route HTML lama dipertahankan.
+
+Pengukuran baseline awal: list satu record dua query dan 10 object User; list
+20 record dua query dan 200 object User; detail dua query dan 10 object User.
+Sesudah perubahan, semua pembacaan tersebut satu query dengan nol object User,
+baik Projects maupun Experience. Perbandingan dijalankan lagi memakai kode
+baseline commit 0ff71e4 dalam namespace sementara, pada database/fixture yang
+sama. Delapan payload list/detail pembanding sama persis. Tidak ada klaim waktu
+respons produksi; SQLite lokal, query autentikasi di luar hitungan, dan list
+belum dipaginasi menjadi batas pengukurannya.
+
+Skrip pengukuran awal memakai __file__ dari manage.py shell untuk menyimpan
+output, tetapi itu menunjuk modul shell Django. Lokasi output diperbaiki ke
+path sementara eksplisit, dan file hasil sementara yang sempat tertulis di
+folder environment dihapus setelah isinya dipastikan milik fixture QA ini.
+Dependency dan konfigurasi environment tidak diubah. Whitespace serializer
+juga dirapikan setelah diff check awal menemukan baris kosong di akhir file.
+
+Sepuluh test baru pada main/tests_api_queries.py memeriksa list 1/20, detail
+guest/member/outsider, kesamaan payload prefetch lama, query serta hydration
+User, serialisasi summary yang sudah dimuat tanpa query tambahan, mine/count
+total, empty/guest, fallback serializer biasa, create, toggle dua arah, dan
+PATCH yang mengabaikan metadata palsu. Seluruh 10 test query, 138 test API
+terarah, dan 266 test main lulus. Check, migration, dan whitespace bersih.
+
+Smoke HTTP runserver hanya GET/HEAD pada database sementara: JSON list/detail,
+Browsable API HTML list/detail, HEAD kosong, count total 10, state guest false,
+serta guest mine [] 200 diperiksa untuk kedua resource. Tidak ada perubahan
+template, JavaScript, atau CSS pada E7, dan browser UI tidak diulang. Data
+lokal tetap satu Project dan dua Experience; PWS tidak diubah atau diukur.
+README serta panduan pribadi diperbarui. Commit tetap saya jalankan sendiri;
+berikutnya review branch UI, lalu audit akhir dan dokumentasi/refleksi E8.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa
