@@ -997,6 +997,58 @@ README dan panduan pribadi diperbarui. Data lokal tetap satu Project dan dua
 Experience; model, warna, stylesheet, serta PWS tidak diubah. Commit tetap saya
 jalankan sendiri sebelum melanjutkan create lewat DRF pada checkpoint berikutnya.
 
+## 40. Mengirim create Experience sebagai JSON ke DRF
+
+**Prompt (ringkasan):**
+
+> Daftar/filter sudah di-commit. Lanjut satu checkpoint create Experience ke
+> DRF: gimana mengubah FormData menjadi JSON, menangani field opsional dan
+> tanggal, serta membaca error API tanpa kehilangan isian? Bantu implementasi
+> dan cek submit ganda, CSRF, sesi berakhir, serta filter setelah sukses.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan dengan bantuan AI untuk penjelasan, implementasi, pengujian,
+dan dokumentasi. Commit daftar/filter `5a60493` diperiksa lebih dahulu. Modal
+create mendapat `data-api-url` dari named URL DRF, sedangkan action HTML lama
+tetap tersedia sebagai fallback. Fetch mengirim JSON dengan enam field writable
+dan header Content-Type, Accept, serta X-CSRFToken. Token dan field metadata
+tidak masuk body. Thumbnail dan ended_at kosong menjadi null.
+
+Nilai datetime-local dikirim tanpa konversi Date di browser, agar interpretasi
+UTC yang dipakai form lama tetap sama. Respons sukses harus 201: form direset,
+modal ditutup, toast sukses muncul, lalu daftar dimuat dengan filter aktif.
+Error field/detail DRF atau pesan status cadangan ditampilkan lewat toast.
+Error jaringan, respons HTML, atau status tidak sesuai mempertahankan isian.
+Tombol dikunci selama request dan diaktifkan kembali dalam finally. Tidak ada
+retry POST otomatis. Star/edit/delete UI belum dipindahkan pada checkpoint ini.
+
+Lima test integrasi baru memeriksa URL API modal, JSON/null dan sanitasi,
+fallback HTML dengan tanggal yang sama, invalid title/tanggal tanpa penyimpanan,
+CSRF, dan sesi berakhir. Dua puluh empat test terarah dan seluruh 229 test main
+lulus. Check, pemeriksaan migrasi, sintaks JavaScript, dan whitespace bersih.
+
+Browser memakai database sementara yang awalnya kosong. Validasi title dan
+tanggal menghasilkan 400 tanpa record baru. Create pertama berhasil; payload
+enam field, null, token CSRF, serta tanggal tersimpan diperiksa. Submit ganda
+hanya mengirim satu POST; sukses mereset/menutup modal. Kombinasi filter tetap
+aktif walaupun record baru tidak cocok. Error JSON 403, HTML 503, HTML 200 yang
+tidak sesuai kontrak, dan jaringan putus diperiksa; CSRF salah serta logout
+diuji terhadap server sungguhan. Isian tetap ada, tombol kembali aktif, dan
+record tidak bertambah pada kasus gagal.
+
+Skrip QA sempat memakai URL relatif pada APIRequestContext tanpa base URL dan
+mencari input melalui role setelah modal tersembunyi. Skrip diperbaiki memakai
+URL penuh serta locator field yang tetap bisa diperiksa saat modal tertutup.
+Penghitung framenavigated juga menangkap history.replaceState dari filter;
+pemeriksaan reload diperbaiki dengan menghitung request dokumen. Pengujian
+ulang berhasil: satu POST, nol request dokumen, nol page error. Koreksi ini
+ada pada skrip QA, bukan perubahan tampilan aplikasi.
+
+README dan panduan pribadi diperbarui. Data lokal tetap satu Project dan dua
+Experience; model, desain, environment, serta PWS tidak diubah. Commit tetap
+saya jalankan sendiri. Sesudah checkpoint ini, tahap berikutnya adalah star UI.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa

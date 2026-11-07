@@ -16,7 +16,7 @@ minimal multi-page interface with a warm visual theme.
 - Database-backed Experience and Projects pages
 - Daftar dan filter Experience dimuat dari DRF menggunakan Fetch API tanpa reload
 - Pencarian dan filter Experience dengan debouncing serta request cancellation
-- Modal create Experience berbasis AJAX dengan response `201`, `400`, atau `403`
+- Modal create Experience melalui JSON DRF dengan response `201`, `400`, atau `403`
 - Loading, empty, no-results, error, retry, result count, dan toast feedback
 - Sanitasi input Experience menggunakan `strip_tags` dan output aman melalui
   DOM `textContent`
@@ -40,7 +40,7 @@ minimal multi-page interface with a warm visual theme.
   tanpa reload, dengan preview statis dan fallback HTML tetap tersedia
 - Loading daftar/detail, empty state, toast error API, dan pencegahan submit ganda
 - Payload publik Project hanya memuat count dan status star, tanpa identitas akun
-- 224 automated test untuk fitur lama, serializer, API, integrasi halaman, CSRF,
+- 229 automated test untuk fitur lama, serializer, API, integrasi halaman, CSRF,
   XSS, permission, privacy, serta isolasi data personal antar-user
 
 ## Technology
@@ -138,8 +138,8 @@ disengaja untuk menjaga fitur lama dan diuji pada API serta halaman.
 Daftar dan filter halaman Experience sudah memakai API DRF. Pada progres Tugas 6,
 serializer, permission empat role, serta API daftar/create/detail/update/delete
 dan star sudah tersedia.
-Create, star, edit, dan delete halaman masih memakai route Tugas 5 selama
-migrasi bertahap, dengan kontrol role yang sama.
+Create halaman juga sudah memakai JSON DRF. Star, edit, dan delete halaman masih
+memakai route Tugas 5 selama migrasi bertahap, dengan kontrol role yang sama.
 
 ## Projects API: Tutorial 07
 
@@ -362,9 +362,9 @@ Izin tindakan tetap diperiksa server.
 Pencarian 400 ms, filter kategori/status, Clear, result count, loading, empty,
 error/retry, thumbnail, serta DOM `textContent` dipertahankan. Respons atau error
 request lama yang dibatalkan tidak mengganti daftar dan feedback request terbaru.
-Create/star/edit/delete UI masih memakai jalur lama pada tahap ini; create dan
-star tetap AJAX, sedangkan delete lama masih redirect. Migrasi mutation serta
-modal edit PATCH dilanjutkan per checkpoint.
+Create UI kini mengirim POST JSON ke `api:experience-list`, sedangkan star/edit/
+delete masih memakai jalur lama. Star tetap AJAX dan delete lama masih redirect.
+Migrasi berikutnya adalah star, modal edit PATCH, dan delete per checkpoint.
 
 Tujuh test halaman baru ditambah ke `main/tests_experience_ui.py`, dan assertion
 URL pada test shell lama disesuaikan memakai `reverse('api:experience-list')`.
@@ -373,6 +373,22 @@ dengan database sementara memeriksa guest, user biasa, Editor, staff, dan owner;
 DRF list/filter tanpa reload atau GET list lama; debounce, kombinasi filter,
 empty/Clear, thumbnail, escaping, request lambat, error/retry, serta mutation
 lama yang tetap berfungsi. Layout stabil diperiksa pada 390/768/1440 px.
+
+Pada checkpoint create, modal memakai `data-api-url` untuk Fetch dan tetap
+menyimpan action HTML sebagai fallback. JSON hanya memuat enam field writable;
+thumbnail dan tanggal akhir kosong dikirim sebagai `null`. Nilai `datetime-local`
+dikirim apa adanya, sehingga interpretasi UTC dari form lama tetap sama, tanpa
+konversi zona waktu tambahan di browser. Respons 201 menutup/reset modal dan
+memuat ulang daftar dengan filter aktif. Error DRF atau jaringan mempertahankan
+isian, menampilkan toast, dan mengaktifkan kembali tombol. Submit ganda dikunci
+selama request; POST tidak diulang otomatis.
+
+Lima test integrasi create ditambahkan: JSON valid, fallback dan kesamaan tanggal,
+validasi field, CSRF, serta sesi berakhir. Total main kini 229 lulus; check,
+migration, sintaks JS, dan whitespace bersih. Browser database sementara menguji
+create pertama saat daftar kosong, payload/header, submit ganda, filter sesudah
+sukses, 400, 403, respons HTML, status tak sesuai, dan jaringan putus. Pengujian
+ulang mencatat satu POST, nol request dokumen, dan nol page error saat create.
 
 ## Verifikasi Tutorial 07
 
@@ -647,7 +663,7 @@ Pada Tutorial 07, bantuan juga mencakup membaca materi serta kode aktual, menyus
 
 Pada awal Tugas 6, bantuan edit per checkpoint berlanjut ke serializer Experience,
 permission empat role, API daftar/create/detail/update/delete/star, integrasi
-daftar/filter Experience ke DRF, test, serta
+daftar/filter dan modal create Experience ke DRF, test, serta
 dokumentasi terkait. Rincian
 hasil dan batas verifikasinya dicatat pada prompt log mulai entri 34.
 

@@ -153,3 +153,105 @@ class ExperienceReadPageTests(TestCase):
         self.assertContains(response, 'id="experience-result-count"')
         self.assertContains(response, 'Loading experiences...')
         self.assertContains(response, 'id="experience-filter-clear"')
+
+
+class _ExperienceCreateFormParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.attributes = {}
+
+    def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        if tag == 'form' and attributes.get('id') == 'experience-create-form':
+            self.attributes = attributes
+
+
+class ExperienceCreatePageTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.owner = get_user_model().objects.create_superuser(
+            username='experience-create-page-owner', password='test-password',
+        )
+        cls.payload = {
+            'title': 'New mentoring role',
+            'description': 'Support students.\nPrepare materials.',
+            'category': 'volunteer',
+            'thumbnail': None,
+            'started_at': '2026-11-01T09:30',
+            'ended_at': None,
+        }
+
+    def client_and_form(self):
+        client = APIClient(enforce_csrf_checks=True)
+        self.assertTrue(client.login(username=self.owner.username, password='test-password'))
+        page = client.get(reverse('main:show_experience'))
+        self.assertEqual(page.status_code, 200)
+        parser = _ExperienceCreateFormParser()
+        parser.feed(page.content.decode())
+        self.assertTrue(parser.attributes)
+        self.assertEqual(parser.attributes['data-api-url'], reverse('api:experience-list'))
+        return client, parser.attributes, client.cookies['csrftoken'].value
+
+    def test_modal_api_target_creates_json_data_with_optional_nulls(self):
+        client, form, token = self.client_and_form()
+        response = client.post(form['data-api-url'], {
+            **self.payload, 'title': ' <b>New mentoring role</b> ',
+        }, format='json', HTTP_X_CSRFTOKEN=token)
+
+        self.assertEqual(response.status_code, 201)
+        experience = Experience.objects.get(pk=response.data['id'])
+        self.assertEqual(experience.title, self.payload['title'])
+        self.assertEqual(experience.description, self.payload['description'])
+        self.assertIsNone(experience.thumbnail)
+        self.assertIsNone(experience.ended_at)
+        self.assertTrue(response.data['is_ongoing'])
+        self.assertEqual(experience.started_at, datetime(2026, 11, 1, 9, 30, tzinfo=UTC))
+        self.assertEqual(response.data['star_count'], 0)
+        self.assertEqual(Experience.objects.count(), 1)
+
+    def test_modal_keeps_native_html_create_and_the_same_date_interpretation(self):
+        client, form, token = self.client_and_form()
+        self.assertEqual(form['action'], reverse('main:create_experience'))
+        response = client.post(form['action'], {
+            **self.payload, 'thumbnail': '', 'ended_at': '',
+        }, HTTP_X_CSRFTOKEN=token)
+
+        self.assertRedirects(
+            response, reverse('main:show_experience'), fetch_redirect_response=False,
+        )
+        experience = Experience.objects.get()
+        self.assertEqual(experience.title, self.payload['title'])
+        self.assertEqual(experience.started_at, datetime(2026, 11, 1, 9, 30, tzinfo=UTC))
+        self.assertIsNone(experience.ended_at)
+
+    def test_invalid_modal_json_returns_field_errors_without_saving(self):
+        client, form, token = self.client_and_form()
+        for changes, field in (
+            ({'title': '<img src=x onerror=alert(1)>'}, 'title'),
+            ({'ended_at': '2026-10-31T09:30'}, 'ended_at'),
+        ):
+            with self.subTest(changes=changes):
+                response = client.post(
+                    form['data-api-url'], {**self.payload, **changes},
+                    format='json', HTTP_X_CSRFTOKEN=token,
+                )
+                self.assertEqual(response.status_code, 400)
+                self.assertIsInstance(response.data[field], list)
+                self.assertEqual(Experience.objects.count(), 0)
+
+    def test_modal_json_without_csrf_is_rejected_without_saving(self):
+        client, form, _ = self.client_and_form()
+        response = client.post(form['data-api-url'], self.payload, format='json')
+        self.assertEqual(response.status_code, 403)
+        self.assertIn('CSRF', str(response.data['detail']))
+        self.assertEqual(Experience.objects.count(), 0)
+
+    def test_expired_session_cannot_create_from_the_rendered_modal_url(self):
+        client, form, token = self.client_and_form()
+        client.logout()
+        response = client.post(
+            form['data-api-url'], self.payload, format='json', HTTP_X_CSRFTOKEN=token,
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertNotIn('CSRF', str(response.data['detail']))
+        self.assertEqual(Experience.objects.count(), 0)

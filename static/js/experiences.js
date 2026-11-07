@@ -99,11 +99,12 @@ function createTextElement(tagName, className, text) {
     return element;
 }
 
-function getFirstFormError(errors = {}) {
-    const errorGroups = Object.values(errors);
-    const firstError = errorGroups.flat()[0];
+function experienceApiErrorMessage(data, status) {
+    const messages = data && typeof data === 'object'
+        ? Object.values(data).flat().filter(value => typeof value === 'string')
+        : [];
 
-    return firstError?.message ?? 'Please check the experience form.';
+    return messages.join(' ') || `Request failed (HTTP ${status}).`;
 }
 
 function formatMonthYear(value) {
@@ -446,6 +447,8 @@ async function submitExperience(event) {
     const submitButton = experienceCreateForm.querySelector(
         'button[type="submit"]',
     );
+    if (submitButton.disabled) return;
+
     const csrfToken = experienceCreateForm.querySelector(
         '[name="csrfmiddlewaretoken"]',
     ).value;
@@ -453,24 +456,26 @@ async function submitExperience(event) {
     submitButton.disabled = true;
 
     try {
-        const response = await fetch(experienceCreateForm.action, {
+        const fields = new FormData(experienceCreateForm);
+        const payload = Object.fromEntries([
+            'title', 'description', 'category', 'thumbnail', 'started_at', 'ended_at',
+        ].map(name => [name, fields.get(name)]));
+        payload.thumbnail = payload.thumbnail || null;
+        payload.ended_at = payload.ended_at || null;
+
+        const response = await fetch(experienceCreateForm.dataset.apiUrl, {
             method: 'POST',
-            body: new FormData(experienceCreateForm),
+            body: JSON.stringify(payload),
             headers: {
                 'X-CSRFToken': csrfToken,
-                'X-Requested-With': 'XMLHttpRequest',
                 Accept: 'application/json',
+                'Content-Type': 'application/json',
             },
         });
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
 
-        if (!response.ok) {
-            showToast(
-                'Could not add experience',
-                data.message ?? getFirstFormError(data.errors),
-                'error',
-            );
-            return;
+        if (response.status !== 201) {
+            throw new Error(experienceApiErrorMessage(data, response.status));
         }
 
         experienceCreateForm.reset();
@@ -478,7 +483,7 @@ async function submitExperience(event) {
 
         showToast(
             'Experience added',
-            data.message,
+            'Experience added successfully.',
             'success',
         );
 
@@ -488,7 +493,7 @@ async function submitExperience(event) {
 
         showToast(
             'Could not add experience',
-            'Please try again in a moment.',
+            error instanceof TypeError ? 'Please try again in a moment.' : error.message,
             'error',
         );
     } finally {
