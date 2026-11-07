@@ -1,7 +1,7 @@
 # AI Prompt Log
 
 Dokumen ini berisi beberapa contoh prompt yang mewakili penggunaan OpenAI Codex
-selama pengerjaan Tutorial, Tugas 1 sampai Tugas 5, serta Tutorial 07. Prompt di
+selama pengerjaan Tutorial, Tugas 1 sampai Tugas 5, Tutorial 07, dan Tugas 6. Prompt di
 bawah diringkas dari percakapan asli agar lebih mudah dibaca. Informasi sensitif
 dan percakapan yang tidak berkaitan dengan tugas tidak disertakan.
 
@@ -708,6 +708,50 @@ dan hash akhir pengumpulan baru dicatat setelah saya membuat dan memeriksanya.
 Push, PR/merge, deployment/PWS, akses commit publik, dan submit SCELE masih perlu
 bukti. Instalasi ulang dari environment kosong juga belum diverifikasi. Tutorial
 07 harus dikumpulkan terpisah sebelum melanjutkan pengumpulan Tugas 6.
+
+## 34. Memulai serializer Experience untuk Tugas 6 (7 November 2026)
+
+**Prompt (ringkasan):**
+
+> Untuk Tugas 6, aku mau lanjut dengan pola bantuan edit langsung seperti saat
+> Tutorial 07, tetap satu checkpoint lalu aku yang commit. Bantu jelasin dan
+> terapkan serializer Experience memakai model lama. Field star harus read-only,
+> teks dibersihkan, dan tanggal tetap valid saat PATCH hanya mengirim salah satu
+> tanggal. Sertakan test yang sesuai sebelum lanjut ke permission dan endpoint.
+
+**Hasil penggunaan:**
+
+Saya meminta bantuan edit langsung per checkpoint dan tetap menjalankan commit
+sendiri. AI membantu memeriksa branch `feat/tugas-6-experience-api` dari merge
+Tutorial 07 `dd3220e`, lalu menjalankan ulang baseline. Seluruh 140 test lama,
+Django check, pemeriksaan migrasi, dan pip check lolos sebelum perubahan.
+
+Saya menambahkan ExperienceSerializer dengan bantuan AI untuk penjelasan,
+implementasi, dan pengujian. Dua belas field ditulis eksplisit, mencakup data
+model, description mentah untuk kebutuhan edit, description_points,
+category_label, is_ongoing, serta jumlah dan status star. UUID dan field turunan
+read-only; akun pemberi star tidak ditampilkan. Status star mengikuti request
+pengguna dan bernilai false jika tidak ada request atau pengguna anonim.
+
+Validasi title dan description memakai helper pembersihan teks yang sudah ada.
+Tag HTML dibuang, spasi tepi dirapikan, dan teks kosong setelah dibersihkan
+ditolak. Validasi URL, choices, panjang teks, serta format tanggal mengikuti
+field model. Saat PATCH, tanggal input dibandingkan dengan tanggal yang tetap
+tersimpan pada instance. `ended_at: null` mengembalikan status ongoing; waktu
+akhir yang sama dengan waktu mulai tetap diizinkan seperti aturan form lama.
+
+Saya memahami bahwa start date mempunyai default dari model. Saat create
+tidak mengirim start, serializer mengambil default sekali agar tanggal yang
+divalidasi sama dengan yang disimpan. Saat update, tanggal yang tidak dikirim
+tetap memakai instance. Pengujian juga mencakup perbandingan offset zona waktu.
+
+Test Experience ditempatkan pada `main/tests_experience_api.py` agar mudah
+ditinjau bersama fitur berikutnya. Seluruh 19 test baru dan total 159 test main
+lulus. Check, pemeriksaan migrasi, serta whitespace bersih. Data lokal tetap
+satu Project dan dua Experience; tidak ada perubahan schema, UI, atau PWS.
+Warning staticfiles lama tetap nonfatal. Permission empat role dan endpoint
+Experience menjadi checkpoint berikutnya; serializer ini belum dihubungkan ke
+request halaman. Header log diperbarui untuk mencakup Tugas 6.
 
 ## Verifikasi manual
 
