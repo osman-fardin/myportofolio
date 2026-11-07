@@ -3,10 +3,11 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import AnonymousUser
+from django.contrib.auth.models import AnonymousUser, Group, Permission
 from rest_framework.test import APIRequestFactory, APITestCase
 
 from .models import Experience
+from .permissions import IsPortfolioOwnerOrEditorOrReadOnly
 from .serializers import ExperienceSerializer
 
 
@@ -326,3 +327,94 @@ class ExperienceSerializerTests(APITestCase):
         })
         self.assertFalse(invalid.is_valid())
         self.assertIn('ended_at', invalid.errors)
+
+
+class ExperiencePermissionTests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        user_model = get_user_model()
+        cls.reader = user_model.objects.create_user(username='experience-api-reader')
+        cls.editor = user_model.objects.create_user(username='experience-api-editor')
+        cls.staff = user_model.objects.create_user(
+            username='experience-api-staff', is_staff=True,
+        )
+        cls.owner = user_model.objects.create_superuser(username='experience-api-owner')
+        cls.change_permission = Permission.objects.get(
+            content_type__app_label='main', codename='change_experience',
+        )
+        cls.editor_group = Group.objects.create(name='Editor')
+        cls.editor_group.permissions.add(cls.change_permission)
+        cls.editor.groups.add(cls.editor_group)
+
+    def is_allowed(self, user, method):
+        request = APIRequestFactory().generic(method, '/api/v1/experiences/')
+        request.user = user
+        return IsPortfolioOwnerOrEditorOrReadOnly().has_permission(request, view=None)
+
+    def test_every_role_can_read_without_write_permission(self):
+        for user in (AnonymousUser(), self.reader, self.editor, self.staff, self.owner):
+            for method in ('GET', 'HEAD', 'OPTIONS'):
+                with self.subTest(user=str(user), method=method):
+                    self.assertTrue(self.is_allowed(user, method))
+
+    def test_guest_and_regular_user_cannot_write(self):
+        for user in (AnonymousUser(), self.reader):
+            for method in ('POST', 'PUT', 'PATCH', 'DELETE'):
+                with self.subTest(user=str(user), method=method):
+                    self.assertFalse(self.is_allowed(user, method))
+
+    def test_editor_can_put_and_patch(self):
+        self.assertTrue(self.editor.has_perm('main.change_experience'))
+        self.assertFalse(self.editor.is_superuser)
+        self.assertFalse(self.editor.is_staff)
+        for method in ('PUT', 'PATCH'):
+            with self.subTest(method=method):
+                self.assertTrue(self.is_allowed(self.editor, method))
+
+    def test_editor_cannot_create_delete_or_use_other_unsafe_methods(self):
+        for method in ('POST', 'DELETE', 'TRACE'):
+            with self.subTest(method=method):
+                self.assertFalse(self.is_allowed(self.editor, method))
+
+    def test_superuser_can_create_update_and_delete(self):
+        for method in ('POST', 'PUT', 'PATCH', 'DELETE'):
+            with self.subTest(method=method):
+                self.assertTrue(self.is_allowed(self.owner, method))
+
+    def test_group_name_without_permission_does_not_grant_editor_access(self):
+        # Each test has its own transaction; this does not change local groups.
+        self.editor_group.permissions.clear()
+        user = get_user_model().objects.create_user(username='editor-name-only')
+        user.groups.add(self.editor_group)
+        self.assertTrue(user.groups.filter(name='Editor').exists())
+        self.assertFalse(user.has_perm('main.change_experience'))
+
+        for method in ('POST', 'PUT', 'PATCH', 'DELETE'):
+            with self.subTest(method=method):
+                self.assertFalse(self.is_allowed(user, method))
+
+    def test_direct_model_permission_grants_only_update_with_or_without_staff(self):
+        for is_staff in (False, True):
+            user = get_user_model().objects.create_user(
+                username=f'direct-experience-permission-{is_staff}', is_staff=is_staff,
+            )
+            user.user_permissions.add(self.change_permission)
+            self.assertFalse(user.groups.exists())
+            for method, expected in (
+                ('PUT', True), ('PATCH', True), ('POST', False), ('DELETE', False),
+            ):
+                with self.subTest(is_staff=is_staff, method=method):
+                    self.assertEqual(self.is_allowed(user, method), expected)
+
+    def test_staff_and_project_permission_do_not_grant_experience_writes(self):
+        project_editor = get_user_model().objects.create_user(username='project-only-editor')
+        project_editor.user_permissions.add(Permission.objects.get(
+            content_type__app_label='main', codename='change_project',
+        ))
+        self.assertTrue(project_editor.has_perm('main.change_project'))
+        self.assertFalse(project_editor.has_perm('main.change_experience'))
+
+        for user in (self.staff, project_editor):
+            for method in ('POST', 'PUT', 'PATCH', 'DELETE'):
+                with self.subTest(user=str(user), method=method):
+                    self.assertFalse(self.is_allowed(user, method))

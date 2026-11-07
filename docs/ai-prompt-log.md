@@ -753,6 +753,46 @@ Warning staticfiles lama tetap nonfatal. Permission empat role dan endpoint
 Experience menjadi checkpoint berikutnya; serializer ini belum dihubungkan ke
 request halaman. Header log diperbarui untuk mencakup Tugas 6.
 
+## 35. Menjaga empat role pada permission Experience
+
+**Prompt (ringkasan):**
+
+> Serializer sudah di-commit, lanjut permission Experience. Jelasin bagaimana
+> guest dan user biasa tetap boleh membaca, Editor bisa PUT/PATCH, sedangkan
+> create/delete khusus superuser. Aku memakai Django permission sejak tugas
+> sebelumnya; pastikan nama grup atau status staff saja tidak memberi hak edit
+> dan aturan Projects dari tutorial tetap sesuai checkpoint sebelumnya.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan dengan bantuan AI untuk penjelasan, implementasi, dan pengujian
+per checkpoint. Commit serializer `45925e9` diperiksa sebelum menambahkan
+IsPortfolioOwnerOrEditorOrReadOnly pada `main/permissions.py`. SAFE_METHODS
+diizinkan untuk semua pengunjung, pengguna anonim ditolak untuk mutation,
+superuser diizinkan menulis, dan akun lainnya hanya boleh PUT/PATCH jika
+memiliki `main.change_experience`.
+
+Saya memahami bahwa Editor adalah peran yang ditentukan permission yang sudah
+dipakai proyek. Nama grup Editor saja tidak cukup. Permission bisa diberikan
+melalui grup atau langsung pada user; keduanya memberi izin update yang sama.
+Status staff tidak memberikan hak create/delete Experience, dan permission
+`main.change_project` saja tidak memberi hak update Experience. Class permission
+Projects tetap memakai aturan owner-only yang sudah dibuat pada Tutorial 07.
+
+Delapan test baru pada `main/tests_experience_api.py` memeriksa matriks method
+semua role, grup tanpa permission, permission langsung dengan/tanpa staff,
+permission Project yang berbeda, serta pembatasan mutation selain PUT/PATCH.
+Test ini memeriksa keputusan class lewat APIRequestFactory; endpoint belum
+dipasang. Test status HTTP, kondisi database setelah penolakan, dan CSRF lewat
+session akan ditambahkan bersama endpoint. Star nantinya tetap memakai
+IsAuthenticated, sehingga user biasa tetap bisa star tanpa permission Editor.
+
+Sebanyak 12 test permission terarah lulus, termasuk 4 test Projects lama. Seluruh
+167 test main juga lulus; check, pemeriksaan migrasi, dan whitespace bersih.
+Data lokal tetap satu Project dan dua Experience. Tidak ada perubahan grup pada
+database lokal, model, UI, atau PWS. Saya menjalankan commit sendiri sebelum
+melanjutkan checkpoint endpoint daftar dan create.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa
