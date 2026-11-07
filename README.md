@@ -86,10 +86,10 @@ python -m pip install -r requirements.txt
 python manage.py migrate
 ```
 
-Environment yang dipakai untuk checkpoint Tutorial 07: Python 3.14.6, Django
+Environment proyek untuk checkpoint Tutorial 07 sampai Tugas 6: Python 3.14.6, Django
 5.2.17, dan DRF 3.18.3. Requirement tetap `django~=5.2` dan menambahkan
 `djangorestframework~=3.18.3`; versi patch hasil install bisa berbeda.
-Tutorial ini memakai model dan data lama, tanpa migration baru.
+Tutorial 07 dan Tugas 6 memakai model dan data lama, tanpa migration baru.
 
 Perintah `migrate` juga menerapkan migration `0005_experience_starred_by` yang
 menambahkan relasi star per user pada Experience. Migration perlu dijalankan pada
@@ -105,7 +105,9 @@ Open `http://127.0.0.1:8000/` in a browser.
 
 ## Editor Role Setup
 
-Role Editor memakai Django Group dan permission bawaan model. Karena data grup
+Role Editor memakai permission bawaan model; grup `Editor` di bawah memudahkan
+pemberian permission ke beberapa akun. Direct permission pada user juga berlaku,
+tanpa bergantung pada nama grup atau `is_staff`. Karena data grup
 tersimpan di database, setup ini perlu dilakukan kembali pada database lokal
 maupun PWS dan tidak ikut terbawa hanya melalui Git.
 
@@ -319,11 +321,11 @@ ini. API PUT/PATCH sudah berfungsi; form update lama tetap dapat dipakai.
 | `/api/v1/experiences/<uuid>/` | DELETE | Hapus, 204 tanpa body | Superuser |
 | `/api/v1/experiences/<uuid>/star/` | POST | Toggle star DRF, object terbaru 200 | User login |
 | `/experience/` | GET | Menampilkan kerangka halaman dan interaksi Experience | Publik |
-| `/api/experiences/` | GET | Mengirim data Experience publik beserta state star | Publik |
-| `/experience/add/` | GET/POST | Fallback form dan AJAX create | Superuser |
-| `/experience/<uuid>/edit/` | GET/POST | Memperbarui Experience | Editor dan superuser |
-| `/experience/<uuid>/delete/` | POST | Menghapus Experience | Superuser |
-| `/experience/<uuid>/star/` | POST | Toggle star dan mengembalikan state terbaru | User login |
+| `/api/experiences/` | GET | JSON lama, tetap tersedia; Fetch halaman memakai v1 | Publik |
+| `/experience/add/` | GET/POST | Fallback form dan jalur AJAX lama | Superuser |
+| `/experience/<uuid>/edit/` | GET/POST | Fallback update HTML | Editor dan superuser |
+| `/experience/<uuid>/delete/` | POST | Fallback delete HTML | Superuser |
+| `/experience/<uuid>/star/` | POST | Toggle lama, relasi star yang sama | User login |
 
 Progres API Tugas 6 pada 7 November: `api:experience-list` mendukung filter
 `title`, `category`, `status=ongoing/completed`, dan `starred=mine`, termasuk kombinasinya.
@@ -390,7 +392,7 @@ berakhir, dan kesesuaian relasi antara route lama dan API baru. Cek HTTP lokal
 memastikan GET star oleh guest mendapat 403 sesuai kontrak, tanpa menjalankan
 mutation pada database lokal. PWS belum diverifikasi ulang untuk perubahan ini.
 
-### Progres integrasi halaman Experience
+### Integrasi halaman Experience dan riwayat verifikasi
 
 `templates/experience.html` sekarang mengirim named URL `api:experience-list`
 melalui `data-experiences-url`. Flag star/edit/delete ditentukan template dari
@@ -532,9 +534,9 @@ request lambat, 503/Retry, penolakan 403/sesi berakhir, serta create/edit/delete
 dengan mine tetap aktif. Pemeriksaan ulang mencatat nol request dokumen dan
 nol page error. Layout diperiksa pada 320/390/768/901/1024/1440 px, dengan
 screenshot mobile/desktop. CSS tambahan mengikuti warna Experience yang sudah
-ada; warna Projects tetap. Model/data/PWS tidak diubah. E7 Count/Exists kini
-selesai lokal, dengan bukti pada bagian struktur API; audit akhir dan E8
-dokumentasi/refleksi masih menyusul.
+ada; warna Projects tetap. Model/data/PWS tidak diubah. E7 Count/Exists sudah
+diintegrasikan bersama UI lewat PR #23; buktinya ada pada bagian struktur API.
+Hasil audit akhir lokal dan status dokumentasi/pengumpulan ada di bawah.
 
 ## Verifikasi Tutorial 07
 
@@ -575,34 +577,88 @@ Layout diperiksa pada 390/768/1440 px; indikator loading tambahan diperiksa pada
 Warning WhiteNoise tentang folder `staticfiles/` yang belum ada masih muncul
 saat test lokal, tanpa menggagalkan test. Checkpoint ini tidak menjalankan
 `collectstatic`, mengubah PWS, atau membuktikan deployment sudah memakai versi
-terbaru. Verifikasi lokal memakai environment proyek yang sudah terpasang;
-instalasi dari environment kosong belum diuji ulang pada checkpoint ini.
+terbaru. Hasil 140 test ini adalah bukti historis checkpoint tutorial; verifikasi
+gabungan Tugas 6 dan instalasi baru dicatat terpisah di bawah.
 
 ### Status checkpoint dan pengumpulan
 
-Implementasi Tutorial 07 berada pada branch `feat/tutorial-7-drf-projects`.
-Commit implementasi terakhir sebelum dokumentasi ini adalah `0653a49`.
-Commit dokumentasi berikutnya perlu direview dan dibuat sendiri, kemudian
-dipush. Hash final pengumpulan dicatat sesudah commit/integrasi selesai, sehingga
-hash implementasi di atas belum dinyatakan sebagai hash pengumpulan akhir.
+Repo berstatus publik saat diperiksa pada 7 November 2026. Hash tutorial tetap
+disimpan terpisah dari hasil akhir Tugas 6.
 
-Push, PR/merge, smoke PWS, akses commit publik, dan submit SCELE belum
-diverifikasi pada checkpoint dokumentasi ini. Sebelum menyatakan selesai:
+| Checkpoint | Commit / PR | Bukti GitHub | PWS / SCELE |
+| --- | --- | --- | --- |
+| Tutorial 07 | [dd3220e](https://github.com/osman-fardin/myportofolio/commit/dd3220e895cf24f40c07d184b5256da412b76369), [PR #21](https://github.com/osman-fardin/myportofolio/pull/21) | Merged 3 Nov 2026 15.45.05 WIB, sebelum tenggat 4 Nov 23.59 WIB | Belum diverifikasi |
+| API Experience Tugas 6 | [59a8f09](https://github.com/osman-fardin/myportofolio/commit/59a8f09051c2071c25d2ac8d0048e366b10f54f0), [PR #22](https://github.com/osman-fardin/myportofolio/pull/22) | Merged 7 Nov 2026 | Bukan hash akhir tugas |
+| UI, filter personal, optimasi | [f38b4b3](https://github.com/osman-fardin/myportofolio/commit/f38b4b35501609ac6463dcd573f696f9aa3604e6), [PR #23](https://github.com/osman-fardin/myportofolio/pull/23) | Merged 7 Nov 2026 19.56.31 WIB | Bukan hash akhir tugas |
+| Dokumentasi/refleksi Tugas 6 | Branch `docs/tugas-6-readme` | Menunggu review, commit, push, dan PR | Belum diverifikasi |
 
-1. Review diff dan stage path spesifik; jangan ikutkan `.playwright-cli/`,
-   database, environment, atau credential.
-2. Commit dokumentasi, push branch, lalu review dan merge melalui PR sesuai alur
-   kerja. Ambil hash final Tutorial 07 setelah integrasi dan simpan terpisah.
-3. Deploy sendiri memakai alur PWS yang sudah ada. Periksa baca halaman/API,
-   login, dan satu operasi tulis pada record percobaan saja, termasuk CSRF dari
-   origin HTTPS yang benar. Jika gagal, baca error sebelum mengubah konfigurasi.
-4. Buka tautan commit GitHub sebagai pengunjung dan pastikan dapat diakses publik,
-   lalu submit link commit itu di slot Tutorial 07 SCELE sebelum **4 November
-   2026 pukul 23.59 WIB**.
+Tenggat Tugas 6 **9 November 2026 pukul 23.59 WIB**. Sesudah branch docs merged,
+saya perlu memilih hash akhir `main`, memeriksa akses publik tautan commit,
+dan mengumpulkan **link commit** di SCELE. Belum ada klaim bahwa submit sudah
+dilakukan. Bukti merge tutorial sebelum tenggat tidak dianggap sebagai bukti
+bahwa PWS atau SCELE sudah diperiksa.
 
-Tugas 6 baru melanjutkan DRF pada Experience setelah checkpoint tutorial.
-Tenggatnya **9 November 2026 pukul 23.59 WIB**, dengan hash pengumpulan terpisah.
-Fitur dan empat refleksi Tugas 6 belum diklaim selesai dalam dokumen ini.
+## Verifikasi Tugas 6
+
+Perintah verifikasi memakai environment proyek yang sama dengan pengembangan:
+
+```bash
+source env/bin/activate
+python manage.py check
+python manage.py test main
+python manage.py makemigrations --check --dry-run
+python -m pip check
+node --check static/js/projects.js
+node --check static/js/experiences.js
+node --check static/js/toast.js
+git diff --check
+```
+
+Review branch UI pada head `47c2b21` sebelum merge menghasilkan **266 test main
+lulus**, check/migration/dependency/JS/diff bersih. Tes UI browser memakai
+database sementara, termasuk setelah perubahan Count/Exists, sehingga record
+lokal asli tetap satu Project dan dua Experience. Status/workflow PR yang
+diperiksa pada commit merge UI tidak mengembalikan entri; angka test di sini
+adalah hasil lokal, bukan klaim CI.
+
+| Modul test | Jumlah | Cakupan utama |
+| --- | --- | --- |
+| `main/tests.py` | 73 | Fitur lama, form/role/JSON/CSRF dan regresi |
+| `main/tests_api.py` | 48 | Serializer, permission, CRUD/star Projects |
+| `main/tests_projects_ui.py` | 19 | Integrasi halaman Projects |
+| `main/tests_experience_api.py` | 77 | Serializer, empat role, CRUD/star Experience |
+| `main/tests_experience_ui.py` | 26 | Halaman, modal create/PATCH/delete, CSRF dan sesi |
+| `main/tests_experience_starred.py` | 13 | Filter personal, isolasi, kombinasi dan state halaman |
+| `main/tests_api_queries.py` | 10 | Query, pemuatan User, payload dan metadata sesudah mutation |
+
+Instruksi install juga dicoba pada virtual environment baru di folder sementara
+pada 7 November, tanpa memakai dependency dari `env/` proyek. Dengan Python
+3.14.6, `pip install -r requirements.txt` memasang Django 5.2.19 dan DRF 3.18.3.
+Migration pada SQLite sementara, seluruh 266 test main, check, migration check,
+dan pip check lulus. Environment proyek tetap Django 5.2.17; requirement yang
+memakai rentang versi dapat menghasilkan patch berbeda saat instalasi baru.
+Pengujian ini memeriksa setup lokal, bukan deployment PWS. Tidak ada perubahan
+requirement, konfigurasi, atau database proyek dari percobaan instalasi ini.
+
+Alur browser setelah optimasi: guest/user biasa/Editor/staff/owner, create 201,
+star 200, edit invalid 400 lalu valid 200, dan delete 204, dengan title/category/
+status/mine tetap aktif. Tidak ada request dokumen atau API lama pada alur AJAX
+itu. Projects masih membaca list/detail/preview, star/unstar, mine/Clear;
+halaman utama dengan anchor About/Contact, login/register, dan Browsable API
+juga diperiksa. Error jaringan/status, request lambat, double submit, CSRF,
+fokus dan viewport dicatat per checkpoint pada prompt log.
+
+Yang masih perlu saya lakukan sesudah integrasi dokumentasi:
+
+- Deploy sendiri melalui alur PWS yang sudah ada, lalu periksa halaman/API,
+  login dan izin role pada origin HTTPS yang sebenarnya. Status saat ini belum
+  terverifikasi; tidak ada perubahan konfigurasi PWS pada pengerjaan ini.
+- Uji mutation hanya pada record percobaan milik saya, dengan CSRF aktif;
+  periksa record lama dan preview tetap ada.
+- Simpan hash akhir yang mencakup dokumentasi, verifikasi link commit publik,
+  lalu submit di SCELE sebelum tenggat. Jangan mengganti hash tutorial.
+- Stage path spesifik yang direview; `.playwright-cli/`, database, environment,
+  credential, serta materi/panduan pribadi di luar repo tidak ikut commit.
 
 ## Progres Mingguan
 
@@ -729,7 +785,25 @@ Fitur dan empat refleksi Tugas 6 belum diklaim selesai dalam dokumen ini.
 - Mencapai 140 test main lulus, disertai pemeriksaan browser pada database
   sementara. Test lama tidak dihapus untuk mengejar hasil hijau.
 - Membagi implementasi menjadi conventional commit per behavior pada feature
-  branch. Push, integrasi PR, deployment, dan submit dicatat setelah dilakukan.
+  branch. Integrasi PR #21 pada 3 November tersimpan di checkpoint; deployment
+  dan submit tetap mengikuti bukti aktual.
+
+### Implementasi Tugas 6 (7 November 2026)
+
+- Memakai model Experience dan relasi star lama, dengan field serializer
+  eksplisit, sanitasi teks, serta validasi rentang tanggal yang memahami PATCH.
+- Mempertahankan empat role memakai permission Django, SessionAuthentication,
+  IsAuthenticated untuk star, serta CSRF pada setiap mutation session.
+- Membagi API menjadi lima commit serializer/permission/list/detail/star di
+  branch `feat/tugas-6-experience-api`, lalu merge lewat PR #22.
+- Membagi integrasi UI menjadi tujuh commit list, create, star, edit PATCH,
+  delete, filter personal, dan optimasi query, lalu merge lewat PR #23.
+- Menambahkan filter personal Experience serta helper Count/Exists bersama
+  dengan Projects. Bukti query/payload disimpan pada test dan ringkasan ukur.
+- Menambah total test dari baseline tutorial 140 menjadi 266, dengan pemeriksaan
+  browser pada database sementara dan warna/data/fitur lama dipertahankan.
+- Melanjutkan dokumentasi serta empat refleksi pada branch `docs/tugas-6-readme`.
+  Commit, push, dan merge saya jalankan sendiri. PWS dan submit belum diverifikasi.
 
 ## Refleksi Tugas 1
 
@@ -801,6 +875,96 @@ Debouncing adalah cara menunda pemanggilan function sampai user berhenti melakuk
 
 XSS terjadi ketika input berbahaya berhasil dijalankan sebagai script di browser pengguna lain. Template Django melakukan auto-escaping secara default, tetapi data AJAX dirender sendiri melalui JavaScript. Kalau data dari server langsung dimasukkan dengan `innerHTML`, browser dapat menganggap isinya sebagai markup aktif. Karena itu, pada Experience saya membuat elemen dengan DOM API dan mengisi teks memakai `textContent`. Input title dan description juga dibersihkan di server melalui `strip_tags` pada `clean_title()` dan `clean_description()`. Menurut saya dua lapisan ini tetap diperlukan karena data yang sudah berada di database belum tentu otomatis aman.
 
+## Pertanyaan Reflektif Lanjutan
+
+### Tugas 6
+
+1. **Apa itu REST, mengapa JSON saja belum cukup, dan kapan memakai PUT atau PATCH?**
+
+   Menurut pemahaman saya, REST adalah gaya arsitektur untuk interaksi client
+   dan server melalui resource dan representasinya. Batasannya mencakup
+   client-server, stateless, cache, uniform interface, layered system, serta
+   code-on-demand yang opsional. Uniform interface juga mencakup identifikasi
+   resource, pesan yang menjelaskan dirinya, dan hypermedia untuk mengarahkan
+   interaksi. JSON hanya format data; endpoint yang mengirim JSON tetapi
+   mengabaikan semantik method atau bergantung pada urutan request tersembunyi
+   belum otomatis memenuhi REST. Acuan saya adalah
+   [penjelasan REST oleh Fielding](https://ics.uci.edu/~fielding/pubs/dissertation/rest_arch_style.htm).
+
+   PUT menyatakan penggantian state resource dengan representasi yang dikirim,
+   cocok ketika client memiliki data lengkap yang ingin disimpan. PATCH
+   menyatakan perubahan sebagian, cocok untuk edit satu atau beberapa field.
+   PUT bersifat idempotent; PATCH tidak selalu begitu, walaupun assignment nilai
+   tertentu dapat dirancang idempotent. Rujukannya
+   [semantik PUT](https://www.rfc-editor.org/rfc/rfc9110.html#section-9.3.4) dan
+   [semantik PATCH](https://www.rfc-editor.org/rfc/rfc5789.html#section-2).
+
+   Di proyek saya, PUT ke `/api/v1/experiences/<uuid>/` minimal memerlukan title
+   dan description, sedangkan field opsional yang tidak dikirim tetap memakai
+   nilai lama. Jadi implementasi DRF ini tidak mengosongkan semua field opsional
+   saat PUT. Modal memilih PATCH, misalnya `{"title": "Teaching Assistant"}`,
+   agar field dan presisi tanggal lain tetap utuh. Saya juga tidak mengklaim API
+   ini REST murni: autentikasinya masih memakai session server dan payload belum
+   menyediakan navigasi hypermedia. Endpoint POST toggle star adalah kontrak
+   praktis tugas; dua POST membalik state lagi sehingga tidak di-retry otomatis.
+
+2. **Apa peran serializer DRF dan keuntungannya dibanding dictionary JsonResponse manual?**
+
+   Serializer mengubah instance model menjadi representasi tipe data sederhana
+   untuk renderer, serta memvalidasi input sebelum create/update. Jadi serializer
+   tidak langsung berarti byte JSON; renderer DRF yang menghasilkan format
+   respons. Setelah `is_valid()`, `validated_data` berisi input yang sudah lolos
+   validasi dan `.save()` menyimpan instance; `.data` dipakai untuk representasi
+   output. ModelSerializer membantu memetakan field dan operasi model sehingga
+   tidak perlu merakit semuanya sendiri. Penjelasan ini mengikuti
+   [dokumentasi serializer DRF](https://www.django-rest-framework.org/api-guide/serializers/).
+
+   Pada ExperienceSerializer saya, fields ditulis eksplisit, title/description
+   dibersihkan lewat `validate_<field>`, dan rentang tanggal dicek dengan nilai
+   instance jika PATCH hanya mengirim satu tanggal. Sanitasi tetap saya tulis
+   sendiri; DRF tidak otomatis memanggil `clean_<field>` ModelForm. UUID dan
+   computed star fields read-only. Dibanding dictionary manual, representasi,
+   validasi, error per field, dan update kini punya tempat yang jelas dan bisa
+   diuji bersama. JsonResponse tetap berguna untuk respons sederhana, tetapi
+   tidak menyediakan seluruh alur validasi/pemetaan itu secara otomatis.
+
+3. **Apa beda autentikasi dan otorisasi, dan mengapa permission harus diperiksa di server?**
+
+   Autentikasi menentukan siapa yang mengirim request; di proyek saya,
+   SessionAuthentication mengenali session Django dan menyediakan request.user.
+   Otorisasi menentukan tindakan yang boleh dilakukan akun itu. Akun yang sudah
+   login belum tentu boleh menambah atau menghapus Experience. Perbedaan ini
+   dijelaskan pada [autentikasi DRF](https://www.django-rest-framework.org/api-guide/authentication/)
+   dan [permission DRF](https://www.django-rest-framework.org/api-guide/permissions/).
+
+   Aturan server saya: guest membaca, user biasa bisa star, Editor dengan
+   main.change_experience bisa PUT/PATCH, dan superuser bisa create/delete juga.
+   Nama grup atau is_staff saja tidak menggantikan permission. Template hanya
+   membantu menampilkan kontrol yang relevan; orang tetap bisa mengirim fetch
+   atau request langsung tanpa menekan tombol. Bahkan permission dapat dicabut
+   setelah halaman dirender. Karena itu permission class memeriksa setiap
+   request di server, dan test penolakan juga memastikan database tetap utuh.
+
+4. **Mengapa SessionAuthentication tetap perlu CSRF, dan mengapa force_authenticate belum membuktikannya?**
+
+   Browser dapat mengirim cookie session secara otomatis. Tanpa perlindungan
+   CSRF, request yang dipicu dari situs lain bisa mencoba memakai identitas
+   session tersebut untuk mengubah data. Format JSON atau penggunaan fetch
+   tidak otomatis menghilangkan persoalan ini. Untuk request authenticated
+   POST/PUT/PATCH/DELETE, SessionAuthentication memeriksa token CSRF. Halaman
+   saya merender token dan Fetch mengirim X-CSRFToken; token ini tidak masuk
+   payload JSON atau dokumentasi publik. Perilaku session tersebut dijelaskan
+   pada [dokumentasi SessionAuthentication](https://www.django-rest-framework.org/api-guide/authentication/#sessionauthentication).
+
+   force_authenticate memilih user langsung pada test dan melewati alur login
+   serta autentikasi session yang sebenarnya. Selain itu, APIClient secara
+   default tidak menerapkan pemeriksaan CSRF. Karena itu saya memakai
+   APIClient(enforce_csrf_checks=True), login(), dan token dari halaman nyata:
+   tanpa token/salah token harus 403 dengan DB tidak berubah, sedangkan token
+   benar memungkinkan tindakan yang memang diizinkan role. Guest mutation yang
+   ditolak permission saja bukan bukti CSRF. Pemisahan test ini mengikuti
+   [panduan testing DRF](https://www.django-rest-framework.org/api-guide/testing/#csrf-validation).
+
 ## AI Disclosure
 
 Selama mengerjakan Tutorial sampai Tugas 5 dan Tutorial 07, saya memakai OpenAI Codex sebagai tutor dan coding assistant. AI membantu menjelaskan konsep yang baru saya pakai, merencanakan workflow Git, membagi pengerjaan menjadi beberapa module dan commit, membaca error, serta memeriksa hasil test. Pada Tugas 5, AI juga membantu mengedit beberapa bagian view, JavaScript, CSS, dan automated test untuk alur AJAX Experience. Saya tetap menentukan bagian Experience yang dikembangkan, fitur ekstra star, pembagian akses tiap role, dan bentuk akhir interaksinya.
@@ -815,6 +979,10 @@ dokumentasi terkait. Rincian
 hasil dan batas verifikasinya dicatat pada prompt log mulai entri 34.
 Pada E7, bantuan juga mencakup helper Count/Exists bersama untuk API Projects dan
 Experience, fallback metadata serializer, test query, dan pengukuran pembanding.
+Pada checkpoint docs, AI membantu menyusun jawaban refleksi, mencocokkannya
+dengan kode serta sumber primer, memperbaiki status checkpoint yang tertinggal,
+dan memeriksa instruksi instalasi pada environment sementara. Jawaban refleksi
+ini tetap perlu saya baca dan pahami sebelum saya commit.
 
 Saat memberi prompt, saya biasanya menyertakan rubrik, source code terbaru, error yang muncul, atau hasil command Git. Saya meminta pekerjaan dibagi per module, setiap konsep baru dijelaskan, dan perubahan diperiksa sebelum commit. Cara ini membantu saya mengikuti alasan di balik `fetch()`, `await`, debounce, `AbortController`, `FormData`, CSRF, serta penggunaan `textContent`, bukan hanya melihat hasil akhirnya.
 
@@ -825,6 +993,15 @@ Saya tidak langsung menganggap output AI pasti benar karena AI tetap bisa salah 
 Keterbatasan itu muncul lagi saat bantuan menambahkan test star Project: posisi class sempat memotong test detail, lalu diperbaiki setelah struktur file diperiksa. Pemeriksaan browser juga menemukan tombol Clear masih terlihat karena CSS menimpa atribut hidden; audit berikutnya menemukan loading baru memakai `aria-busy` tanpa pesan visual. Temuan ini diperbaiki melalui review dan pengujian terarah. Bantuan AI untuk koreksi tersebut dicatat di prompt log agar asal perubahan dan proses pemeriksaannya jelas.
 
 Karena itu, workflow saya tetap mencakup review diff, pemeriksaan alur browser dengan bantuan AI, serta `python manage.py check`, `python manage.py makemigrations --check --dry-run`, `python manage.py test main`, `node --check`, dan `git diff --check`. Pada akhir Tugas 5, 73 test lulus; pada checkpoint lokal Tutorial 07 jumlahnya menjadi 140. Hasil ini belum membuktikan deployment atau pengumpulan sudah selesai. Menurut saya AI paling membantu untuk memberi arah dan mempercepat pemeriksaan, tetapi keputusan desain, kesesuaian rubrik, dan verifikasi akhir tetap perlu saya pertanggungjawabkan.
+
+Pada Tugas 6, review kembali menemukan test yang sempat tersisip di tengah test
+edit, serta fokus unstar yang dicatat setelah tombol disabled melepas fokus.
+Struktur test dan urutan pencatatan fokus dikoreksi, lalu diuji ulang. Skrip QA
+juga pernah memakai route /about/ padahal navigasi sebenarnya /#about, serta
+mencoba membaca body browser 204 yang tidak tersedia. Temuan itu menunjukkan
+assertion atau skrip AI juga perlu diperiksa; kegagalan pemeriksaan tidak selalu
+berarti kode produk salah. Seluruh 266 test dan hasil browser menjadi bukti
+lokal yang terukur, bukan jaminan nilai, ketiadaan semua bug, atau keberhasilan PWS.
 
 Contoh prompt dan cara saya memakai hasilnya dapat dilihat pada
 [AI Prompt Log](docs/ai-prompt-log.md).
