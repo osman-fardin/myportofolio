@@ -17,4 +17,5 @@ urlpatterns = [
         api_views.project_star,
         name='project-star',
     ),
+    path('experiences/', api_views.experience_list, name='experience-list'),
 ]

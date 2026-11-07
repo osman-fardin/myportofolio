@@ -9,9 +9,12 @@ from rest_framework.decorators import (
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Project
-from .permissions import IsPortfolioOwnerOrReadOnly
-from .serializers import ProjectSerializer
+from .models import Experience, Project
+from .permissions import (
+    IsPortfolioOwnerOrEditorOrReadOnly,
+    IsPortfolioOwnerOrReadOnly,
+)
+from .serializers import ExperienceSerializer, ProjectSerializer
 
 
 @api_view(['GET', 'HEAD', 'POST'])
@@ -93,3 +96,36 @@ def project_star(request, project_id):
 
     serializer = ProjectSerializer(project, context={'request': request})
     return Response(serializer.data)
+
+
+@api_view(['GET', 'HEAD', 'POST'])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsPortfolioOwnerOrEditorOrReadOnly])
+def experience_list(request):
+    if request.method in ('GET', 'HEAD'):
+        experiences = Experience.objects.prefetch_related('starred_by').order_by(
+            '-started_at', 'id',
+        )
+        title = request.query_params.get('title', '').strip()
+        category = request.query_params.get('category', '').strip()
+        experience_status = request.query_params.get('status', '').strip()
+
+        if title:
+            experiences = experiences.filter(title__icontains=title)
+        if category:
+            experiences = experiences.filter(category=category)
+        if experience_status == 'ongoing':
+            experiences = experiences.filter(ended_at__isnull=True)
+        elif experience_status == 'completed':
+            experiences = experiences.filter(ended_at__isnull=False)
+
+        serializer = ExperienceSerializer(
+            experiences, many=True, context={'request': request},
+        )
+        return Response(serializer.data)
+
+    serializer = ExperienceSerializer(data=request.data, context={'request': request})
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+
+    return Response(serializer.data, status=status.HTTP_201_CREATED)

@@ -793,6 +793,58 @@ Data lokal tetap satu Project dan dua Experience. Tidak ada perubahan grup pada
 database lokal, model, UI, atau PWS. Saya menjalankan commit sendiri sebelum
 melanjutkan checkpoint endpoint daftar dan create.
 
+## 36. Membuat API daftar dan create Experience
+
+**Prompt (ringkasan):**
+
+> Permission sudah di-commit, lanjut endpoint daftar dan create Experience.
+> Bantu pindahkan filter title, category, dan status dari JSON lama ke query
+> parameter DRF, dengan POST khusus superuser. Jelasin request.data dan
+> request.query_params, serta pastikan test 403/400 memeriksa database. Uji juga
+> session dan CSRF yang benar-benar lewat login.
+
+**Hasil penggunaan:**
+
+Saya melanjutkan dengan bantuan AI untuk penjelasan, implementasi, pengujian,
+dan dokumentasi. Commit permission `afbf0f0` diperiksa sebelum experience_list
+ditambahkan di `main/api_views.py` dan route `api:experience-list` didaftarkan
+sebagai `/api/v1/experiences/`. View berbasis fungsi memakai @api_view untuk
+GET/HEAD/POST, SessionAuthentication, permission empat role, serta Response DRF.
+
+Saya memahami bahwa request.query_params dipakai untuk filter, sementara
+request.data berisi input create yang diperiksa ExperienceSerializer. GET
+mengirim array datar dengan request context untuk state star akun saat ini.
+Filter judul case-insensitive, kategori, dan ongoing/completed dapat digabung.
+Spasi tepi diabaikan; kategori tidak dikenal menghasilkan hasil kosong dan
+status tidak dikenal diabaikan seperti perilaku lama. Urutan mempertahankan
+start terbaru dengan UUID sebagai penentu jika start sama. Relasi star memakai
+prefetch; optimasi Count/Exists belum ditambahkan.
+
+POST valid menghasilkan object baru dengan 201. Validasi mengembalikan 400
+per field, sedangkan guest, user biasa, Editor, dan staff ditolak dengan 403.
+Permission Editor untuk PUT/PATCH tidak menambah method pada URL daftar: update
+nantinya memakai URL detail. Field computed dan akun star tidak dapat dipalsukan
+melalui create.
+
+Sembilan belas test endpoint baru mencakup semua role, privacy, filter sendiri
+dan kombinasi, kosong, urutan, create, malformed JSON, readonly/forged input,
+HEAD/OPTIONS, wrong method, serta negosiasi JSON/HTML. Test penolakan memeriksa
+isi record dan relasi star. Test session memakai APIClient dengan CSRF
+enforcement dan .login(): token tidak ada/salah ditolak, token benar berhasil,
+dan user biasa/Editor dengan token benar tetap ditolak membuat data.
+
+Seluruh 186 test main lulus; check, pemeriksaan migrasi dan whitespace bersih.
+Runserver diperiksa melalui HTTP GET saja pada database lokal: JSON, format JSON,
+Browsable API HTML, halaman Experience dan Projects mengembalikan 200. Skrip
+smoke sempat meminta format JSON tetapi membatasi Accept ke HTML saja, sehingga
+DRF mengembalikan 406. Header diperbaiki mengikuti browser yang menerima JSON,
+lalu cek tersebut lulus. Ini koreksi pada skrip verifikasi, tanpa perubahan
+konfigurasi aplikasi. Data lokal tetap satu Project dan dua Experience.
+
+README dan panduan pribadi diperbarui sesuai progres. Halaman masih memakai
+API lama; detail/update/delete/star DRF menyusul per checkpoint. PWS tidak
+diubah dan commit tetap saya jalankan sendiri.
+
 ## Verifikasi manual
 
 Saya tidak menjadikan output AI sebagai hasil final tanpa pemeriksaan. Beberapa

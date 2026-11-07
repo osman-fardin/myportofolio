@@ -40,7 +40,7 @@ minimal multi-page interface with a warm visual theme.
   tanpa reload, dengan preview statis dan fallback HTML tetap tersedia
 - Loading daftar/detail, empty state, toast error API, dan pencegahan submit ganda
 - Payload publik Project hanya memuat count dan status star, tanpa identitas akun
-- 140 automated test untuk fitur lama, serializer, API, integrasi halaman, CSRF,
+- 186 automated test untuk fitur lama, serializer, API, integrasi halaman, CSRF,
   XSS, permission, privacy, serta isolasi data personal antar-user
 
 ## Technology
@@ -135,8 +135,9 @@ create, PUT/PATCH, atau delete. Jadi Editor tetap bisa memakai form HTML
 `is_staff` dan nama grup saja tidak memberikan izin API tersebut. Perbedaan ini
 disengaja untuk menjaga fitur lama dan diuji pada API serta halaman.
 
-Experience masih memakai route Tugas 5 di bawah. Implementasi DRF Experience
-untuk Tugas 6 belum dibuat pada checkpoint ini; empat role lamanya dipertahankan.
+Halaman Experience masih memakai route Tugas 5 di bawah. Pada progres Tugas 6,
+serializer, permission empat role, serta API daftar/create sudah tersedia.
+Integrasi halaman ke DRF dilanjutkan pada checkpoint berikutnya.
 
 ## Projects API: Tutorial 07
 
@@ -277,12 +278,38 @@ ini. API PUT/PATCH sudah berfungsi; form update lama tetap dapat dipakai.
 
 | Route | Method | Fungsi | Akses |
 | --- | --- | --- | --- |
+| `/api/v1/experiences/` | GET/HEAD, POST | Daftar DRF dan create JSON | Baca publik; create superuser |
 | `/experience/` | GET | Menampilkan kerangka halaman dan interaksi Experience | Publik |
 | `/api/experiences/` | GET | Mengirim data Experience publik beserta state star | Publik |
 | `/experience/add/` | GET/POST | Fallback form dan AJAX create | Superuser |
 | `/experience/<uuid>/edit/` | GET/POST | Memperbarui Experience | Editor dan superuser |
 | `/experience/<uuid>/delete/` | POST | Menghapus Experience | Superuser |
 | `/experience/<uuid>/star/` | POST | Toggle star dan mengembalikan state terbaru | User login |
+
+Progres API Tugas 6 pada 7 November: `api:experience-list` mendukung filter
+`title`, `category`, dan `status=ongoing/completed`, termasuk kombinasinya.
+Daftar berupa array datar dengan 12 field publik dari ExperienceSerializer;
+`description` mentah tetap tersedia bersama `description_points`. Akun pemberi
+star tidak dikirim; hanya count dan status sesuai request pengguna.
+Urutan memakai `-started_at`, lalu UUID sebagai penentu saat tanggal sama.
+Kategori tidak dikenal menghasilkan `[]`; status tidak dikenal diabaikan seperti
+jalur JSON lama. Hasil kosong tetap 200.
+
+POST memakai SessionAuthentication dan header CSRF, menghasilkan 201 saat valid,
+400 untuk error serializer, serta 403 untuk guest, user biasa, Editor, atau
+staff tanpa hak superuser. Izin update Editor tidak berlaku untuk membuat data.
+Validasi mencakup title/description, kategori/URL, dan rentang tanggal. Field
+hasil perhitungan read-only. Browsable API tersedia pada URL yang sama; gunakan
+`Accept: application/json` atau `?format=json` dengan header Accept yang menerima
+JSON. Permintaan yang membatasi Accept ke HTML saja sambil memaksa format JSON
+akan ditolak dengan 406.
+
+Saat ini endpoint detail/update/delete/star DRF dan migrasi UI masih menyusul;
+route lama tetap dipakai halaman. Test list/create baru berjumlah 19 dan total
+test main mencapai 186. Test penolakan memeriksa record dan relasi star; test
+CSRF memakai `.login()` serta APIClient dengan CSRF enforcement. Cek HTTP lokal
+membuktikan JSON dan HTML Browsable API bisa dibuka, serta kedua halaman lama
+tetap mengembalikan 200. PWS belum diverifikasi ulang untuk perubahan ini.
 
 ## Verifikasi Tutorial 07
 
@@ -554,6 +581,10 @@ XSS terjadi ketika input berbahaya berhasil dijalankan sebagai script di browser
 Selama mengerjakan Tutorial sampai Tugas 5 dan Tutorial 07, saya memakai OpenAI Codex sebagai tutor dan coding assistant. AI membantu menjelaskan konsep yang baru saya pakai, merencanakan workflow Git, membagi pengerjaan menjadi beberapa module dan commit, membaca error, serta memeriksa hasil test. Pada Tugas 5, AI juga membantu mengedit beberapa bagian view, JavaScript, CSS, dan automated test untuk alur AJAX Experience. Saya tetap menentukan bagian Experience yang dikembangkan, fitur ekstra star, pembagian akses tiap role, dan bentuk akhir interaksinya.
 
 Pada Tutorial 07, bantuan juga mencakup membaca materi serta kode aktual, menyusun roadmap/playbook pribadi, dan mengedit serializer, permission, view/URL API, integrasi Projects, test, serta dokumentasi per checkpoint yang saya minta. Codex membantu menjalankan verifikasi dan browser pada database sementara. Commit tetap saya jalankan sendiri; push, merge, dan deployment tidak dianggap otomatis selesai oleh bantuan tersebut.
+
+Pada awal Tugas 6, bantuan edit per checkpoint berlanjut ke serializer Experience,
+permission empat role, API daftar/create, test, dan dokumentasi terkait. Rincian
+hasil dan batas verifikasinya dicatat pada prompt log mulai entri 34.
 
 Saat memberi prompt, saya biasanya menyertakan rubrik, source code terbaru, error yang muncul, atau hasil command Git. Saya meminta pekerjaan dibagi per module, setiap konsep baru dijelaskan, dan perubahan diperiksa sebelum commit. Cara ini membantu saya mengikuti alasan di balik `fetch()`, `await`, debounce, `AbortController`, `FormData`, CSRF, serta penggunaan `textContent`, bukan hanya melihat hasil akhirnya.
 

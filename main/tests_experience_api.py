@@ -4,7 +4,8 @@ from uuid import uuid4
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser, Group, Permission
-from rest_framework.test import APIRequestFactory, APITestCase
+from django.urls import reverse
+from rest_framework.test import APIClient, APIRequestFactory, APITestCase
 
 from .models import Experience
 from .permissions import IsPortfolioOwnerOrEditorOrReadOnly
@@ -418,3 +419,326 @@ class ExperiencePermissionTests(APITestCase):
             for method in ('POST', 'PUT', 'PATCH', 'DELETE'):
                 with self.subTest(user=str(user), method=method):
                     self.assertFalse(self.is_allowed(user, method))
+
+
+class ExperienceListAPITests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        user_model = get_user_model()
+        cls.owner = user_model.objects.create_superuser(
+            username='experience-list-owner', password='test-password',
+        )
+        cls.reader = user_model.objects.create_user(
+            username='experience-list-reader', password='test-password',
+        )
+        cls.other_reader = user_model.objects.create_user(username='experience-list-other')
+        cls.editor = user_model.objects.create_user(
+            username='experience-list-editor', password='test-password',
+        )
+        cls.staff = user_model.objects.create_user(
+            username='experience-list-staff', is_staff=True,
+        )
+        editor_group = Group.objects.create(name='Editor')
+        editor_group.permissions.add(Permission.objects.get(
+            content_type__app_label='main', codename='change_experience',
+        ))
+        cls.editor.groups.add(editor_group)
+        cls.recent = Experience.objects.create(
+            title='Teaching assistant', description='Build tools\nMentor students',
+            category='part-time', started_at=datetime(2026, 11, 3, 2, tzinfo=UTC),
+        )
+        cls.completed = Experience.objects.create(
+            title='Research mentor', description='An earlier research role.',
+            category='research', started_at=datetime(2026, 11, 1, 2, tzinfo=UTC),
+            ended_at=datetime(2026, 11, 2, 2, tzinfo=UTC),
+        )
+        cls.other_ongoing = Experience.objects.create(
+            title='Teaching mentor', description='An ongoing research role.',
+            category='research', started_at=datetime(2026, 11, 2, 2, tzinfo=UTC),
+        )
+        cls.recent.starred_by.add(cls.reader)
+        cls.completed.starred_by.add(cls.other_reader)
+        cls.payload = {
+            'title': 'Volunteer mentor',
+            'description': 'Support students.\nPrepare learning materials.',
+            'category': 'volunteer',
+            'thumbnail': 'https://example.com/volunteer.png',
+            'started_at': '2026-11-01T02:00:00Z',
+            'ended_at': '2026-11-02T02:00:00Z',
+        }
+
+    def setUp(self):
+        self.list_url = reverse('api:experience-list')
+
+    def database_snapshot(self):
+        return (
+            list(Experience.objects.order_by('id').values()),
+            list(Experience.starred_by.through.objects.order_by('id').values()),
+        )
+
+    def session_client_and_token(self, user):
+        client = APIClient(enforce_csrf_checks=True)
+        self.assertTrue(client.login(username=user.username, password='test-password'))
+        page = client.get(reverse('main:show_experience'))
+        self.assertEqual(page.status_code, 200)
+        self.assertIn('csrftoken', client.cookies)
+        return client, client.cookies['csrftoken'].value
+
+    def test_public_list_is_flat_private_and_personal_for_every_role(self):
+        expected_fields = set(self.payload) | {
+            'id', 'description_points', 'category_label', 'is_ongoing',
+            'star_count', 'is_starred',
+        }
+        expected_ids = [
+            str(self.recent.pk), str(self.other_ongoing.pk), str(self.completed.pk),
+        ]
+        for user in (
+            None, self.reader, self.other_reader, self.editor, self.staff, self.owner,
+        ):
+            with self.subTest(user=str(user)):
+                self.client.force_authenticate(user=user)
+                response = self.client.get(self.list_url)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual([item['id'] for item in response.data], expected_ids)
+                for item in response.data:
+                    self.assertEqual(set(item), expected_fields)
+                    self.assertEqual(
+                        item['star_count'], int(item['id'] != str(self.other_ongoing.pk)),
+                    )
+                    expected_starred = (
+                        (user == self.reader and item['id'] == str(self.recent.pk))
+                        or (user == self.other_reader and item['id'] == str(self.completed.pk))
+                    )
+                    self.assertEqual(item['is_starred'], expected_starred)
+                self.assertEqual(response.data[0]['description_points'], ['Build tools', 'Mentor students'])
+                self.assertEqual(response.data[0]['category_label'], 'Part-Time')
+                self.assertTrue(response.data[0]['is_ongoing'])
+                self.assertIsNone(response.data[0]['ended_at'])
+                self.assertFalse(response.data[-1]['is_ongoing'])
+                self.assertNotIn(self.reader.username, str(response.data))
+                self.assertNotIn(self.owner.password, str(response.data))
+
+    def test_title_search_is_trimmed_case_insensitive_and_can_return_empty(self):
+        for title, expected in (
+            ('  TEACHING  ', [self.recent, self.other_ongoing]),
+            ('no match', []),
+            ('   ', [self.recent, self.other_ongoing, self.completed]),
+        ):
+            with self.subTest(title=title):
+                response = self.client.get(self.list_url, {'title': title})
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    [item['id'] for item in response.data], [str(item.pk) for item in expected],
+                )
+
+    def test_category_filter_preserves_the_legacy_no_results_behavior(self):
+        for category, expected in (
+            (' research ', [self.other_ongoing, self.completed]),
+            ('part-time', [self.recent]),
+            ('unknown', []),
+        ):
+            with self.subTest(category=category):
+                response = self.client.get(self.list_url, {'category': category})
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    [item['id'] for item in response.data], [str(item.pk) for item in expected],
+                )
+
+    def test_status_filter_preserves_ongoing_completed_and_unknown_behavior(self):
+        for status_filter, expected in (
+            (' ongoing ', [self.recent, self.other_ongoing]),
+            ('completed', [self.completed]),
+            ('unknown', [self.recent, self.other_ongoing, self.completed]),
+        ):
+            with self.subTest(status=status_filter):
+                response = self.client.get(self.list_url, {'status': status_filter})
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    [item['id'] for item in response.data], [str(item.pk) for item in expected],
+                )
+
+    def test_all_three_filters_can_be_combined(self):
+        for status_filter, expected in (('ongoing', [self.other_ongoing]), ('completed', [])):
+            with self.subTest(status=status_filter):
+                response = self.client.get(self.list_url, {
+                    'title': 'TEACHING', 'category': 'research', 'status': status_filter,
+                })
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    [item['id'] for item in response.data], [str(item.pk) for item in expected],
+                )
+
+    def test_empty_database_returns_an_empty_array(self):
+        Experience.objects.all().delete()
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, [])
+
+    def test_ordering_uses_uuid_when_start_dates_are_equal(self):
+        same_start = Experience.objects.create(
+            title='Same start', description='Another role.', category='volunteer',
+            started_at=self.recent.started_at,
+        )
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [item['id'] for item in response.data[:2]],
+            sorted([str(same_start.pk), str(self.recent.pk)]),
+        )
+
+    def test_owner_can_create_cleaned_data_with_a_201_object_response(self):
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.post(self.list_url, {
+            **self.payload, 'title': ' <b>Volunteer mentor</b> ',
+            'description': '<i>Support students.</i>\nPrepare learning materials.',
+        }, format='json')
+
+        self.assertEqual(response.status_code, 201)
+        experience = Experience.objects.get(pk=response.data['id'])
+        self.assertEqual(experience.title, self.payload['title'])
+        self.assertEqual(experience.description, self.payload['description'])
+        self.assertEqual(experience.category, 'volunteer')
+        self.assertEqual(response.data['started_at'], self.payload['started_at'])
+        self.assertEqual(response.data['ended_at'], self.payload['ended_at'])
+        self.assertFalse(response.data['is_ongoing'])
+        self.assertEqual(response.data['star_count'], 0)
+        self.assertFalse(response.data['is_starred'])
+        self.assertEqual(Experience.objects.count(), 4)
+
+    def test_invalid_create_returns_field_errors_and_preserves_database(self):
+        self.client.force_authenticate(user=self.owner)
+        before = self.database_snapshot()
+        for changes, field in (
+            ({'title': '   '}, 'title'),
+            ({'title': '<img src="x" onerror="alert(1)">'}, 'title'),
+            ({'description': '<img src="x">'}, 'description'),
+            ({'category': 'unknown'}, 'category'),
+            ({'thumbnail': 'javascript:alert(1)'}, 'thumbnail'),
+            ({'started_at': 'not-a-date'}, 'started_at'),
+            ({'ended_at': '2026-10-31T02:00:00Z'}, 'ended_at'),
+        ):
+            with self.subTest(changes=changes):
+                response = self.client.post(
+                    self.list_url, {**self.payload, **changes}, format='json',
+                )
+                self.assertEqual(response.status_code, 400)
+                self.assertIsInstance(response.data[field], list)
+                self.assertEqual(self.database_snapshot(), before)
+
+    def test_guest_reader_editor_and_staff_cannot_create_or_change_stars(self):
+        before = self.database_snapshot()
+        for user in (None, self.reader, self.editor, self.staff):
+            with self.subTest(user=str(user)):
+                self.client.force_authenticate(user=user)
+                response = self.client.post(self.list_url, self.payload, format='json')
+                self.assertEqual(response.status_code, 403)
+                self.assertIn('detail', response.data)
+                self.assertEqual(self.database_snapshot(), before)
+
+    def test_create_cannot_forge_id_computed_fields_or_star_accounts(self):
+        self.client.force_authenticate(user=self.owner)
+        forged_id = uuid4()
+        response = self.client.post(self.list_url, {
+            **self.payload, 'id': str(forged_id), 'description_points': ['Forged'],
+            'category_label': 'Forged', 'is_ongoing': True, 'star_count': 99,
+            'is_starred': True, 'starred_by': [self.reader.pk],
+        }, format='json')
+        self.assertEqual(response.status_code, 201)
+        self.assertNotEqual(response.data['id'], str(forged_id))
+        self.assertFalse(Experience.objects.filter(pk=forged_id).exists())
+        experience = Experience.objects.get(pk=response.data['id'])
+        self.assertEqual(experience.starred_by.count(), 0)
+        self.assertEqual(response.data['star_count'], 0)
+        self.assertFalse(response.data['is_starred'])
+        self.assertFalse(response.data['is_ongoing'])
+        self.assertEqual(response.data['category_label'], 'Volunteer')
+        self.assertEqual(response.data['description_points'], self.payload['description'].splitlines())
+        self.assertEqual(Experience.objects.count(), 4)
+
+    def test_wrong_methods_follow_permission_then_method_checks_without_mutation(self):
+        before = self.database_snapshot()
+        for user, methods in (
+            (self.owner, (('put', 405), ('patch', 405), ('delete', 405))),
+            (self.editor, (('put', 405), ('patch', 405), ('delete', 403))),
+            (self.reader, (('put', 403), ('patch', 403), ('delete', 403))),
+            (None, (('put', 403), ('patch', 403), ('delete', 403))),
+        ):
+            for method, expected in methods:
+                with self.subTest(user=str(user), method=method):
+                    self.client.force_authenticate(user=user)
+                    response = getattr(self.client, method)(self.list_url)
+                    self.assertEqual(response.status_code, expected)
+                    self.assertEqual(self.database_snapshot(), before)
+
+    def test_malformed_json_returns_400_without_saving(self):
+        self.client.force_authenticate(user=self.owner)
+        before = self.database_snapshot()
+        response = self.client.post(
+            self.list_url, data='{"title":', content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('detail', response.data)
+        self.assertEqual(self.database_snapshot(), before)
+
+    def test_public_head_and_options_do_not_change_data(self):
+        before = self.database_snapshot()
+        head = self.client.head(self.list_url)
+        options = self.client.options(self.list_url)
+        self.assertEqual(head.status_code, 200)
+        self.assertEqual(head.content, b'')
+        self.assertEqual(options.status_code, 200)
+        self.assertEqual(set(options['Allow'].replace(' ', '').split(',')), {
+            'GET', 'HEAD', 'POST', 'OPTIONS',
+        })
+        self.assertEqual(self.database_snapshot(), before)
+
+    def test_browsable_api_and_json_format_are_available(self):
+        page = self.client.get(self.list_url, HTTP_ACCEPT='text/html')
+        self.assertEqual(page.status_code, 200)
+        self.assertEqual(page.accepted_renderer.format, 'api')
+        self.assertContains(page, reverse('rest_framework:login'))
+
+        json_response = self.client.get(self.list_url, {'format': 'json'})
+        self.assertEqual(json_response.status_code, 200)
+        self.assertEqual(json_response.accepted_renderer.format, 'json')
+        self.assertEqual(json_response.json()[0]['id'], str(self.recent.pk))
+
+    def test_session_create_without_csrf_is_rejected_without_saving(self):
+        client, _ = self.session_client_and_token(self.owner)
+        before = self.database_snapshot()
+        response = client.post(self.list_url, self.payload, format='json')
+        self.assertEqual(response.status_code, 403)
+        self.assertIn('CSRF', str(response.data['detail']))
+        self.assertEqual(self.database_snapshot(), before)
+
+    def test_session_create_with_wrong_csrf_is_rejected_without_saving(self):
+        client, _ = self.session_client_and_token(self.owner)
+        before = self.database_snapshot()
+        response = client.post(
+            self.list_url, self.payload, format='json', HTTP_X_CSRFTOKEN='invalid',
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertIn('CSRF', str(response.data['detail']))
+        self.assertEqual(self.database_snapshot(), before)
+
+    def test_session_create_with_csrf_succeeds(self):
+        client, token = self.session_client_and_token(self.owner)
+        response = client.post(
+            self.list_url, self.payload, format='json', HTTP_X_CSRFTOKEN=token,
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(Experience.objects.filter(pk=response.data['id']).exists())
+        self.assertEqual(Experience.objects.count(), 4)
+
+    def test_reader_and_editor_sessions_with_valid_csrf_still_cannot_create(self):
+        before = self.database_snapshot()
+        for user in (self.reader, self.editor):
+            with self.subTest(user=user.username):
+                client, token = self.session_client_and_token(user)
+                response = client.post(
+                    self.list_url, self.payload, format='json', HTTP_X_CSRFTOKEN=token,
+                )
+                self.assertEqual(response.status_code, 403)
+                self.assertIn('Only the portfolio owner', str(response.data['detail']))
+                self.assertNotIn('CSRF', str(response.data['detail']))
+                self.assertEqual(self.database_snapshot(), before)
