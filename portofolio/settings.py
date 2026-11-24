@@ -61,10 +61,13 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'main',
     'rest_framework',
+    'rest_framework.authtoken',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -75,6 +78,20 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'portofolio.urls'
+
+# Token requests and the existing cookie/CSRF flow share the same permissions.
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'main.authentication.HeaderTokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+}
+CORS_ALLOW_ALL_ORIGINS = env_bool('CORS_ALLOW_ALL_ORIGINS', False)
+CORS_ALLOWED_ORIGINS = env_list('CORS_ALLOWED_ORIGINS')
+CORS_ALLOWED_ORIGIN_REGEXES = [] if PRODUCTION else [
+    r'^http://(localhost|127\.0\.0\.1)(:\d+)?$',
+]
+CORS_URLS_REGEX = r'^/api/v1/.*$'
 
 TEMPLATES = [
     {
