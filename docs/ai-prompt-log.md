@@ -1383,3 +1383,20 @@ Pada checkpoint lokal Tutorial 07, full suite terakhir mencatat 140 test lulus.
 Rincian bantuan, eksperimen permission, hasil browser, dan batas verifikasinya
 ada pada entri 22-33. Status push, deployment, serta pengumpulan tetap dicatat
 terpisah dari keberhasilan test lokal.
+
+## 46. Memahami token dan CORS untuk klien Flutter
+
+**Prompt (ringkasan):**
+
+> Gimana menambahkan autentikasi token dan CORS untuk Flutter tanpa merusak
+> sesi web dan permission yang sudah ada? Jelasin juga logout yang mencabut
+> token pemanggil dan cara mengujinya tanpa memakai data akun asli.
+
+**Hasil penggunaan:**
+
+AI menjelaskan penggunaan TokenAuthentication bersama SessionAuthentication,
+serta pemisahan autentikasi dari keputusan permission. Header token invalid
+mendapat 401, sedangkan request tanpa header mempertahankan perilaku 403 lama.
+Logout hanya menghapus token yang digunakan pemanggil. CORS dibatasi pada API
+untuk origin pengembangan lokal; pengujian menggunakan database test dan
+salinan sementara, tanpa mengubah data atau deployment asli.
