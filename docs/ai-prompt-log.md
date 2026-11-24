@@ -1388,15 +1388,16 @@ terpisah dari keberhasilan test lokal.
 
 **Prompt (ringkasan):**
 
-> Gimana menambahkan autentikasi token dan CORS untuk Flutter tanpa merusak
-> sesi web dan permission yang sudah ada? Jelasin juga logout yang mencabut
-> token pemanggil dan cara mengujinya tanpa memakai data akun asli.
+> Bagaimana TokenAuthentication dan SessionAuthentication digunakan bersama
+> pada Django REST Framework? Jelaskan perbedaan autentikasi dan permission,
+> pencabutan token saat logout, serta fungsi CORS ketika Flutter Web mengakses
+> API dari origin yang berbeda.
 
 **Hasil penggunaan:**
 
-AI menjelaskan penggunaan TokenAuthentication bersama SessionAuthentication,
-serta pemisahan autentikasi dari keputusan permission. Header token invalid
-mendapat 401, sedangkan request tanpa header mempertahankan perilaku 403 lama.
-Logout hanya menghapus token yang digunakan pemanggil. CORS dibatasi pada API
-untuk origin pengembangan lokal; pengujian menggunakan database test dan
-salinan sementara, tanpa mengubah data atau deployment asli.
+AI menjelaskan bahwa autentikasi menentukan identitas pemanggil sebelum
+permission memeriksa hak aksesnya. Token dikirim melalui header Authorization,
+sedangkan autentikasi sesi tetap menggunakan cookie dan pemeriksaan CSRF.
+Logout token mencabut token pemanggil agar tidak dapat dipakai kembali. CORS
+mengatur akses lintas origin pada browser dan tidak menggantikan autentikasi
+atau permission API.
