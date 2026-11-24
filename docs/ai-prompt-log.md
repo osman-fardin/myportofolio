@@ -1383,3 +1383,21 @@ Pada checkpoint lokal Tutorial 07, full suite terakhir mencatat 140 test lulus.
 Rincian bantuan, eksperimen permission, hasil browser, dan batas verifikasinya
 ada pada entri 22-33. Status push, deployment, serta pengumpulan tetap dicatat
 terpisah dari keberhasilan test lokal.
+
+## 46. Memahami token dan CORS untuk klien Flutter
+
+**Prompt (ringkasan):**
+
+> Bagaimana TokenAuthentication dan SessionAuthentication digunakan bersama
+> pada Django REST Framework? Jelaskan perbedaan autentikasi dan permission,
+> pencabutan token saat logout, serta fungsi CORS ketika Flutter Web mengakses
+> API dari origin yang berbeda.
+
+**Hasil penggunaan:**
+
+AI menjelaskan bahwa autentikasi menentukan identitas pemanggil sebelum
+permission memeriksa hak aksesnya. Token dikirim melalui header Authorization,
+sedangkan autentikasi sesi tetap menggunakan cookie dan pemeriksaan CSRF.
+Logout token mencabut token pemanggil agar tidak dapat dipakai kembali. CORS
+mengatur akses lintas origin pada browser dan tidak menggantikan autentikasi
+atau permission API.

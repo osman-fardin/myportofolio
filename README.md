@@ -1005,3 +1005,49 @@ lokal yang terukur, bukan jaminan nilai, ketiadaan semua bug, atau keberhasilan 
 
 Contoh prompt dan cara saya memakai hasilnya dapat dilihat pada
 [AI Prompt Log](docs/ai-prompt-log.md).
+
+## Tutorial 10: Token API for Flutter
+
+Tutorial 10 menambahkan authtoken DRF dan django-cors-headers untuk klien
+Flutter pada repo mobile terpisah. Skema Project dan empat role Experience
+tetap sama. Projects hanya dapat ditulis pemilik/superuser; permission model
+Experience tetap menentukan operasi Editor.
+
+| Endpoint | Perilaku |
+| --- | --- |
+| POST /api/v1/auth/token/ | View bawaan obtain_auth_token, username/password menjadi token. |
+| POST /api/v1/auth/logout/ | Autentikasi wajib; hapus request.auth bila token tersedia, respons 204. |
+| GET /api/v1/projects/ | Tetap publik. |
+| POST /api/v1/projects/ | Token atau sesi; tetap hanya pemilik/superuser. |
+
+HeaderTokenAuthentication memakai TokenAuthentication dan mendahulukan token
+jika header Authorization dikirim. Token invalid memberi 401 dan tidak jatuh
+ke sesi browser lain. Tanpa header, status anonymous 403 lama tetap terjaga;
+SessionAuthentication tetap memeriksa CSRF untuk penulisan memakai cookie.
+Logout dengan sesi tanpa token tidak mencabut token pengguna lain atau menutup
+sesi HTML. Logout web lama tetap memakai alur sebelumnya.
+
+CorsMiddleware berada sebelum WhiteNoise/CommonMiddleware. Default CORS hanya
+mengizinkan HTTP localhost/127.0.0.1 dengan port pengembangan, dibatasi pada
+/api/v1/. Pada PRODUCTION, regex lokal tidak diaktifkan. Origin web produksi
+harus diisi lewat CORS_ALLOWED_ORIGINS; CORS_ALLOW_ALL_ORIGINS default false.
+Tidak ada perubahan PWS, database produksi, credential, atau model domain.
+
+```bash
+source env/bin/activate
+python -m pip install -r requirements.txt
+python manage.py migrate
+python manage.py check
+python manage.py test main
+python manage.py makemigrations --check --dry-run
+```
+
+Migrasi menambahkan tabel bawaan authtoken, tanpa migrasi baru pada model main.
+Baseline 266 test lulus sebelum perubahan; 278 test lulus sesudahnya. Test baru
+memeriksa token login/logout/reuse, invalid/inactive token, POST pemilik,
+penolakan Reader/Editor, session CSRF, dan preflight CORS. Endpoint juga diuji
+melalui HTTP pada salinan database sementara; database proyek asli tidak
+mendapat data QA. Build/integrasi Flutter dijelaskan pada repo mobile.
+
+Rujukan: [DRF authentication](https://www.django-rest-framework.org/api-guide/authentication/)
+dan [django-cors-headers](https://github.com/adamchainz/django-cors-headers).
